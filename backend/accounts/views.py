@@ -1,0 +1,223 @@
+from django.contrib.auth import authenticate, login as django_login
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
+from rest_framework.authtoken.models import Token
+
+from .models import User
+from .serializers import RegisterSerializer
+
+
+# =====================================
+# REGISTER API
+# =====================================
+from rest_framework.views import APIView
+
+
+class RegisterView(APIView):
+
+    def post(self, request):
+
+        serializer = RegisterSerializer(data=request.data)
+
+        if serializer.is_valid():
+
+            serializer.save()
+
+            return Response(
+                {"success": True, "message": "User Registered Successfully"},
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            {"success": False, "errors": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+# =====================================
+# LOGIN API
+# =====================================
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def login_api(request):
+
+    email = request.data.get("email")
+    password = request.data.get("password")
+
+    if not email or not password:
+        return Response(
+            {"success": False, "message": "Email and password required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        user_obj = User.objects.get(email=email)
+        username = user_obj.username
+    except User.DoesNotExist:
+        return Response(
+            {"success": False, "message": "User not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    user = authenticate(username=username, password=password)
+
+    if user is None:
+        return Response(
+            {"success": False, "message": "Invalid credentials"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+    role = "admin" if user.is_superuser else user.role
+
+    token, _ = Token.objects.get_or_create(user=user)
+
+    django_login(request, user)
+
+    redirect_map = {
+        "customer": "/customer-dashboard",
+        "gardener": "/gardener-dashboard",
+        "electrician": "/electrician-dashboard",
+        "plumber": "/plumber-dashboard",
+        "admin": "/admin-dashboard",
+    }
+
+    return Response({
+        "success": True,
+        "message": "Login successful",
+        "token": token.key,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": role,
+            "phone": user.phone,
+            "address": user.address,
+        },
+        "redirect_url": redirect_map.get(role, "/dashboard")
+    }, status=status.HTTP_200_OK)
+
+
+# =====================================
+# DASHBOARD API
+# =====================================
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def dashboard_api(request):
+
+    user = request.user
+
+    dashboard_data = {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "role": user.role,
+        "phone": user.phone,
+        "address": user.address,
+    }
+
+    if user.role == "customer":
+
+        dashboard_data["dashboard_type"] = "Customer Dashboard"
+        dashboard_data["services"] = ["Gardener", "Electrician", "Plumber"]
+        dashboard_data["features"] = ["Book Services", "View Bookings", "Track Requests"]
+
+    elif user.role == "gardener":
+
+        dashboard_data["dashboard_type"] = "Gardener Dashboard"
+        dashboard_data["features"] = ["View Lawn Requests", "Accept Booking", "Manage Services"]
+
+    elif user.role == "electrician":
+
+        dashboard_data["dashboard_type"] = "Electrician Dashboard"
+        dashboard_data["features"] = ["View Electrical Requests", "Send Quotations", "Manage Jobs"]
+
+    elif user.role == "plumber":
+
+        dashboard_data["dashboard_type"] = "Plumber Dashboard"
+        dashboard_data["features"] = ["View Plumbing Requests", "Send Quotations", "Manage Jobs"]
+
+    return Response({
+        "success": True,
+        "message": "Dashboard Loaded Successfully",
+        "data": dashboard_data
+    }, status=status.HTTP_200_OK)
+
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .models import User
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def providers_by_service(request):
+
+    user = request.user
+
+    # 🚫 ONLY CUSTOMER CAN ACCESS
+    if user.role != "customer":
+        return Response({
+            "success": False,
+            "message": "Only customers can view providers list"
+        }, status=403)
+
+    service = request.GET.get("service")
+
+    if service not in ["gardener", "electrician", "plumber"]:
+        return Response({
+            "success": False,
+            "message": "Invalid service type"
+        }, status=400)
+
+    providers = User.objects.filter(role=service)
+
+    data = []
+
+    for p in providers:
+        data.append({
+            "id": p.id,
+            "username": p.username,
+            "email": p.email,
+            "phone": p.phone,
+            "address": p.address,
+            "role": p.role
+        })
+
+    return Response({
+        "success": True,
+        "service": service,
+        "total_providers": providers.count(),
+        "providers": data
+    })
+
+
+# =====================================
+# CUSTOMER DASHBOARD API
+# =====================================
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def customer_dashboard(request):
+
+    user = request.user
+
+    if user.role != "customer":
+        return Response(
+            {"success": False, "message": "Only customers allowed"},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    return Response({
+        "success": True,
+        "customer": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "phone": user.phone,
+            "address": user.address,
+        }
+    })
