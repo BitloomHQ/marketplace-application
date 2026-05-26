@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { fetchProfile, updateProfile } from '../api/services'
 import { ApiRequestError } from '../api/client'
-import { Alert, Button, Card, Field, Input, PageHeader } from '../components/ui'
+import { Alert, Button, Card, Field, Input, PageHeader, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
+import { isProviderRole, PROVIDER_SERVICE_OPTIONS } from '../lib/format'
+import type { ProviderRole } from '../types'
 
 export function ProfilePage() {
   const { user, setUser } = useAuth()
@@ -10,10 +12,13 @@ export function ProfilePage() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
+  const [serviceType, setServiceType] = useState<ProviderRole>('plumber')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  const isProvider = user ? isProviderRole(user.role) : false
 
   useEffect(() => {
     setError('')
@@ -23,6 +28,9 @@ export function ProfilePage() {
         setEmail(res.user.email)
         setPhone(res.user.phone ?? '')
         setAddress(res.user.address ?? '')
+        if (isProviderRole(res.user.role)) {
+          setServiceType(res.user.role)
+        }
         setUser(res.user)
       })
       .catch((err) =>
@@ -37,7 +45,13 @@ export function ProfilePage() {
     setSuccess('')
     setSaving(true)
     try {
-      const res = await updateProfile({ username, email, phone, address })
+      const res = await updateProfile({
+        username,
+        email,
+        phone,
+        address,
+        ...(isProvider ? { service_type: serviceType } : {}),
+      })
       setUser(res.user)
       setSuccess(res.message)
     } catch (err) {
@@ -85,6 +99,20 @@ export function ProfilePage() {
             <Field label="Address">
               <Input value={address} onChange={(e) => setAddress(e.target.value)} />
             </Field>
+            {isProvider && (
+              <Field label="Service type">
+                <Select
+                  value={serviceType}
+                  onChange={(e) => setServiceType(e.target.value as ProviderRole)}
+                >
+                  {PROVIDER_SERVICE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
             <Button type="submit" disabled={saving}>
               {saving ? 'Saving…' : 'Save changes'}
             </Button>

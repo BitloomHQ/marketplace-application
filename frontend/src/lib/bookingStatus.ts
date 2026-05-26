@@ -3,7 +3,7 @@ import type { BookingStatus } from '../types'
 /** Statuses where customer may cancel (matches backend). */
 export const CUSTOMER_CANCELLABLE_STATUSES = ['assigned', 'pending'] as const
 
-export const EDITABLE_BOOKING_STATUSES: BookingStatus[] = ['assigned', 'in_progress']
+export const EDITABLE_BOOKING_STATUSES: BookingStatus[] = ['assigned', 'pending', 'in_progress']
 
 export function canEditBookingStatus(status: BookingStatus | string): boolean {
   if (status === 'completed' || status === 'cancelled') return false
@@ -20,6 +20,9 @@ export function canCustomerCancelBooking(status: string): boolean {
 }
 
 export function providerStatusOptions(current: BookingStatus): BookingStatus[] {
+  if (current === 'pending') {
+    return ['pending', 'assigned', 'in_progress', 'completed', 'cancelled']
+  }
   if (current === 'assigned') {
     return ['assigned', 'in_progress', 'completed', 'cancelled']
   }

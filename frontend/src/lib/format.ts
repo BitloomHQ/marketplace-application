@@ -1,4 +1,4 @@
-import type { ServiceType, UserRole } from '../types'
+import type { ProviderRole, ServiceType, UserRole } from '../types'
 
 export function formatService(type: string): string {
   return type.charAt(0).toUpperCase() + type.slice(1)
@@ -27,12 +27,19 @@ export const SERVICE_OPTIONS: { value: ServiceType; label: string }[] = [
 
 export const BOOKING_STATUSES = [
   'assigned',
+  'pending',
   'in_progress',
   'completed',
   'cancelled',
 ] as const
 
-export function isProviderRole(role: string): role is 'gardener' | 'electrician' | 'plumber' {
+export const PROVIDER_SERVICE_OPTIONS: { value: ProviderRole; label: string }[] = [
+  { value: 'plumber', label: 'Plumber' },
+  { value: 'electrician', label: 'Electrician' },
+  { value: 'gardener', label: 'Gardener' },
+]
+
+export function isProviderRole(role: string): role is ProviderRole {
   return role === 'gardener' || role === 'electrician' || role === 'plumber'
 }
 

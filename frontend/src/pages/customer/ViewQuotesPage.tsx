@@ -2,13 +2,31 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchQuotes, selectProvider } from '../../api/services'
 import { ApiRequestError } from '../../api/client'
+import { ProviderProfileModal } from '../../components/ProviderProfileModal'
 import { Alert, Badge, Button, EmptyState } from '../../components/ui'
-import type { Quote } from '../../types'
+import type { ProviderProfile, Quote } from '../../types'
 
 function quoteStatusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger' {
   if (status === 'accepted') return 'success'
   if (status === 'rejected') return 'danger'
   return 'warning'
+}
+
+function formatRating(quote: Quote): string {
+  if (quote.total_reviews === 0) return 'No reviews yet'
+  return `${quote.average_rating} ★`
+}
+
+function quoteToProfile(q: Quote): ProviderProfile {
+  return {
+    provider_id: q.provider_id,
+    provider: q.provider,
+    provider_email: q.provider_email,
+    provider_phone: q.provider_phone,
+    provider_address: q.provider_address,
+    average_rating: q.average_rating,
+    total_reviews: q.total_reviews,
+  }
 }
 
 export function ViewQuotesPage() {
@@ -21,6 +39,7 @@ export function ViewQuotesPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [selectingId, setSelectingId] = useState<number | null>(null)
+  const [providerProfile, setProviderProfile] = useState<ProviderProfile | null>(null)
   const justCreated = (location.state as { created?: boolean })?.created
 
   const loadQuotes = useCallback(
@@ -76,7 +95,7 @@ export function ViewQuotesPage() {
       <p className="mt-1 text-sm text-zinc-500">
         {justCreated
           ? 'Request sent! Pros are sending quotes — check back in a moment.'
-          : 'Compare prices and book the best fit for you.'}
+          : 'Compare prices, ratings, and book the best fit for you.'}
       </p>
 
       {justCreated && (
@@ -117,7 +136,14 @@ export function ViewQuotesPage() {
                   {q.provider.charAt(0).toUpperCase()}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-zinc-900">{q.provider}</h3>
+                  <button
+                    type="button"
+                    onClick={() => setProviderProfile(quoteToProfile(q))}
+                    className="text-left font-bold text-violet-600 underline-offset-2 hover:underline"
+                  >
+                    {q.provider}
+                  </button>
+                  <p className="mt-0.5 text-sm font-medium text-amber-700">{formatRating(q)}</p>
                   <p className="mt-1 text-2xl font-bold text-zinc-900">₹{q.price}</p>
                   {q.message && <p className="mt-2 text-sm text-zinc-500">{q.message}</p>}
                 </div>
@@ -142,6 +168,12 @@ export function ViewQuotesPage() {
       <Button variant="ghost" className="mt-4 w-full" onClick={() => loadQuotes()}>
         Refresh
       </Button>
+
+      <ProviderProfileModal
+        profile={providerProfile}
+        open={providerProfile !== null}
+        onClose={() => setProviderProfile(null)}
+      />
     </div>
   )
 }

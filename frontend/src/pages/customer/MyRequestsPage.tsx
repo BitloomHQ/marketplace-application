@@ -7,7 +7,9 @@ import {
 } from '../../api/services'
 import { ApiRequestError } from '../../api/client'
 import { CreateRequestModal } from '../../components/CreateRequestModal'
+import { ProviderProfileModal } from '../../components/ProviderProfileModal'
 import { Alert, Badge, Button, EmptyState, Pagination } from '../../components/ui'
+import type { ProviderProfile } from '../../types'
 import { canCustomerCancelBooking } from '../../lib/bookingStatus'
 import { formatService, formatStatus } from '../../lib/format'
 import { SERVICE_META } from '../../lib/serviceMeta'
@@ -15,22 +17,43 @@ import { SERVICE_META } from '../../lib/serviceMeta'
 function statusTone(s: string): 'neutral' | 'success' | 'warning' | 'danger' {
   if (s === 'completed') return 'success'
   if (s === 'cancelled') return 'danger'
-  if (s === 'in_progress' || s === 'assigned') return 'warning'
+  if (s === 'in_progress' || s === 'assigned' || s === 'pending') return 'warning'
   return 'neutral'
+}
+
+function toProviderProfile(r: ServiceRequestSummary): ProviderProfile | null {
+  if (!r.provider_id || !r.provider) return null
+  return {
+    provider_id: r.provider_id,
+    provider: r.provider,
+    provider_email: r.provider_email ?? '',
+    provider_phone: r.provider_phone,
+    provider_address: r.provider_address,
+    average_rating: r.average_rating ?? 0,
+    total_reviews: r.total_reviews ?? 0,
+  }
+}
+
+function formatProviderRating(r: ServiceRequestSummary): string {
+  if (!r.total_reviews) return 'No reviews yet'
+  return `${r.average_rating ?? 0} ★`
 }
 
 function RequestCard({
   request: r,
   onCancel,
   cancelling,
+  onProviderClick,
 }: {
   request: ServiceRequestSummary
   onCancel: (bookingId: number) => void
   cancelling: boolean
+  onProviderClick: (profile: ProviderProfile) => void
 }) {
   const meta = SERVICE_META[r.service_type as keyof typeof SERVICE_META]
   const canCancel =
     r.booking_id != null && r.booking_status != null && canCustomerCancelBooking(r.booking_status)
+  const providerProfile = toProviderProfile(r)
 
   const quoteLabel =
     r.status === 'quotation_received' ? 'Compare quotes' : 'View quotes'
@@ -49,6 +72,20 @@ function RequestCard({
           <p className="mt-1 truncate text-sm text-zinc-500">{r.address}</p>
           {r.description && (
             <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{r.description}</p>
+          )}
+          {providerProfile && (
+            <p className="mt-2 text-sm text-zinc-600">
+              <button
+                type="button"
+                onClick={() => onProviderClick(providerProfile)}
+                className="font-semibold text-violet-600 underline-offset-2 hover:underline"
+              >
+                {r.provider}
+              </button>
+              <span className="ml-1.5 text-xs font-medium text-amber-700">
+                {formatProviderRating(r)}
+              </span>
+            </p>
           )}
           <p className="mt-2 text-xs text-zinc-400">
             {new Date(r.created_at).toLocaleDateString(undefined, {
@@ -100,6 +137,7 @@ export function MyRequestsPage() {
   const [error, setError] = useState('')
   const [actionId, setActionId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  const [providerProfile, setProviderProfile] = useState<ProviderProfile | null>(null)
 
   const loadRequests = () => {
     setLoading(true)
@@ -171,6 +209,7 @@ export function MyRequestsPage() {
               request={r}
               onCancel={handleCancelBooking}
               cancelling={actionId === `book-${r.booking_id}`}
+              onProviderClick={setProviderProfile}
             />
           ))}
           <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
@@ -181,6 +220,12 @@ export function MyRequestsPage() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={() => loadRequests()}
+      />
+
+      <ProviderProfileModal
+        profile={providerProfile}
+        open={providerProfile !== null}
+        onClose={() => setProviderProfile(null)}
       />
     </div>
   )

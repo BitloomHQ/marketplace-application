@@ -35,6 +35,7 @@ export function MyBookingsPage() {
   }, [])
 
   const handleCancel = async (bookingId: number) => {
+    if (!confirm('Cancel this booking? The professional will be notified.')) return
     setUpdatingId(bookingId)
     setError('')
     try {
@@ -72,46 +73,55 @@ export function MyBookingsPage() {
         <div className="space-y-4">
           {bookings.map((b) => {
             const meta = SERVICE_META[b.service_type]
+            const canCancel = canCustomerCancelBooking(b.status)
+
             return (
               <article
                 key={b.id}
-                className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
+                className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
               >
-                <div className="flex gap-4 p-4">
-                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl ${meta.bg}`}>
+                <div className="flex gap-3">
+                  <div
+                    className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl ${meta.bg}`}
+                  >
                     {meta.emoji}
                   </div>
+
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-bold text-zinc-900">{formatService(b.service_type)}</h3>
-                      <Badge tone={statusTone(b.status)}>{formatStatus(b.status)}</Badge>
-                    </div>
+                    <h3 className="font-bold text-zinc-900">{formatService(b.service_type)}</h3>
                     <p className="mt-1 text-sm text-zinc-600">
                       with <span className="font-semibold">{b.provider}</span>
                     </p>
                     <p className="mt-2 text-xl font-bold text-zinc-900">₹{b.final_price}</p>
                   </div>
-                </div>
 
-                <div className="border-t border-zinc-100 bg-zinc-50/80 px-4 py-3">
-                  {canCustomerCancelBooking(b.status) && (
-                    <Button
-                      variant="danger"
-                      className="w-full py-2 text-xs"
-                      disabled={updatingId === b.id}
-                      onClick={() => handleCancel(b.id)}
-                    >
-                      {updatingId === b.id ? 'Cancelling…' : 'Cancel booking'}
-                    </Button>
-                  )}
-                  {b.status === 'completed' && !b.has_review && (
-                    <Button className="mt-2 w-full py-2 text-xs" onClick={() => setReviewBooking(b)}>
-                      Rate your experience ★
-                    </Button>
-                  )}
-                  {b.has_review && (
-                    <p className="text-center text-sm font-medium text-emerald-600">Thanks for your review!</p>
-                  )}
+                  <div className="flex w-[6.75rem] shrink-0 flex-col items-end gap-2">
+                    <Badge tone={statusTone(b.status)}>{formatStatus(b.status)}</Badge>
+
+                    {canCancel && (
+                      <Button
+                        variant="danger"
+                        className="w-full whitespace-nowrap px-3 py-1.5 text-xs"
+                        disabled={updatingId === b.id}
+                        onClick={() => handleCancel(b.id)}
+                      >
+                        {updatingId === b.id ? '…' : 'Cancel'}
+                      </Button>
+                    )}
+                    {b.status === 'completed' && !b.has_review && (
+                      <Button
+                        className="w-full whitespace-nowrap px-3 py-1.5 text-xs"
+                        onClick={() => setReviewBooking(b)}
+                      >
+                        Rate ★
+                      </Button>
+                    )}
+                    {b.has_review && (
+                      <span className="text-center text-[10px] font-medium leading-tight text-emerald-600">
+                        Reviewed ✓
+                      </span>
+                    )}
+                  </div>
                 </div>
               </article>
             )

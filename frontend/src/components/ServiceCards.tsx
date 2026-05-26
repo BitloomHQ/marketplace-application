@@ -80,7 +80,7 @@ export function ServiceCards({
   const containerClass =
     layout === 'grid'
       ? 'grid grid-cols-3 gap-2 sm:gap-3'
-      : 'scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0'
+      : 'scrollbar-none flex gap-3 overflow-x-auto px-4 pb-1 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0'
 
   return (
     <div className={`${containerClass} ${className}`.trim()}>

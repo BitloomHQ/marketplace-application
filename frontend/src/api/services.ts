@@ -1,5 +1,5 @@
 import { apiRequest } from './client'
-import type { Booking, Lead, Quote, ServiceType, User } from '../types'
+import type { Booking, Lead, ProviderRole, Quote, ServiceType, User } from '../types'
 
 export type ServiceRequestSummary = {
   id: number
@@ -11,6 +11,13 @@ export type ServiceRequestSummary = {
   booking_id: number | null
   booking_status: string | null
   created_at: string
+  provider_id: number | null
+  provider: string | null
+  provider_email: string | null
+  provider_phone: string | null
+  provider_address: string | null
+  average_rating: number | null
+  total_reviews: number | null
 }
 
 export function createServiceRequest(
@@ -148,6 +155,8 @@ export function updateProfile(data: {
   email?: string
   phone?: string
   address?: string
+  /** Provider only — updates role / service category */
+  service_type?: ProviderRole
 }) {
   return apiRequest<{
     success: boolean

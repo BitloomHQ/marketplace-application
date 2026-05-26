@@ -128,7 +128,7 @@ export function Modal({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center p-0 sm:items-center sm:p-4">
       <button
         type="button"
         className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"
@@ -138,9 +138,9 @@ export function Modal({
       <div
         role="dialog"
         aria-modal="true"
-        className={`relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-t-3xl border border-zinc-200 bg-white p-6 shadow-2xl sm:rounded-3xl ${wide ? 'sm:max-w-lg' : 'sm:max-w-md'}`}
+        className={`relative z-10 flex max-h-[min(92dvh,100%)] w-full flex-col overflow-hidden rounded-t-3xl border border-zinc-200 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-3xl ${wide ? 'sm:max-w-lg' : 'sm:max-w-md'}`}
       >
-        <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-zinc-100 px-6 py-4">
           <h2 className="text-xl font-bold text-zinc-900">{title}</h2>
           <button
             type="button"
@@ -151,7 +151,9 @@ export function Modal({
             ✕
           </button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4 pb-tab-bar lg:pb-4">
+          {children}
+        </div>
       </div>
     </div>
   )

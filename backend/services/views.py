@@ -55,6 +55,25 @@ def get_booking_or_404(id):
         return None
 
 
+def provider_profile_payload(user):
+    """Public provider fields for customers (quotes, requests, bookings)."""
+    provider_reviews = Review.objects.filter(provider=user)
+    average_rating = 0
+    if provider_reviews.exists():
+        total = sum(review.rating for review in provider_reviews)
+        average_rating = round(total / provider_reviews.count(), 1)
+
+    return {
+        "provider_id": user.id,
+        "provider": user.username,
+        "provider_email": user.email,
+        "provider_phone": getattr(user, "phone", None),
+        "provider_address": getattr(user, "address", None),
+        "average_rating": average_rating,
+        "total_reviews": provider_reviews.count(),
+    }
+
+
 # ==============================
 # REALTIME NOTIFICATION
 # ==============================
@@ -296,56 +315,13 @@ def view_quotes(request, request_id):
     quotes_data = []
 
     for q in quotes:
-
-        provider_reviews = Review.objects.filter(
-            provider=q.provider
-        )
-
-        average_rating = 0
-
-        if provider_reviews.exists():
-
-            total = sum(
-                review.rating
-                for review in provider_reviews
-            )
-
-            average_rating = round(
-                total / provider_reviews.count(),
-                1
-            )
-
+        profile = provider_profile_payload(q.provider)
         quotes_data.append({
-
             "id": q.id,
-
-            "provider": q.provider.username,
-
-            "provider_id": q.provider.id,
-
-            "provider_email": q.provider.email,
-
-            "provider_phone": getattr(
-                q.provider,
-                "phone",
-                None
-            ),
-
-            "provider_address": getattr(
-                q.provider,
-                "address",
-                None
-            ),
-
-            "average_rating": average_rating,
-
-            "total_reviews": provider_reviews.count(),
-
             "price": q.price,
-
             "message": q.message,
-
-            "status": q.status
+            "status": q.status,
+            **profile,
         })
 
     return Response({
@@ -769,25 +745,31 @@ def my_requests(request):
             service_request=req
         ).first()
 
-        requests_data.append({
+        row = {
             "id": req.id,
-
             "service_type": req.service_type,
-
             "address": req.address,
-
             "description": req.description,
-
             "status": req.status,
-
             "is_booked": req.is_booked,
-
             "booking_id": booking.id if booking else None,
-
             "booking_status": booking.status if booking else None,
+            "created_at": req.created_at,
+            "provider_id": None,
+            "provider": None,
+            "provider_email": None,
+            "provider_phone": None,
+            "provider_address": None,
+            "average_rating": None,
+            "total_reviews": None,
+        }
 
-            "created_at": req.created_at
-        })
+        if booking:
+            row.update(provider_profile_payload(booking.provider))
+        elif req.selected_provider_id:
+            row.update(provider_profile_payload(req.selected_provider))
+
+        requests_data.append(row)
 
     return Response({
         "success": True,

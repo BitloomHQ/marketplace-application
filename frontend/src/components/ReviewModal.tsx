@@ -92,11 +92,21 @@ export function ReviewModal({ booking, open, onClose, onSuccess }: Props) {
             disabled={loading}
           />
         </Field>
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
+        <div className="flex flex-col-reverse gap-2 border-t border-zinc-100 pt-4 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full sm:w-auto"
+            onClick={onClose}
+            disabled={loading}
+          >
             Cancel
           </Button>
-          <Button type="submit" disabled={loading || !booking || rating < 1}>
+          <Button
+            type="submit"
+            className="w-full sm:w-auto"
+            disabled={loading || !booking || rating < 1}
+          >
             {loading ? 'Submitting…' : 'Submit review'}
           </Button>
         </div>

@@ -70,47 +70,61 @@ export function ProviderBookingsPage() {
         <div className="space-y-3">
           {bookings.map((b) => {
             const meta = SERVICE_META[b.service_type]
+            const editable = canEditBookingStatus(b.status)
+
             return (
               <article
                 key={b.id}
                 className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
               >
                 <div className="flex gap-3">
-                  <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl ${meta.bg}`}>
+                  <span
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl ${meta.bg}`}
+                  >
                     {meta.emoji}
                   </span>
+
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-bold text-zinc-900">{formatService(b.service_type)}</h3>
-                      <Badge tone={statusTone(b.status)}>{formatStatus(b.status)}</Badge>
-                    </div>
+                    <h3 className="font-bold text-zinc-900">{formatService(b.service_type)}</h3>
                     <p className="text-sm text-zinc-600">
                       For <span className="font-semibold">{b.customer}</span>
                     </p>
                     <p className="mt-1 text-lg font-bold text-zinc-900">₹{b.final_price}</p>
                   </div>
-                </div>
-                {canEditBookingStatus(b.status) ? (
-                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3">
-                    <Select
-                      value={b.status}
-                      disabled={updatingId === b.id}
-                      onChange={(e) => handleStatusChange(b.id, e.target.value as BookingStatus)}
-                      className="flex-1 text-sm"
-                    >
-                      {providerStatusOptions(b.status).map((s) => (
-                        <option key={s} value={s}>
-                          {formatStatus(s)}
-                        </option>
-                      ))}
-                    </Select>
-                    {updatingId === b.id && (
-                      <span className="text-xs text-zinc-400">Saving…</span>
+
+                  <div className="flex w-[6.75rem] shrink-0 flex-col items-end gap-2">
+                    <Badge tone={statusTone(b.status)}>{formatStatus(b.status)}</Badge>
+
+                    {editable ? (
+                      <>
+                        <label className="sr-only" htmlFor={`status-${b.id}`}>
+                          Change status
+                        </label>
+                        <Select
+                          id={`status-${b.id}`}
+                          value={b.status}
+                          disabled={updatingId === b.id}
+                          onChange={(e) =>
+                            handleStatusChange(b.id, e.target.value as BookingStatus)
+                          }
+                          className="!w-full !rounded-lg !px-2 !py-1.5 text-xs font-medium"
+                          aria-label="Change booking status"
+                        >
+                          {providerStatusOptions(b.status).map((s) => (
+                            <option key={s} value={s}>
+                              {formatStatus(s)}
+                            </option>
+                          ))}
+                        </Select>
+                        {updatingId === b.id && (
+                          <p className="text-center text-[10px] text-zinc-400">Saving…</p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-center text-[10px] text-zinc-400">Job closed</p>
                     )}
                   </div>
-                ) : (
-                  <p className="mt-3 text-xs text-zinc-400">This job is closed.</p>
-                )}
+                </div>
               </article>
             )
           })}

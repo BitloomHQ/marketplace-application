@@ -84,11 +84,17 @@ export function SendQuoteModal({ lead, open, onClose, onSent }: Props) {
             disabled={loading}
           />
         </Field>
-        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <Button type="button" variant="ghost" disabled={loading} onClick={handleClose}>
+        <div className="flex flex-col-reverse gap-2 border-t border-zinc-100 pt-4 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full sm:w-auto"
+            disabled={loading}
+            onClick={handleClose}
+          >
             Cancel
           </Button>
-          <Button type="submit" disabled={loading || !lead}>
+          <Button type="submit" className="w-full sm:w-auto" disabled={loading || !lead}>
             {loading ? 'Sending…' : 'Submit quote'}
           </Button>
         </div>

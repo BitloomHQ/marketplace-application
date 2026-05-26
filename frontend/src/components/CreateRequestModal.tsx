@@ -109,11 +109,17 @@ export function CreateRequestModal({
             onChange={(e) => setImage(e.target.files?.[0] ?? null)}
           />
         </Field>
-        <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="ghost" disabled={loading} onClick={handleClose}>
+        <div className="flex flex-col-reverse gap-2 border-t border-zinc-100 pt-4 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full sm:w-auto"
+            disabled={loading}
+            onClick={handleClose}
+          >
             Cancel
           </Button>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" className="w-full sm:w-auto" disabled={loading}>
             {loading ? 'Submitting…' : 'Submit request'}
           </Button>
         </div>

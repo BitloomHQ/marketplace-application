@@ -2,7 +2,9 @@ export type UserRole = 'customer' | 'gardener' | 'electrician' | 'plumber' | 'ad
 
 export type ServiceType = 'gardener' | 'electrician' | 'plumber'
 
-export type BookingStatus = 'assigned' | 'in_progress' | 'completed' | 'cancelled'
+export type BookingStatus = 'assigned' | 'pending' | 'in_progress' | 'completed' | 'cancelled'
+
+export type ProviderRole = 'gardener' | 'electrician' | 'plumber'
 
 export interface User {
   id: number
@@ -37,6 +39,12 @@ export interface Lead {
 export interface Quote {
   id: number
   provider: string
+  provider_id: number
+  provider_email: string
+  provider_phone: string | null
+  provider_address: string | null
+  average_rating: number
+  total_reviews: number
   price: number
   message: string | null
   status: string
@@ -52,6 +60,16 @@ export interface Booking {
   status: BookingStatus
   created_at: string
   has_review?: boolean
+}
+
+export interface ProviderProfile {
+  provider_id: number
+  provider: string
+  provider_email: string
+  provider_phone: string | null
+  provider_address: string | null
+  average_rating: number
+  total_reviews: number
 }
 
 export interface ApiError {

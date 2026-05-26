@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { fetchProviderLeads } from '../../api/services'
 import { ApiRequestError } from '../../api/client'
+import { ImagePreviewModal } from '../../components/ImagePreviewModal'
 import { SendQuoteModal } from '../../components/SendQuoteModal'
 import { Alert, Badge, Button, EmptyState } from '../../components/ui'
 import { formatStatus } from '../../lib/format'
+import { resolveMediaUrl } from '../../lib/media'
 import type { Lead } from '../../types'
 
 function statusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger' {
@@ -27,10 +29,12 @@ function LeadCard({
   lead,
   quoted,
   onSendQuote,
+  onImageClick,
 }: {
   lead: Lead
   quoted: boolean
   onSendQuote: () => void
+  onImageClick: (src: string) => void
 }) {
   const canQuote = !quoted && lead.status !== 'cancelled'
 
@@ -53,20 +57,20 @@ function LeadCard({
           {lead.description && (
             <p className="mt-2 line-clamp-2 text-sm text-zinc-500">{lead.description}</p>
           )}
-          {lead.image && (
-            <a
-              href={lead.image}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-block overflow-hidden rounded-lg ring-1 ring-zinc-200"
-            >
-              <img
-                src={lead.image}
-                alt="Job photo"
-                className="h-20 w-28 object-cover"
-              />
-            </a>
-          )}
+          {lead.image && (() => {
+            const src = resolveMediaUrl(lead.image)
+            if (!src) return null
+            return (
+              <button
+                type="button"
+                onClick={() => onImageClick(src)}
+                className="mt-2 inline-block overflow-hidden rounded-lg ring-1 ring-zinc-200 transition hover:ring-violet-300"
+                aria-label="View job photo"
+              >
+                <img src={src} alt="Job photo" className="h-20 w-28 object-cover" />
+              </button>
+            )
+          })()}
           {lead.area != null && (
             <p className="mt-1 text-xs text-zinc-400">Lawn area: {lead.area} m²</p>
           )}
@@ -105,6 +109,7 @@ function LeadSkeleton() {
 export function ProviderLeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [quoteLead, setQuoteLead] = useState<Lead | null>(null)
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -170,6 +175,7 @@ export function ProviderLeadsPage() {
               lead={lead}
               quoted={lead.has_quoted}
               onSendQuote={() => setQuoteLead(lead)}
+              onImageClick={setPreviewImage}
             />
           ))}
         </div>
@@ -180,6 +186,13 @@ export function ProviderLeadsPage() {
         open={quoteLead !== null}
         onClose={() => setQuoteLead(null)}
         onSent={handleQuoteSent}
+      />
+
+      <ImagePreviewModal
+        src={previewImage}
+        alt="Job photo"
+        open={previewImage !== null}
+        onClose={() => setPreviewImage(null)}
       />
     </div>
   )
