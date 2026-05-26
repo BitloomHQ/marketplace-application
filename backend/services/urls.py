@@ -15,6 +15,7 @@ from .views import (
     get_profile,
     update_profile,
     update_service_type,
+    update_request_service_type,
 )
 
 urlpatterns = [
@@ -97,5 +98,10 @@ path(
     "update-service-type/",
     update_service_type,
     name="update_service_type"
+),
+path(
+    "update-request-service-type/",
+    update_request_service_type,
+    name="update_request_service_type"
 ),
 ]
