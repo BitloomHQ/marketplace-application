@@ -1,9 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchQuotes, selectProvider } from '../../api/services'
 import { ApiRequestError } from '../../api/client'
-import { Alert, Badge, Button, Card, EmptyState, PageHeader } from '../../components/ui'
+import { Alert, Badge, Button, EmptyState } from '../../components/ui'
 import type { Quote } from '../../types'
+
+function quoteStatusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger' {
+  if (status === 'accepted') return 'success'
+  if (status === 'rejected') return 'danger'
+  return 'warning'
+}
 
 export function ViewQuotesPage() {
   const { requestId } = useParams<{ requestId: string }>()
@@ -17,22 +23,31 @@ export function ViewQuotesPage() {
   const [selectingId, setSelectingId] = useState<number | null>(null)
   const justCreated = (location.state as { created?: boolean })?.created
 
-  const loadQuotes = () => {
-    if (!id || Number.isNaN(id)) {
-      setError('Invalid request ID')
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    fetchQuotes(id)
-      .then((res) => setQuotes(res.quotes))
-      .catch((err) => setError(err instanceof ApiRequestError ? err.message : 'Failed to load quotes'))
-      .finally(() => setLoading(false))
-  }
+  const loadQuotes = useCallback(
+    (silent = false) => {
+      if (!id || Number.isNaN(id)) {
+        setError('Invalid request')
+        setLoading(false)
+        return
+      }
+      if (!silent) setLoading(true)
+      fetchQuotes(id)
+        .then((res) => setQuotes(res.quotes))
+        .catch((err) =>
+          setError(err instanceof ApiRequestError ? err.message : 'Failed to load quotes'),
+        )
+        .finally(() => {
+          if (!silent) setLoading(false)
+        })
+    },
+    [id],
+  )
 
   useEffect(() => {
     loadQuotes()
-  }, [id])
+    const interval = setInterval(() => loadQuotes(true), 15000)
+    return () => clearInterval(interval)
+  }, [loadQuotes])
 
   const handleSelect = async (quoteId: number) => {
     setError('')
@@ -43,10 +58,10 @@ export function ViewQuotesPage() {
         service_request_id: id,
         quote_id: quoteId,
       })
-      setSuccess(`Booking confirmed! Booking #${res.booking_id}`)
-      setTimeout(() => navigate('/customer/bookings'), 1500)
+      setSuccess(`Booked! Your pro is confirmed.`)
+      setTimeout(() => navigate('/customer/bookings', { state: { bookingId: res.booking_id } }), 1200)
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : 'Could not select provider')
+      setError(err instanceof ApiRequestError ? err.message : 'Could not book')
     } finally {
       setSelectingId(null)
     }
@@ -54,62 +69,79 @@ export function ViewQuotesPage() {
 
   return (
     <div>
-      <PageHeader
-        title={`Quotes for request #${requestId}`}
-        subtitle={justCreated ? 'Request created — waiting for provider quotes' : 'Compare quotes and select a provider'}
-      />
-      <div className="mb-4">
-        <Link to="/customer-dashboard" className="text-sm text-violet-400 hover:text-violet-300">
-          ← Back to dashboard
-        </Link>
-      </div>
+      <Link to="/customer/requests" className="text-sm font-semibold text-violet-600">
+        ← Back
+      </Link>
+      <h1 className="mt-3 text-2xl font-bold text-zinc-900">Choose your pro</h1>
+      <p className="mt-1 text-sm text-zinc-500">
+        {justCreated
+          ? 'Request sent! Pros are sending quotes — check back in a moment.'
+          : 'Compare prices and book the best fit for you.'}
+      </p>
+
       {justCreated && (
-        <div className="mb-4">
-          <Alert variant="success">Service request created successfully.</Alert>
+        <div className="mt-4">
+          <Alert variant="success">Your request is live. Quotes usually arrive within minutes.</Alert>
         </div>
       )}
       {error && (
-        <div className="mb-4">
+        <div className="mt-4">
           <Alert variant="error">{error}</Alert>
         </div>
       )}
       {success && (
-        <div className="mb-4">
+        <div className="mt-4">
           <Alert variant="success">{success}</Alert>
         </div>
       )}
+
       {loading ? (
-        <p className="text-slate-400">Loading quotes…</p>
+        <div className="mt-6 space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-2xl bg-zinc-200" />
+          ))}
+        </div>
       ) : quotes.length === 0 ? (
-        <EmptyState message="No quotes yet. Providers will send quotes for your request." />
+        <div className="mt-6">
+          <EmptyState icon="⏳" message="Waiting for quotes from nearby professionals…" />
+        </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="mt-6 space-y-3">
           {quotes.map((q) => (
-            <Card key={q.id} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-white">{q.provider}</h3>
-                  <Badge tone={q.status === 'accepted' ? 'success' : q.status === 'rejected' ? 'danger' : 'warning'}>
-                    {q.status}
-                  </Badge>
+            <article
+              key={q.id}
+              className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+            >
+              <div className="flex gap-3">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-lg font-bold text-violet-700">
+                  {q.provider.charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-zinc-900">{q.provider}</h3>
+                  <p className="mt-1 text-2xl font-bold text-zinc-900">₹{q.price}</p>
+                  {q.message && <p className="mt-2 text-sm text-zinc-500">{q.message}</p>}
                 </div>
-                <p className="mt-1 text-2xl font-bold text-violet-300">₹{q.price}</p>
-                {q.message && <p className="mt-2 text-sm text-slate-400">{q.message}</p>}
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <Badge tone={quoteStatusTone(q.status)}>{q.status}</Badge>
+                  {q.status === 'pending' && (
+                    <Button
+                      className="whitespace-nowrap px-3 py-1.5 text-xs"
+                      onClick={() => handleSelect(q.id)}
+                      disabled={selectingId === q.id}
+                    >
+                      {selectingId === q.id ? 'Booking…' : 'Book this pro'}
+                    </Button>
+                  )}
+                </div>
               </div>
-              {q.status === 'pending' && (
-                <Button onClick={() => handleSelect(q.id)} disabled={selectingId === q.id}>
-                  {selectingId === q.id ? 'Selecting…' : 'Select provider'}
-                </Button>
-              )}
-            </Card>
+            </article>
           ))}
         </div>
       )}
-      <div className="mt-4">
-        <Button variant="ghost" onClick={loadQuotes}>
-          Refresh quotes
-        </Button>
-      </div>
+
+      <Button variant="ghost" className="mt-4 w-full" onClick={() => loadQuotes()}>
+        Refresh
+      </Button>
     </div>
   )
 }

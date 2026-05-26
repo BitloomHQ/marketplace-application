@@ -10,6 +10,7 @@ from .models import ServiceRequest, Booking, Quote, Review, Notification
 from accounts.models import User
 
 from django.core.paginator import Paginator
+from django.db.models import Exists, OuterRef
 
 
 # ==============================
@@ -66,17 +67,20 @@ def notify(user, title, message):
         message=message
     )
 
-    # Send realtime websocket notification
-    channel_layer = get_channel_layer()
-
-    async_to_sync(channel_layer.group_send)(
-        f"user_{user.id}",
-        {
-            "type": "send_notification",
-            "title": title,
-            "message": message
-        }
-    )
+    # Send realtime websocket notification (requires Redis + Daphne/ASGI)
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer is not None:
+            async_to_sync(channel_layer.group_send)(
+                f"user_{user.id}",
+                {
+                    "type": "send_notification",
+                    "title": title,
+                    "message": message,
+                },
+            )
+    except Exception:
+        pass  # DB notification still saved; REST poll works without Redis
 
 
 # ==============================
@@ -165,10 +169,19 @@ def provider_leads(request):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    leads = ServiceRequest.objects.filter(
-        service_type=request.user.role,
-        is_booked=False
-    ).order_by("-created_at")
+    my_quote = Quote.objects.filter(
+        service_request_id=OuterRef("pk"),
+        provider_id=request.user.id,
+    )
+
+    leads = (
+        ServiceRequest.objects.filter(
+            service_type=request.user.role,
+            is_booked=False,
+        )
+        .annotate(has_quoted=Exists(my_quote))
+        .order_by("-created_at")
+    )
 
     return Response({
         "success": True,
@@ -183,6 +196,7 @@ def provider_leads(request):
                 "description": lead.description,
                 "image": lead.image.url if lead.image else None,
                 "status": lead.status,
+                "has_quoted": lead.has_quoted,
             }
             for lead in leads
         ]

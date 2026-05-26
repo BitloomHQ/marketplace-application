@@ -1,5 +1,20 @@
 const AUTH_TOKEN_KEY = 'marketplace_token'
 
+/** Empty in dev (Vite proxies /api). Set VITE_API_BASE_URL for production. */
+export function getApiBaseUrl(): string {
+  const base = import.meta.env.VITE_API_BASE_URL
+  if (typeof base === 'string' && base.length > 0) {
+    return base.replace(/\/$/, '')
+  }
+  return ''
+}
+
+function resolvePath(path: string): string {
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  const base = getApiBaseUrl()
+  return base ? `${base}${path.startsWith('/') ? path : `/${path}`}` : path
+}
+
 export function getToken(): string | null {
   return localStorage.getItem(AUTH_TOKEN_KEY)
 }
@@ -48,7 +63,7 @@ export async function apiRequest<T>(
     headers['Content-Type'] = 'application/json'
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(resolvePath(path), {
     method,
     headers,
     body: formData ?? (body ? JSON.stringify(body) : undefined),

@@ -1,14 +1,44 @@
 import { apiRequest } from './client'
-import type { Booking, Lead, Quote, ServiceType } from '../types'
+import type { Booking, Lead, Quote, ServiceType, User } from '../types'
 
-export function createServiceRequest(data: {
-  service_type: ServiceType
+export type ServiceRequestSummary = {
+  id: number
+  service_type: string
   address: string
-  description?: string
-  lat?: number
-  lon?: number
-  lawn_area?: number
-}) {
+  description: string | null
+  status: string
+  is_booked: boolean
+  booking_id: number | null
+  booking_status: string | null
+  created_at: string
+}
+
+export function createServiceRequest(
+  data: {
+    service_type: ServiceType
+    address: string
+    description?: string
+    lat?: number
+    lon?: number
+    lawn_area?: number
+  },
+  image?: File,
+) {
+  if (image) {
+    const formData = new FormData()
+    formData.append('service_type', data.service_type)
+    formData.append('address', data.address)
+    if (data.description) formData.append('description', data.description)
+    if (data.lat != null) formData.append('lat', String(data.lat))
+    if (data.lon != null) formData.append('lon', String(data.lon))
+    if (data.lawn_area != null) formData.append('lawn_area', String(data.lawn_area))
+    formData.append('image', image)
+    return apiRequest<{ success: boolean; request_id: number }>(
+      '/api/services/create/',
+      { method: 'POST', formData },
+    )
+  }
+
   return apiRequest<{ success: boolean; request_id: number }>(
     '/api/services/create/',
     { method: 'POST', body: data },
@@ -67,24 +97,12 @@ export function updateBookingStatus(data: {
 export function fetchMyServiceRequests(page = 1, pageSize = 10) {
   return apiRequest<{
     success: boolean
-    requests: {
-      id: number
-      service_type: string
-      address: string
-      description: string | null
-      status: string
-      is_booked: boolean
-      booking_id: number | null
-      booking_status: string | null
-      created_at: string
-    }[]
-    pagination: {
-      page: number
-      page_size: number
-      total: number
-      total_pages: number
-      booked_count: number
-    }
+    page: number
+    page_size: number
+    total: number
+    total_pages: number
+    booked_count: number
+    requests: ServiceRequestSummary[]
   }>(`/api/services/my-requests/?page=${page}&page_size=${pageSize}`)
 }
 
@@ -119,4 +137,21 @@ export function submitReview(data: {
     '/api/services/submit-review/',
     { method: 'POST', body: data },
   )
+}
+
+export function fetchProfile() {
+  return apiRequest<{ success: boolean; user: User }>('/api/services/profile/')
+}
+
+export function updateProfile(data: {
+  username?: string
+  email?: string
+  phone?: string
+  address?: string
+}) {
+  return apiRequest<{
+    success: boolean
+    message: string
+    user: User
+  }>('/api/services/update-profile/', { method: 'POST', body: data })
 }

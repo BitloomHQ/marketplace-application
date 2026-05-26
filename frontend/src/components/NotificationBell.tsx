@@ -18,7 +18,7 @@ function formatTime(iso: string) {
 }
 
 export function NotificationBell() {
-  const { notifications, unreadCount, connected, markAllRead, dismissToast } = useNotifications()
+  const { notifications, unreadCount, markAllRead, dismissToast } = useNotifications()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [marking, setMarking] = useState(false)
@@ -56,10 +56,10 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-lg p-2 text-slate-300 transition hover:bg-slate-800 hover:text-white"
+        className="relative rounded-full p-2 text-zinc-600 transition hover:bg-zinc-100"
         aria-label="Notifications"
       >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -71,42 +71,37 @@ export function NotificationBell() {
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
-        <span
-          className={`absolute bottom-0.5 right-0.5 h-2 w-2 rounded-full ${connected ? 'bg-emerald-500' : 'bg-slate-600'}`}
-          title={connected ? 'Live updates on' : 'Reconnecting…'}
-        />
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-2xl sm:w-96">
-          <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-            <h3 className="font-semibold text-white">Notifications</h3>
+        <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl sm:w-96">
+          <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
+            <h3 className="font-bold text-zinc-900">Updates</h3>
             {notifications.length > 0 && unreadCount > 0 && (
               <Button
                 variant="ghost"
-                className="text-xs py-1 px-2"
+                className="py-1 text-xs"
                 disabled={marking}
                 onClick={handleMarkAllRead}
               >
-                {marking ? 'Saving…' : 'Mark all read'}
+                {marking ? '…' : 'Clear all'}
               </Button>
             )}
           </div>
           <ul className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
-              <li className="px-4 py-8 text-center text-sm text-slate-500">No notifications yet</li>
+              <li className="px-4 py-10 text-center text-sm text-zinc-400">No updates yet</li>
             ) : (
               notifications.map((n) => (
-                <li key={n.id} className="border-b border-slate-800/80 last:border-0">
+                <li key={n.id} className="border-b border-zinc-50 last:border-0">
                   <button
                     type="button"
                     onClick={() => handleNotificationClick(n)}
-                    className={`w-full px-4 py-3 text-left transition hover:bg-slate-800 ${n.is_read === false ? 'bg-violet-600/5' : ''}`}
+                    className={`w-full px-4 py-3 text-left transition hover:bg-zinc-50 ${n.is_read === false ? 'bg-violet-50/50' : ''}`}
                   >
-                    <p className="font-medium text-sm text-white">{n.title}</p>
-                    <p className="mt-0.5 text-sm text-slate-400">{n.message}</p>
-                    <p className="mt-1 text-xs text-violet-400/80">Tap to open</p>
-                    <p className="mt-0.5 text-xs text-slate-600">{formatTime(n.created_at)}</p>
+                    <p className="text-sm font-semibold text-zinc-900">{n.title}</p>
+                    <p className="mt-0.5 text-sm text-zinc-500 line-clamp-2">{n.message}</p>
+                    <p className="mt-1 text-xs text-zinc-400">{formatTime(n.created_at)}</p>
                   </button>
                 </li>
               ))

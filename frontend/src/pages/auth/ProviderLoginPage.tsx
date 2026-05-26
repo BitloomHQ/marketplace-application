@@ -41,7 +41,7 @@ export function ProviderLoginPage() {
 
   return (
     <Card>
-      <PageHeader title="Provider sign in" subtitle="Plumbers, electricians, and gardeners" />
+      <PageHeader title="Partner sign in" subtitle="For plumbers, electricians & gardeners" />
       {error && (
         <div className="mb-4">
           <Alert variant="error">{error}</Alert>
@@ -66,7 +66,7 @@ export function ProviderLoginPage() {
           />
         </Field>
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? 'Signing in…' : 'Sign in as provider'}
+          {loading ? 'Signing in…' : 'Continue'}
         </Button>
       </form>
       <AuthPortalLinks portal="provider" />

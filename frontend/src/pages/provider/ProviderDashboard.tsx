@@ -1,58 +1,53 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchDashboard } from '../../api/accounts'
-import { Alert, Button, Card, PageHeader } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
-import { formatService } from '../../lib/format'
 
 export function ProviderDashboard() {
   const { user } = useAuth()
-  const [features, setFeatures] = useState<string[]>([])
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    fetchDashboard()
-      .then((res) => setFeatures(res.data.features ?? []))
-      .catch(() => setError('Could not load dashboard'))
-  }, [])
+  const firstName = user?.username?.split(' ')[0] ?? 'Pro'
 
   return (
-    <div>
-      <PageHeader
-        title={`${formatService(user?.role ?? '')} dashboard`}
-        subtitle={`Welcome, ${user?.username}`}
-      />
-      {error && (
-        <div className="mb-4">
-          <Alert variant="error">{error}</Alert>
-        </div>
-      )}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <h2 className="font-semibold text-white">Open leads</h2>
-          <p className="mt-2 text-sm text-slate-400">View customer requests for your service type and send quotes.</p>
-          <Link to="/provider/leads" className="mt-4 inline-block">
-            <Button>View leads</Button>
-          </Link>
-        </Card>
-        <Card>
-          <h2 className="font-semibold text-white">My bookings</h2>
-          <p className="mt-2 text-sm text-slate-400">Update job status: assigned → in progress → completed.</p>
-          <Link to="/provider/bookings" className="mt-4 inline-block">
-            <Button variant="secondary">Manage bookings</Button>
-          </Link>
-        </Card>
+    <div className="space-y-6">
+      <section className="rounded-3xl bg-zinc-900 px-5 py-6 text-white">
+        <p className="text-sm text-zinc-400">Partner app</p>
+        <h1 className="mt-1 text-2xl font-bold">Hi, {firstName}</h1>
+        <p className="mt-2 text-sm text-zinc-300">
+          Pick up jobs near you, send quotes, and manage your schedule.
+        </p>
+      </section>
+
+      <div className="grid gap-3">
+        <Link
+          to="/provider/leads"
+          className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:shadow-md"
+        >
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-2xl">
+            💼
+          </span>
+          <div className="flex-1">
+            <p className="font-bold text-zinc-900">Find new jobs</p>
+            <p className="text-sm text-zinc-500">Browse customer requests & send quotes</p>
+          </div>
+          <span className="text-violet-600">→</span>
+        </Link>
+
+        <Link
+          to="/provider/bookings"
+          className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:shadow-md"
+        >
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-2xl">
+            📅
+          </span>
+          <div className="flex-1">
+            <p className="font-bold text-zinc-900">My schedule</p>
+            <p className="text-sm text-zinc-500">Confirmed jobs & visit status</p>
+          </div>
+          <span className="text-violet-600">→</span>
+        </Link>
       </div>
-      {features.length > 0 && (
-        <Card className="mt-6">
-          <h2 className="font-semibold text-white">What you can do</h2>
-          <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-slate-400">
-            {features.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-        </Card>
-      )}
+
+      <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-4 text-center text-sm text-zinc-500">
+        Tip: Respond quickly to new jobs — customers often book the first good quote.
+      </div>
     </div>
   )
 }

@@ -2,12 +2,12 @@ import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAt
 
 export function Alert({ children, variant = 'info' }: { children: ReactNode; variant?: 'info' | 'error' | 'success' }) {
   const styles = {
-    info: 'border-sky-500/30 bg-sky-500/10 text-sky-100',
-    error: 'border-rose-500/30 bg-rose-500/10 text-rose-100',
-    success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100',
+    info: 'border-sky-200 bg-sky-50 text-sky-900',
+    error: 'border-rose-200 bg-rose-50 text-rose-900',
+    success: 'border-emerald-200 bg-emerald-50 text-emerald-900',
   }
   return (
-    <div className={`rounded-lg border px-4 py-3 text-sm ${styles[variant]}`}>
+    <div className={`rounded-2xl border px-4 py-3 text-sm ${styles[variant]}`}>
       {children}
     </div>
   )
@@ -15,28 +15,32 @@ export function Alert({ children, variant = 'info' }: { children: ReactNode; var
 
 export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'success' | 'warning' | 'danger' }) {
   const tones = {
-    neutral: 'bg-slate-700 text-slate-200',
-    success: 'bg-emerald-600/20 text-emerald-300',
-    warning: 'bg-amber-600/20 text-amber-300',
-    danger: 'bg-rose-600/20 text-rose-300',
+    neutral: 'bg-zinc-100 text-zinc-700',
+    success: 'bg-emerald-100 text-emerald-800',
+    warning: 'bg-amber-100 text-amber-800',
+    danger: 'bg-rose-100 text-rose-800',
   }
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${tones[tone]}`}>
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${tones[tone]}`}>
       {children}
     </span>
   )
 }
 
-export function Button({ className = '', variant = 'primary', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' }) {
+export function Button({
+  className = '',
+  variant = 'primary',
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' }) {
   const variants = {
-    primary: 'bg-violet-600 text-white hover:bg-violet-500 shadow-lg shadow-violet-600/20',
-    secondary: 'bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-600',
-    ghost: 'bg-transparent text-slate-300 hover:bg-slate-800',
+    primary: 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-md shadow-zinc-900/10',
+    secondary: 'bg-white text-zinc-900 hover:bg-zinc-50 border border-zinc-200 shadow-sm',
+    ghost: 'bg-transparent text-zinc-600 hover:bg-zinc-100',
     danger: 'bg-rose-600 text-white hover:bg-rose-500',
   }
   return (
     <button
-      className={`rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+      className={`rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
       {...props}
     />
   )
@@ -44,7 +48,7 @@ export function Button({ className = '', variant = 'primary', ...props }: Button
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl ${className}`}>
+    <div className={`rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm ${className}`}>
       {children}
     </div>
   )
@@ -52,17 +56,17 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="block space-y-1.5">
-      <span className="text-sm font-medium text-slate-300">{label}</span>
+    <div className="block w-full space-y-1.5">
+      <span className="block text-sm font-medium text-zinc-700">{label}</span>
       {children}
-    </label>
+    </div>
   )
 }
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+      className={`w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 ${className}`}
       {...props}
     />
   )
@@ -71,16 +75,16 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+      className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
       {...props}
     />
   )
 }
 
-export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function Textarea({ className = '', ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 min-h-[96px]"
+      className={`min-h-[96px] w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 ${className}`}
       {...props}
     />
   )
@@ -88,17 +92,22 @@ export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
 
 export function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <div className="mb-6">
-      <h1 className="text-2xl font-bold text-white">{title}</h1>
-      {subtitle && <p className="mt-1 text-slate-400">{subtitle}</p>}
+    <div className="mb-5">
+      <h1 className="text-2xl font-bold tracking-tight text-zinc-900">{title}</h1>
+      {subtitle && <p className="mt-1 text-sm text-zinc-500">{subtitle}</p>}
     </div>
   )
 }
 
-export function EmptyState({ message }: { message: string }) {
+export function SectionTitle({ children }: { children: ReactNode }) {
+  return <h2 className="mb-3 text-lg font-bold text-zinc-900">{children}</h2>
+}
+
+export function EmptyState({ message, icon }: { message: string; icon?: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-700 bg-slate-900/50 px-6 py-12 text-center text-slate-400">
-      {message}
+    <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-6 py-14 text-center">
+      {icon && <p className="mb-3 text-4xl">{icon}</p>}
+      <p className="text-sm text-zinc-500">{message}</p>
     </div>
   )
 }
@@ -108,33 +117,35 @@ export function Modal({
   onClose,
   title,
   children,
+  wide = false,
 }: {
   open: boolean
   onClose: () => void
   title: string
   children: ReactNode
+  wide?: boolean
 }) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"
         onClick={onClose}
         aria-label="Close dialog"
       />
       <div
         role="dialog"
         aria-modal="true"
-        className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"
+        className={`relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-t-3xl border border-zinc-200 bg-white p-6 shadow-2xl sm:rounded-3xl ${wide ? 'sm:max-w-lg' : 'sm:max-w-md'}`}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          <h2 className="text-xl font-bold text-zinc-900">{title}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="rounded-full p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
             aria-label="Close"
           >
             ✕
@@ -160,7 +171,7 @@ export function Pagination({
   if (totalPages <= 1) return null
 
   return (
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
       <span>
         Page {page} of {totalPages} · {total} total
       </span>

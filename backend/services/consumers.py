@@ -23,17 +23,18 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, close_code):
-
-        await self.channel_layer.group_discard(
-            self.group_name,
-            self.channel_name
-        )
+        if hasattr(self, "group_name"):
+            await self.channel_layer.group_discard(
+                self.group_name,
+                self.channel_name,
+            )
 
     async def send_notification(self, event):
-
+        # group_send puts title/message on the event (not under "data")
+        payload = event.get("data") or event
         await self.send(
             text_data=json.dumps({
-                "title": event["data"]["title"],
-                "message": event["data"]["message"]
+                "title": payload["title"],
+                "message": payload["message"],
             })
         )

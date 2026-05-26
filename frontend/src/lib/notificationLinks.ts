@@ -7,9 +7,9 @@ export function resolveNotificationHref(
   const t = title.toLowerCase()
 
   if (role === 'customer') {
-    if (t.includes('quote')) return '/customer-dashboard' // requests table
+    if (t.includes('quote') || t.includes('service request')) return '/customer/requests'
     if (t.includes('booking') || t.includes('selected')) return '/customer/bookings'
-    return '/customer-dashboard'
+    return '/customer/requests'
   }
 
   if (isProviderRole(role)) {

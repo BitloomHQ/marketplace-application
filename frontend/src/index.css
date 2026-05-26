@@ -1,10 +1,41 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --color-brand: #6d28d9;
+  --color-brand-dark: #5b21b6;
+  --color-surface: #ffffff;
+  --color-canvas: #f4f4f5;
+  --color-muted: #71717a;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  font-family: var(--font-sans);
+  background: var(--color-canvas);
+  color: #18181b;
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Space for fixed bottom tab bar on phones & tablets */
+@utility pb-tab-bar {
+  padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+@utility bottom-tab-offset {
+  bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+@utility scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }

@@ -2,11 +2,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
 import { login as loginApi } from '../api/accounts'
+import { fetchProfile } from '../api/services'
 import { clearToken, getToken, setToken } from '../api/client'
 import type { LoginResponse, User } from '../types'
 
@@ -41,6 +43,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (getToken()) return loadUser()
     return null
   })
+
+  useEffect(() => {
+    const token = getToken()
+    if (!token) return
+
+    fetchProfile()
+      .then((res) => {
+        saveUser(res.user)
+        setUserState(res.user)
+      })
+      .catch(() => {
+        clearToken()
+        saveUser(null)
+        setUserState(null)
+      })
+  }, [])
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await loginApi(email, password)

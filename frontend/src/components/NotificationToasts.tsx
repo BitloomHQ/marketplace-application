@@ -16,7 +16,7 @@ export function NotificationToasts() {
   if (toasts.length === 0) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2 pointer-events-none">
+    <div className="pointer-events-none fixed right-4 z-[100] flex w-full max-w-sm flex-col gap-2 bottom-tab-offset lg:bottom-4">
       {toasts.map((t) => (
         <button
           key={t.id}
@@ -25,14 +25,14 @@ export function NotificationToasts() {
             if (t.href) navigate(t.href)
             dismissToast(t.id)
           }}
-          className="pointer-events-auto w-full rounded-xl border border-slate-700 bg-slate-900/95 p-4 text-left shadow-2xl backdrop-blur transition hover:border-violet-500/50 hover:bg-slate-800"
+          className="pointer-events-auto w-full rounded-2xl border border-zinc-200 bg-white p-4 text-left shadow-lg transition hover:shadow-xl"
         >
           <div className="flex items-start justify-between gap-2">
-            <p className="font-semibold text-sm text-white">{t.title}</p>
-            <span className="shrink-0 text-xs text-slate-500">{formatTime(t.created_at)}</span>
+            <p className="text-sm font-bold text-zinc-900">{t.title}</p>
+            <span className="shrink-0 text-xs text-zinc-400">{formatTime(t.created_at)}</span>
           </div>
-          <p className="mt-1 text-sm text-slate-400 line-clamp-2">{t.message}</p>
-          <p className="mt-2 text-xs text-violet-400">Click to view →</p>
+          <p className="mt-1 line-clamp-2 text-sm text-zinc-500">{t.message}</p>
+          <p className="mt-2 text-xs font-semibold text-violet-600">Tap to open</p>
         </button>
       ))}
     </div>

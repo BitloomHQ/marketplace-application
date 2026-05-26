@@ -9,13 +9,14 @@ import { CustomerLoginPage } from './pages/auth/CustomerLoginPage'
 import { CustomerRegisterPage } from './pages/auth/CustomerRegisterPage'
 import { ProviderLoginPage } from './pages/auth/ProviderLoginPage'
 import { ProviderRegisterPage } from './pages/auth/ProviderRegisterPage'
-import { CreateRequestPage } from './pages/customer/CreateRequestPage'
 import { CustomerDashboard } from './pages/customer/CustomerDashboard'
 import { MyBookingsPage } from './pages/customer/MyBookingsPage'
+import { MyRequestsPage } from './pages/customer/MyRequestsPage'
 import { ViewQuotesPage } from './pages/customer/ViewQuotesPage'
 import { ProviderBookingsPage } from './pages/provider/ProviderBookingsPage'
 import { ProviderDashboard } from './pages/provider/ProviderDashboard'
 import { ProviderLeadsPage } from './pages/provider/ProviderLeadsPage'
+import { ProfilePage } from './pages/ProfilePage'
 
 function HomeRedirect() {
   const { isAuthenticated, user } = useAuth()
@@ -46,8 +47,8 @@ function AppRoutes() {
         }
       >
         <Route path="/customer-dashboard" element={<ProtectedRoute roles={['customer']}><CustomerDashboard /></ProtectedRoute>} />
-        <Route path="/customer/create-request" element={<ProtectedRoute roles={['customer']}><CreateRequestPage /></ProtectedRoute>} />
         <Route path="/customer/quotes/:requestId" element={<ProtectedRoute roles={['customer']}><ViewQuotesPage /></ProtectedRoute>} />
+        <Route path="/customer/requests" element={<ProtectedRoute roles={['customer']}><MyRequestsPage /></ProtectedRoute>} />
         <Route path="/customer/bookings" element={<ProtectedRoute roles={['customer']}><MyBookingsPage /></ProtectedRoute>} />
 
         <Route path="/gardener-dashboard" element={<ProtectedRoute roles={['gardener']}><ProviderDashboard /></ProtectedRoute>} />
@@ -55,6 +56,7 @@ function AppRoutes() {
         <Route path="/plumber-dashboard" element={<ProtectedRoute roles={['plumber']}><ProviderDashboard /></ProtectedRoute>} />
         <Route path="/provider/leads" element={<ProtectedRoute roles={['gardener', 'electrician', 'plumber']}><ProviderLeadsPage /></ProtectedRoute>} />
         <Route path="/provider/bookings" element={<ProtectedRoute roles={['gardener', 'electrician', 'plumber']}><ProviderBookingsPage /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
       <Route path="/dashboard" element={<HomeRedirect />} />

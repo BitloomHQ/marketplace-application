@@ -31,6 +31,7 @@ export interface Lead {
   description: string | null
   image: string | null
   status: string
+  has_quoted: boolean
 }
 
 export interface Quote {

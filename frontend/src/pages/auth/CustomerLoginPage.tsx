@@ -41,7 +41,7 @@ export function CustomerLoginPage() {
 
   return (
     <Card>
-      <PageHeader title="Customer sign in" subtitle="Book plumbers, electricians, and gardeners" />
+      <PageHeader title="Welcome back" subtitle="Sign in to book home services" />
       {error && (
         <div className="mb-4">
           <Alert variant="error">{error}</Alert>
@@ -66,7 +66,7 @@ export function CustomerLoginPage() {
           />
         </Field>
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? 'Signing in…' : 'Sign in as customer'}
+          {loading ? 'Signing in…' : 'Continue'}
         </Button>
       </form>
       <AuthPortalLinks portal="customer" />

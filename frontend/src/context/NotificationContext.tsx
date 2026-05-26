@@ -97,33 +97,61 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const token = getToken()
     if (!token) return
 
-    const ws = new WebSocket(wsUrl(token))
-    wsRef.current = ws
+    let cancelled = false
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined
 
-    ws.onopen = () => setConnected(true)
-    ws.onclose = () => setConnected(false)
-    ws.onerror = () => setConnected(false)
+    const connect = () => {
+      if (cancelled) return
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data) as { title: string; message: string }
-        const item: NotificationItem = enrichNotification({
-          id: `ws-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          title: data.title,
-          message: data.message,
-          is_read: false,
-          created_at: new Date().toISOString(),
-        })
-        setNotifications((prev) => [item, ...prev])
-        setUnreadCount((c) => c + 1)
-        pushToast(item)
-      } catch {
-        /* ignore */
+      const ws = new WebSocket(wsUrl(token))
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        if (!cancelled) setConnected(true)
+      }
+
+      ws.onclose = () => {
+        setConnected(false)
+        if (!cancelled) {
+          reconnectTimer = setTimeout(connect, 4000)
+        }
+      }
+
+      ws.onerror = () => {
+        setConnected(false)
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data) as { title: string; message: string }
+          const item: NotificationItem = enrichNotification({
+            id: `ws-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            title: data.title,
+            message: data.message,
+            is_read: false,
+            created_at: new Date().toISOString(),
+          })
+          setNotifications((prev) => [item, ...prev])
+          setUnreadCount((c) => c + 1)
+          pushToast(item)
+        } catch {
+          /* ignore */
+        }
       }
     }
 
+    connect()
+
+    // Fallback: poll REST in case WebSocket/Redis is down
+    const pollInterval = setInterval(() => {
+      refresh().catch(() => {})
+    }, 30000)
+
     return () => {
-      ws.close()
+      cancelled = true
+      clearInterval(pollInterval)
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      wsRef.current?.close()
       wsRef.current = null
     }
   }, [isAuthenticated, refresh, enrichNotification, pushToast])
