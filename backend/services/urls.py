@@ -9,6 +9,11 @@ from .views import (
     my_bookings,
     update_booking_status,
     submit_review,
+    my_requests,
+    get_notifications,
+    mark_notifications_read,
+    get_profile,
+    update_profile,
 )
 
 urlpatterns = [
@@ -60,4 +65,31 @@ urlpatterns = [
         submit_review,
         name="submit_review"
     ),
+    path(
+    "my-requests/",
+    my_requests,
+    name="my_requests"
+),
+path(
+    "notifications/",
+    get_notifications,
+    name="get_notifications"
+),
+
+path(
+    "notifications/mark-read/",
+    mark_notifications_read,
+    name="mark_notifications_read"
+),
+path(
+    "profile/",
+    get_profile,
+    name="get_profile"
+),
+
+path(
+    "update-profile/",
+    update_profile,
+    name="update_profile"
+),
 ]

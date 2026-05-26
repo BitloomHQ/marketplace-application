@@ -11,6 +11,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
         if self.user.is_anonymous:
             await self.close()
+            return
 
         self.group_name = f"user_{self.user.id}"
 
@@ -30,7 +31,9 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
     async def send_notification(self, event):
 
-        await self.send(text_data=json.dumps({
-            "title": event["title"],
-            "message": event["message"]
-        }))
+        await self.send(
+            text_data=json.dumps({
+                "title": event["data"]["title"],
+                "message": event["data"]["message"]
+            })
+        )

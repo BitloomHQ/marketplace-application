@@ -9,6 +9,8 @@ from channels.layers import get_channel_layer
 from .models import ServiceRequest, Booking, Quote, Review, Notification
 from accounts.models import User
 
+from django.core.paginator import Paginator
+
 
 # ==============================
 # HELPERS
@@ -385,23 +387,37 @@ def my_bookings(request):
     if request.user.role == "customer":
         bookings = Booking.objects.filter(
             customer=request.user
-        )
+        ).order_by("-created_at")
+
     else:
         bookings = Booking.objects.filter(
             provider=request.user
-        )
+        ).order_by("-created_at")
 
     return Response({
         "success": True,
         "bookings": [
             {
                 "id": booking.id,
+
                 "service_type": booking.service_request.service_type,
+
                 "customer": booking.customer.username,
+
                 "provider": booking.provider.username,
+
+                "provider_id": booking.provider.id,
+
                 "final_price": booking.final_price,
+
                 "status": booking.status,
-                "created_at": booking.created_at
+
+                "created_at": booking.created_at,
+
+                "has_review": Review.objects.filter(
+                    booking=booking,
+                    customer=booking.customer
+                ).exists()
             }
             for booking in bookings
         ]
@@ -430,8 +446,19 @@ def update_booking_status(request):
             status=status.HTTP_404_NOT_FOUND
         )
 
+    # Reject updates if already completed/cancelled
+    if booking.status in ["completed", "cancelled"]:
+        return Response(
+            {
+                "success": False,
+                "message": f"Booking already {booking.status}"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
     allowed = [
         "assigned",
+        "pending",
         "in_progress",
         "completed",
         "cancelled"
@@ -446,34 +473,86 @@ def update_booking_status(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    if booking.provider != request.user:
-        return Response(
-            {
-                "success": False,
-                "message": "Unauthorized"
-            },
-            status=status.HTTP_403_FORBIDDEN
+    # ==============================
+    # PROVIDER UPDATE
+    # ==============================
+    if booking.provider == request.user:
+
+        booking.status = new_status
+        booking.save()
+
+        booking.service_request.status = new_status
+        booking.service_request.save()
+
+        # Notify customer
+        notify(
+            booking.customer,
+            "Booking Update",
+            f"Your job is now {new_status}"
         )
 
-    booking.status = new_status
-    booking.save()
+        return Response({
+            "success": True,
+            "status": new_status
+        })
 
-    booking.service_request.status = new_status
-    booking.service_request.save()
+    # ==============================
+    # CUSTOMER CANCEL
+    # ==============================
+    elif booking.customer == request.user:
 
-    # Notify customer
-    notify(
-        booking.customer,
-        "Booking Update",
-        f"Your job is now {new_status}"
+        # Customer can only cancel
+        if new_status != "cancelled":
+            return Response(
+                {
+                    "success": False,
+                    "message": "Customers can only cancel bookings"
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Allow cancel only in assigned/pending
+        if booking.status not in ["assigned", "pending"]:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Booking cannot be cancelled now"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        booking.status = "cancelled"
+        booking.save()
+
+        booking.service_request.status = "cancelled"
+        booking.service_request.save()
+
+        # Notify provider
+        notify(
+            booking.provider,
+            "Booking Cancelled",
+            f"{booking.customer.username} cancelled the booking"
+        )
+
+        return Response({
+            "success": True,
+            "status": "cancelled"
+        })
+
+    # ==============================
+    # UNAUTHORIZED
+    # ==============================
+    return Response(
+        {
+            "success": False,
+            "message": "Unauthorized"
+        },
+        status=status.HTTP_403_FORBIDDEN
     )
 
-    return Response({
-        "success": True,
-        "status": new_status
-    })
-
-
+# ==============================
+# SUBMIT REVIEW
+# ==============================
 # ==============================
 # SUBMIT REVIEW
 # ==============================
@@ -483,38 +562,298 @@ def submit_review(request):
 
     booking_id = request.data.get("booking_id")
     provider_id = request.data.get("provider_id")
+    rating = request.data.get("rating")
 
     booking = get_booking_or_404(booking_id)
 
     if not booking:
         return Response(
-            {"success": False, "message": "Booking not found"},
+            {
+                "success": False,
+                "message": "Booking not found"
+            },
             status=status.HTTP_404_NOT_FOUND
         )
 
-    try:
-        provider = User.objects.get(id=provider_id)
-    except User.DoesNotExist:
+    # Only customer can review
+    if booking.customer != request.user:
         return Response(
-            {"success": False, "message": "Provider not found"},
-            status=status.HTTP_404_NOT_FOUND
+            {
+                "success": False,
+                "message": "Only customer can submit review"
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Booking must be completed
+    if booking.status != "completed":
+        return Response(
+            {
+                "success": False,
+                "message": "Review allowed only after completion"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Provider must match booking provider
+    if int(provider_id) != booking.provider.id:
+        return Response(
+            {
+                "success": False,
+                "message": "Invalid provider"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Prevent duplicate reviews
+    if Review.objects.filter(
+        booking=booking,
+        customer=request.user
+    ).exists():
+
+        return Response(
+            {
+                "success": False,
+                "message": "Review already submitted"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Rating validation
+    try:
+        rating = int(rating)
+
+        if rating < 1 or rating > 5:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Rating must be between 1 and 5"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    except (TypeError, ValueError):
+        return Response(
+            {
+                "success": False,
+                "message": "Invalid rating"
+            },
+            status=status.HTTP_400_BAD_REQUEST
         )
 
     review = Review.objects.create(
         booking=booking,
         customer=request.user,
-        provider=provider,
-        rating=request.data.get("rating"),
+        provider=booking.provider,
+        rating=rating,
         review=request.data.get("review")
     )
 
-    notify(
-        provider,
-        "New Review",
-        f"You received {review.rating} stars"
+    # Notify provider safely
+    try:
+        notify(
+            booking.provider,
+            "New Review",
+            f"You received {review.rating} stars"
+        )
+    except Exception:
+        pass
+
+    return Response(
+        {
+            "success": True,
+            "review_id": review.id
+        },
+        status=status.HTTP_201_CREATED
     )
+
+
+# ==============================
+# MY REQUESTS
+# ==============================
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_requests(request):
+
+    # Customer only
+    if request.user.role != "customer":
+        return Response(
+            {
+                "success": False,
+                "message": "Only customers allowed"
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    page = int(request.GET.get("page", 1))
+    page_size = int(request.GET.get("page_size", 10))
+
+    requests_queryset = ServiceRequest.objects.filter(
+        customer=request.user
+    ).order_by("-created_at")
+
+    paginator = Paginator(requests_queryset, page_size)
+
+    current_page = paginator.get_page(page)
+
+    requests_data = []
+
+    for req in current_page:
+
+        booking = Booking.objects.filter(
+            service_request=req
+        ).first()
+
+        requests_data.append({
+            "id": req.id,
+
+            "service_type": req.service_type,
+
+            "address": req.address,
+
+            "description": req.description,
+
+            "status": req.status,
+
+            "is_booked": req.is_booked,
+
+            "booking_id": booking.id if booking else None,
+
+            "booking_status": booking.status if booking else None,
+
+            "created_at": req.created_at
+        })
 
     return Response({
         "success": True,
-        "review_id": review.id
-    }, status=status.HTTP_201_CREATED)
+
+        "page": page,
+
+        "page_size": page_size,
+
+        "total": paginator.count,
+
+        "total_pages": paginator.num_pages,
+
+        "booked_count": requests_queryset.filter(
+            is_booked=True
+        ).count(),
+
+        "requests": requests_data
+    })
+
+# ==============================
+# GET NOTIFICATIONS
+# ==============================
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_notifications(request):
+
+    notifications = Notification.objects.filter(
+        user=request.user
+    ).order_by("-created_at")
+
+    return Response({
+        "success": True,
+
+        "unread_count": notifications.filter(
+            is_read=False
+        ).count(),
+
+        "notifications": [
+            {
+                "id": notification.id,
+
+                "title": notification.title,
+
+                "message": notification.message,
+
+                "is_read": notification.is_read,
+
+                "created_at": notification.created_at
+            }
+            for notification in notifications
+        ]
+    })
+
+# ==============================
+# MARK NOTIFICATIONS AS READ
+# ==============================
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mark_notifications_read(request):
+
+    Notification.objects.filter(
+        user=request.user,
+        is_read=False
+    ).update(is_read=True)
+
+    return Response({
+        "success": True,
+        "unread_count": 0
+    })
+
+# ==============================
+# GET PROFILE
+# ==============================
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_profile(request):
+
+    user = request.user
+
+    return Response({
+        "success": True,
+
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "phone": user.phone if hasattr(user, "phone") else None,
+            "address": user.address if hasattr(user, "address") else None,
+        }
+    })
+
+# ==============================
+# UPDATE PROFILE
+# ==============================
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def update_profile(request):
+
+    user = request.user
+
+    username = request.data.get("username")
+    email = request.data.get("email")
+    phone = request.data.get("phone")
+    address = request.data.get("address")
+
+    # Update fields if provided
+    if username:
+        user.username = username
+
+    if email:
+        user.email = email
+
+    if phone and hasattr(user, "phone"):
+        user.phone = phone
+
+    if address and hasattr(user, "address"):
+        user.address = address
+
+    user.save()
+
+    return Response({
+        "success": True,
+        "message": "Profile updated successfully",
+
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "phone": user.phone if hasattr(user, "phone") else None,
+            "address": user.address if hasattr(user, "address") else None,
+        }
+    })
