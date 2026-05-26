@@ -14,8 +14,7 @@ from .views import (
     mark_notifications_read,
     get_profile,
     update_profile,
-    update_service_type,
-    update_request_service_type,
+    
 )
 
 urlpatterns = [
@@ -94,14 +93,5 @@ path(
     update_profile,
     name="update_profile"
 ),
-path(
-    "update-service-type/",
-    update_service_type,
-    name="update_service_type"
-),
-path(
-    "update-request-service-type/",
-    update_request_service_type,
-    name="update_request_service_type"
-),
+
 ]

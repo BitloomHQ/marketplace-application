@@ -879,8 +879,9 @@ def update_profile(request):
     email = request.data.get("email")
     phone = request.data.get("phone")
     address = request.data.get("address")
+    service_type = request.data.get("service_type")
 
-    # Update fields if provided
+    # Update basic fields
     if username:
         user.username = username
 
@@ -892,6 +893,38 @@ def update_profile(request):
 
     if address and hasattr(user, "address"):
         user.address = address
+
+    # Provider can update service type
+    allowed_service_types = [
+        "plumber",
+        "gardener",
+        "electrician"
+    ]
+
+    if service_type:
+
+        # Customer cannot update service type
+        if user.role == "customer":
+
+            return Response(
+                {
+                    "success": False,
+                    "message": "Customers cannot update service type"
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if service_type not in allowed_service_types:
+
+            return Response(
+                {
+                    "success": False,
+                    "message": "Invalid service type"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.role = service_type
 
     user.save()
 
@@ -909,57 +942,3 @@ def update_profile(request):
         }
     })
 
-# ==============================
-# UPDATE SERVICE TYPE
-# ==============================
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def update_service_type(request):
-
-    # Customer cannot change service type
-    if request.user.role == "customer":
-
-        return Response(
-            {
-                "success": False,
-                "message": "Only providers can update service type"
-            },
-            status=status.HTTP_403_FORBIDDEN
-        )
-
-    new_service_type = request.data.get("service_type")
-
-    allowed_service_types = [
-        "plumber",
-        "gardener",
-        "electrician",
-        "cleaner",
-        "carpenter"
-    ]
-
-    if new_service_type not in allowed_service_types:
-
-        return Response(
-            {
-                "success": False,
-                "message": "Invalid service type"
-            },
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    old_service_type = request.user.role
-
-    request.user.role = new_service_type
-
-    request.user.save()
-
-    return Response({
-        "success": True,
-        "message": f"Service type updated from {old_service_type} to {new_service_type}",
-
-        "user": {
-            "id": request.user.id,
-            "username": request.user.username,
-            "service_type": request.user.role
-        }
-    })
