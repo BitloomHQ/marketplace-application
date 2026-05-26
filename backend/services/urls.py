@@ -14,6 +14,7 @@ from .views import (
     mark_notifications_read,
     get_profile,
     update_profile,
+    
 )
 
 urlpatterns = [
@@ -92,4 +93,5 @@ path(
     update_profile,
     name="update_profile"
 ),
+
 ]

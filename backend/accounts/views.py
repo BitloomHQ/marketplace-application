@@ -9,7 +9,7 @@ from rest_framework.authtoken.models import Token
 
 from .models import User
 from .serializers import RegisterSerializer
-
+from services.models import Review
 
 # =====================================
 # REGISTER API
@@ -119,26 +119,80 @@ def dashboard_api(request):
         "address": user.address,
     }
 
+    # Provider rating logic
+    if user.role != "customer":
+
+        provider_reviews = Review.objects.filter(
+            provider=user
+        )
+
+        average_rating = 0
+
+        if provider_reviews.exists():
+
+            total = sum(
+                review.rating
+                for review in provider_reviews
+            )
+
+            average_rating = round(
+                total / provider_reviews.count(),
+                1
+            )
+
+        dashboard_data["average_rating"] = average_rating
+
+        dashboard_data["total_reviews"] = provider_reviews.count()
+
+    # Customer Dashboard
     if user.role == "customer":
 
         dashboard_data["dashboard_type"] = "Customer Dashboard"
-        dashboard_data["services"] = ["Gardener", "Electrician", "Plumber"]
-        dashboard_data["features"] = ["Book Services", "View Bookings", "Track Requests"]
 
+        dashboard_data["services"] = [
+            "Gardener",
+            "Electrician",
+            "Plumber"
+        ]
+
+        dashboard_data["features"] = [
+            "Book Services",
+            "View Bookings",
+            "Track Requests"
+        ]
+
+    # Gardener Dashboard
     elif user.role == "gardener":
 
         dashboard_data["dashboard_type"] = "Gardener Dashboard"
-        dashboard_data["features"] = ["View Lawn Requests", "Accept Booking", "Manage Services"]
 
+        dashboard_data["features"] = [
+            "View Lawn Requests",
+            "Accept Booking",
+            "Manage Services"
+        ]
+
+    # Electrician Dashboard
     elif user.role == "electrician":
 
         dashboard_data["dashboard_type"] = "Electrician Dashboard"
-        dashboard_data["features"] = ["View Electrical Requests", "Send Quotations", "Manage Jobs"]
 
+        dashboard_data["features"] = [
+            "View Electrical Requests",
+            "Send Quotations",
+            "Manage Jobs"
+        ]
+
+    # Plumber Dashboard
     elif user.role == "plumber":
 
         dashboard_data["dashboard_type"] = "Plumber Dashboard"
-        dashboard_data["features"] = ["View Plumbing Requests", "Send Quotations", "Manage Jobs"]
+
+        dashboard_data["features"] = [
+            "View Plumbing Requests",
+            "Send Quotations",
+            "Manage Jobs"
+        ]
 
     return Response({
         "success": True,

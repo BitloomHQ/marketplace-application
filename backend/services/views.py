@@ -262,6 +262,9 @@ def send_quote(request):
 # ==============================
 # VIEW QUOTES
 # ==============================
+# ==============================
+# VIEW QUOTES
+# ==============================
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def view_quotes(request, request_id):
@@ -286,20 +289,68 @@ def view_quotes(request, request_id):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    quotes = Quote.objects.filter(service_request=sr)
+    quotes = Quote.objects.filter(
+        service_request=sr
+    )
+
+    quotes_data = []
+
+    for q in quotes:
+
+        provider_reviews = Review.objects.filter(
+            provider=q.provider
+        )
+
+        average_rating = 0
+
+        if provider_reviews.exists():
+
+            total = sum(
+                review.rating
+                for review in provider_reviews
+            )
+
+            average_rating = round(
+                total / provider_reviews.count(),
+                1
+            )
+
+        quotes_data.append({
+
+            "id": q.id,
+
+            "provider": q.provider.username,
+
+            "provider_id": q.provider.id,
+
+            "provider_email": q.provider.email,
+
+            "provider_phone": getattr(
+                q.provider,
+                "phone",
+                None
+            ),
+
+            "provider_address": getattr(
+                q.provider,
+                "address",
+                None
+            ),
+
+            "average_rating": average_rating,
+
+            "total_reviews": provider_reviews.count(),
+
+            "price": q.price,
+
+            "message": q.message,
+
+            "status": q.status
+        })
 
     return Response({
         "success": True,
-        "quotes": [
-            {
-                "id": q.id,
-                "provider": q.provider.username,
-                "price": q.price,
-                "message": q.message,
-                "status": q.status
-            }
-            for q in quotes
-        ]
+        "quotes": quotes_data
     })
 
 
@@ -842,8 +893,9 @@ def update_profile(request):
     email = request.data.get("email")
     phone = request.data.get("phone")
     address = request.data.get("address")
+    service_type = request.data.get("service_type")
 
-    # Update fields if provided
+    # Update basic fields
     if username:
         user.username = username
 
@@ -855,6 +907,38 @@ def update_profile(request):
 
     if address and hasattr(user, "address"):
         user.address = address
+
+    # Provider can update service type
+    allowed_service_types = [
+        "plumber",
+        "gardener",
+        "electrician"
+    ]
+
+    if service_type:
+
+        # Customer cannot update service type
+        if user.role == "customer":
+
+            return Response(
+                {
+                    "success": False,
+                    "message": "Customers cannot update service type"
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if service_type not in allowed_service_types:
+
+            return Response(
+                {
+                    "success": False,
+                    "message": "Invalid service type"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.role = service_type
 
     user.save()
 
@@ -871,3 +955,4 @@ def update_profile(request):
             "address": user.address if hasattr(user, "address") else None,
         }
     })
+
