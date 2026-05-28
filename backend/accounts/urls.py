@@ -18,7 +18,13 @@ from .views import (
 
     providers_by_service,
 
-    customer_dashboard
+    customer_dashboard,
+    
+    add_address,
+
+    my_addresses,
+
+    delete_address,
 )
 
 
@@ -65,4 +71,7 @@ urlpatterns = [
         providers_by_service,
         name='providers_dashboard'
     ),
+    path("add-address/", add_address,name='add_address'),
+    path("my-addresses/", my_addresses,name='my_addresses'),
+    path("delete-address/<int:address_id>/", delete_address,name='delete_address'),
 ]

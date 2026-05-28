@@ -1,24 +1,38 @@
 from django.urls import path
 
 from .views import (
+
+    # SERVICE REQUESTS
     create_service_request,
     provider_leads,
+    my_requests,
+
+    # QUOTES
     send_quote,
     view_quotes,
     select_provider,
+
+    # BOOKINGS
     my_bookings,
     update_booking_status,
+
+    # REVIEWS
     submit_review,
-    my_requests,
+
+    # NOTIFICATIONS
     get_notifications,
     mark_notifications_read,
+
+    # PROFILE
     get_profile,
     update_profile,
-    
 )
 
 urlpatterns = [
 
+    # =========================================
+    # SERVICE REQUESTS
+    # =========================================
     path(
         "create/",
         create_service_request,
@@ -31,6 +45,15 @@ urlpatterns = [
         name="provider_leads"
     ),
 
+    path(
+        "my-requests/",
+        my_requests,
+        name="my_requests"
+    ),
+
+    # =========================================
+    # QUOTES
+    # =========================================
     path(
         "send-quote/",
         send_quote,
@@ -49,6 +72,9 @@ urlpatterns = [
         name="select_provider"
     ),
 
+    # =========================================
+    # BOOKINGS
+    # =========================================
     path(
         "my-bookings/",
         my_bookings,
@@ -61,37 +87,42 @@ urlpatterns = [
         name="update_booking_status"
     ),
 
+    # =========================================
+    # REVIEWS
+    # =========================================
     path(
         "submit-review/",
         submit_review,
         name="submit_review"
     ),
+
+    # =========================================
+    # NOTIFICATIONS
+    # =========================================
     path(
-    "my-requests/",
-    my_requests,
-    name="my_requests"
-),
-path(
-    "notifications/",
-    get_notifications,
-    name="get_notifications"
-),
+        "notifications/",
+        get_notifications,
+        name="get_notifications"
+    ),
 
-path(
-    "notifications/mark-read/",
-    mark_notifications_read,
-    name="mark_notifications_read"
-),
-path(
-    "profile/",
-    get_profile,
-    name="get_profile"
-),
+    path(
+        "notifications/mark-read/",
+        mark_notifications_read,
+        name="mark_notifications_read"
+    ),
 
-path(
-    "update-profile/",
-    update_profile,
-    name="update_profile"
-),
+    # =========================================
+    # PROFILE
+    # =========================================
+    path(
+        "profile/",
+        get_profile,
+        name="get_profile"
+    ),
 
+    path(
+        "update-profile/",
+        update_profile,
+        name="update_profile"
+    ),
 ]
