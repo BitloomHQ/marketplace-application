@@ -610,6 +610,16 @@ def my_bookings(request):
 
                 "provider_id": booking.provider.id,
 
+                "address": service_request_address_text(booking.service_request),
+
+                "lat": booking.service_request.lat,
+
+                "lon": booking.service_request.lon,
+
+                "lawn_area": booking.service_request.lawn_area,
+
+                "polygon_points": booking.service_request.polygon_points,
+
                 "has_review": Review.objects.filter(
                     booking=booking,
                     customer=booking.customer,

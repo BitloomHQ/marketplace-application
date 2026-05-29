@@ -13,6 +13,10 @@ export type ServiceRequestSummary = {
   id: number
   service_type: string
   address: string
+  lat?: number | null
+  lon?: number | null
+  lawn_area?: number | null
+  polygon_points?: PolygonPoint[] | null
   description: string | null
   status: string
   is_booked: boolean

@@ -68,6 +68,11 @@ export interface Booking {
   customer: string
   provider: string
   provider_id?: number
+  address?: string
+  lat?: number | null
+  lon?: number | null
+  lawn_area?: number | null
+  polygon_points?: PolygonPoint[] | null
   final_price: number
   status: BookingStatus
   created_at: string

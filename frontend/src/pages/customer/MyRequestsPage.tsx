@@ -8,6 +8,7 @@ import {
 import { ApiRequestError } from '../../api/client'
 import { CreateRequestModal } from '../../components/CreateRequestModal'
 import { ProviderProfileModal } from '../../components/ProviderProfileModal'
+import { RequestLawnMapSection } from '../../components/RequestLawnMapSection'
 import { Alert, Badge, Button, EmptyState, Pagination } from '../../components/ui'
 import type { ProviderProfile } from '../../types'
 import { canCustomerCancelBooking } from '../../lib/bookingStatus'
@@ -73,6 +74,13 @@ function RequestCard({
           {r.description && (
             <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{r.description}</p>
           )}
+          <RequestLawnMapSection
+            serviceType={r.service_type}
+            lat={r.lat}
+            lon={r.lon}
+            lawnArea={r.lawn_area}
+            polygonPoints={r.polygon_points}
+          />
           {providerProfile && (
             <p className="mt-2 text-sm text-zinc-600">
               <button

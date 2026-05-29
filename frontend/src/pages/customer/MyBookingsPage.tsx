@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchMyBookings, updateBookingStatus } from '../../api/services'
 import { ApiRequestError } from '../../api/client'
+import { RequestLawnMapSection } from '../../components/RequestLawnMapSection'
 import { ReviewModal } from '../../components/ReviewModal'
 import { Alert, Badge, Button, EmptyState } from '../../components/ui'
 import { canCustomerCancelBooking } from '../../lib/bookingStatus'
@@ -93,6 +94,16 @@ export function MyBookingsPage() {
                       with <span className="font-semibold">{b.provider}</span>
                     </p>
                     <p className="mt-2 text-xl font-bold text-zinc-900">₹{b.final_price}</p>
+                    {b.address && (
+                      <p className="mt-1 truncate text-sm text-zinc-500">{b.address}</p>
+                    )}
+                    <RequestLawnMapSection
+                      serviceType={b.service_type}
+                      lat={b.lat}
+                      lon={b.lon}
+                      lawnArea={b.lawn_area}
+                      polygonPoints={b.polygon_points}
+                    />
                   </div>
 
                   <div className="flex w-[6.75rem] shrink-0 flex-col items-end gap-2">
