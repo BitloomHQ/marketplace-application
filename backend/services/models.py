@@ -1,5 +1,5 @@
 from django.db import models
-from accounts.models import User
+from accounts.models import User, CustomerAddress
 
 
 # =========================================
@@ -29,22 +29,69 @@ class ServiceRequest(models.Model):
         related_name="service_requests"
     )
 
-    service_type = models.CharField(max_length=20, choices=SERVICE_TYPES)
-    address = models.TextField()
+    service_type = models.CharField(
+        max_length=20,
+        choices=SERVICE_TYPES
+    )
 
-    lat = models.FloatField(null=True, blank=True)
-    lon = models.FloatField(null=True, blank=True)
+    # OLD ADDRESS FIELD
+    # KEEP THIS TO AVOID MIGRATION ERROR
+    address = models.TextField(
+        null=True,
+        blank=True
+    )
 
-    lawn_area = models.FloatField(null=True, blank=True)
-    estimated_price = models.FloatField(null=True, blank=True)
+    # NEW MULTIPLE ADDRESS SUPPORT
+    customer_address = models.ForeignKey(
+        CustomerAddress,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="service_requests"
+    )
 
-    description = models.TextField(null=True, blank=True)
+    # AUTO FROM SELECTED ADDRESS
+    lat = models.FloatField(
+        null=True,
+        blank=True
+    )
 
-    image = models.ImageField(upload_to="service_requests/", null=True, blank=True)
+    lon = models.FloatField(
+        null=True,
+        blank=True
+    )
 
-    is_booked = models.BooleanField(default=False)
+    # GARDENER FEATURES
+    lawn_area = models.FloatField(
+        null=True,
+        blank=True
+    )
 
-    # ⚠️ KEEP ONLY ONE SOURCE OF TRUTH (selected_provider is optional)
+    polygon_points = models.JSONField(
+        null=True,
+        blank=True
+    )
+
+    estimated_price = models.FloatField(
+        null=True,
+        blank=True
+    )
+
+    description = models.TextField(
+        null=True,
+        blank=True
+    )
+
+    image = models.ImageField(
+        upload_to="service_requests/",
+        null=True,
+        blank=True
+    )
+
+    is_booked = models.BooleanField(
+        default=False
+    )
+
     selected_provider = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -59,8 +106,13 @@ class ServiceRequest(models.Model):
         default="pending"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
 
     def __str__(self):
         return f"{self.customer.username} - {self.service_type}"
@@ -90,7 +142,11 @@ class Quote(models.Model):
     )
 
     price = models.FloatField()
-    message = models.TextField(blank=True, null=True)
+
+    message = models.TextField(
+        blank=True,
+        null=True
+    )
 
     status = models.CharField(
         max_length=20,
@@ -98,7 +154,9 @@ class Quote(models.Model):
         default="pending"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
 
     class Meta:
         unique_together = ("service_request", "provider")
@@ -119,7 +177,10 @@ class Booking(models.Model):
         ("cancelled", "Cancelled"),
     )
 
-    service_request = models.OneToOneField(ServiceRequest, on_delete=models.CASCADE)
+    service_request = models.OneToOneField(
+        ServiceRequest,
+        on_delete=models.CASCADE
+    )
 
     customer = models.ForeignKey(
         User,
@@ -148,9 +209,18 @@ class Booking(models.Model):
         default="assigned"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True
+    )
 
     def __str__(self):
         return f"{self.customer.username} booked {self.provider.username}"
@@ -161,7 +231,10 @@ class Booking(models.Model):
 # =========================================
 class Review(models.Model):
 
-    booking = models.OneToOneField(Booking, on_delete=models.CASCADE)
+    booking = models.OneToOneField(
+        Booking,
+        on_delete=models.CASCADE
+    )
 
     customer = models.ForeignKey(
         User,
@@ -177,16 +250,21 @@ class Review(models.Model):
 
     rating = models.IntegerField()
 
-    review = models.TextField(null=True, blank=True)
+    review = models.TextField(
+        null=True,
+        blank=True
+    )
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
 
     def __str__(self):
         return f"{self.provider.username} - {self.rating} Stars"
 
 
 # =========================================
-# NOTIFICATIONS (NEW)
+# NOTIFICATIONS
 # =========================================
 class Notification(models.Model):
 
@@ -196,12 +274,20 @@ class Notification(models.Model):
         related_name="notifications"
     )
 
-    title = models.CharField(max_length=255, default="Update")
+    title = models.CharField(
+        max_length=255,
+        default="Update"
+    )
+
     message = models.TextField()
 
-    is_read = models.BooleanField(default=False)
+    is_read = models.BooleanField(
+        default=False
+    )
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.title}"

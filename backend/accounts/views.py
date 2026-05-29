@@ -275,3 +275,76 @@ def customer_dashboard(request):
             "address": user.address,
         }
     })
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .models import CustomerAddress
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def add_address(request):
+
+    address = CustomerAddress.objects.create(
+        customer=request.user,
+        title=request.data.get("title"),
+        address=request.data.get("address"),
+        latitude=request.data.get("latitude"),
+        longitude=request.data.get("longitude"),
+    )
+
+    return Response({
+        "success": True,
+        "address": {
+            "id": address.id,
+            "title": address.title,
+            "address": address.address,
+            "latitude": address.latitude,
+            "longitude": address.longitude,
+        }
+    })
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_addresses(request):
+
+    addresses = CustomerAddress.objects.filter(
+        customer=request.user
+    ).order_by("-created_at")
+
+    return Response({
+        "success": True,
+        "addresses": [
+            {
+                "id": item.id,
+                "title": item.title,
+                "address": item.address,
+                "latitude": item.latitude,
+                "longitude": item.longitude,
+            }
+            for item in addresses
+        ]
+    })
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_address(request, address_id):
+
+    address = CustomerAddress.objects.filter(
+        id=address_id,
+        customer=request.user
+    ).first()
+
+    if not address:
+        return Response({
+            "success": False,
+            "message": "Address not found"
+        })
+
+    address.delete()
+
+    return Response({
+        "success": True,
+        "message": "Address deleted"
+    })
