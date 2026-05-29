@@ -23,7 +23,7 @@ export interface CustomerAddress {
   lon: number | null
 }
 
-export type PolygonPoint = { x: number; y: number }
+export type PolygonPoint = { lat: number; lon: number }
 
 export interface LoginResponse {
   success: boolean

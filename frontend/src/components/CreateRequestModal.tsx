@@ -5,12 +5,12 @@ import { createServiceRequest } from '../api/services'
 import { ApiRequestError } from '../api/client'
 import { LawnPolygonDrawer } from './LawnPolygonDrawer'
 import { Alert, Button, Field, Input, Modal, Select, Textarea } from './ui'
-import { polygonArea } from '../lib/polygon'
+import { polygonAreaSqMeters } from '../lib/polygon'
 import { SERVICE_OPTIONS } from '../lib/format'
 import { addStoredRequestId } from '../lib/storage'
 import type { CustomerAddress, PolygonPoint, ServiceType } from '../types'
 
-const M2_PER_PX2 = 0.0025
+const LAWN_CORNERS = 4
 
 type Props = {
   open: boolean
@@ -37,10 +37,9 @@ export function CreateRequestModal({
   const [loading, setLoading] = useState(false)
 
   const isGardener = serviceType === 'gardener'
+  const selectedAddress = addresses.find((a) => String(a.id) === addressId)
   const lawnAreaM2 =
-    polygonPoints.length >= 3
-      ? Math.round(polygonArea(polygonPoints) * M2_PER_PX2)
-      : undefined
+    polygonPoints.length >= 3 ? Math.round(polygonAreaSqMeters(polygonPoints)) : undefined
 
   useEffect(() => {
     if (!open) return
@@ -59,6 +58,10 @@ export function CreateRequestModal({
       .finally(() => setLoadingAddresses(false))
   }, [open, initialServiceType])
 
+  useEffect(() => {
+    setPolygonPoints([])
+  }, [addressId])
+
   const handleClose = () => {
     if (!loading) onClose()
   }
@@ -69,9 +72,15 @@ export function CreateRequestModal({
       setError('Please select a saved address.')
       return
     }
-    if (isGardener && polygonPoints.length < 3) {
-      setError('Draw the lawn area with at least 3 points.')
-      return
+    if (isGardener) {
+      if (selectedAddress?.lat == null || selectedAddress?.lon == null) {
+        setError('Selected address must have a map location. Update it in Saved addresses.')
+        return
+      }
+      if (polygonPoints.length !== LAWN_CORNERS) {
+        setError(`Mark all ${LAWN_CORNERS} corners of your lawn on the satellite map.`)
+        return
+      }
     }
     setError('')
     setLoading(true)
@@ -155,11 +164,23 @@ export function CreateRequestModal({
 
           {isGardener ? (
             <Field label="Lawn area">
-              <LawnPolygonDrawer
-                value={polygonPoints}
-                onChange={setPolygonPoints}
-                disabled={loading}
-              />
+              {selectedAddress?.lat != null && selectedAddress?.lon != null ? (
+                <LawnPolygonDrawer
+                  centerLat={selectedAddress.lat}
+                  centerLon={selectedAddress.lon}
+                  value={polygonPoints}
+                  onChange={setPolygonPoints}
+                  disabled={loading}
+                />
+              ) : (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  This address has no coordinates.{' '}
+                  <Link to="/customer/addresses" className="font-semibold text-violet-600">
+                    Update the address on the map
+                  </Link>{' '}
+                  before booking gardener services.
+                </p>
+              )}
             </Field>
           ) : (
             <Field label="Photo (optional)">

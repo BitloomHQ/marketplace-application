@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchProviderLeads } from '../../api/services'
 import { ApiRequestError } from '../../api/client'
 import { ImagePreviewModal } from '../../components/ImagePreviewModal'
+import { LawnPolygonPreview } from '../../components/LawnPolygonPreview'
 import { SendQuoteModal } from '../../components/SendQuoteModal'
 import { Alert, Badge, Button, EmptyState } from '../../components/ui'
 import { formatStatus } from '../../lib/format'
@@ -76,11 +77,18 @@ function LeadCard({
               Lawn area: {lead.lawn_area ?? lead.area} m²
             </p>
           )}
-          {lead.polygon_points && lead.polygon_points.length > 0 && (
-            <p className="mt-1 text-xs text-violet-600">
-              Lawn map: {lead.polygon_points.length} points marked
-            </p>
-          )}
+          {lead.lat != null &&
+            lead.lon != null &&
+            lead.polygon_points &&
+            lead.polygon_points.length > 0 && (
+              <LawnPolygonPreview
+                centerLat={lead.lat}
+                centerLon={lead.lon}
+                polygonPoints={lead.polygon_points}
+                lawnArea={lead.lawn_area ?? lead.area}
+                compact
+              />
+            )}
           {lead.lat != null && lead.lon != null && (
             <a
               href={`https://www.google.com/maps?q=${lead.lat},${lead.lon}`}
