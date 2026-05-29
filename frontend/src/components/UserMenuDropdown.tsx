@@ -56,6 +56,18 @@ export function UserMenuDropdown() {
           >
             Account
           </button>
+          {user.role === 'customer' && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                navigate('/customer/addresses')
+              }}
+              className="w-full px-4 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-50"
+            >
+              Saved addresses
+            </button>
+          )}
           <button
             type="button"
             onClick={handleLogout}

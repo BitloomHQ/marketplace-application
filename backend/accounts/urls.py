@@ -25,6 +25,11 @@ from .views import (
     my_addresses,
 
     delete_address,
+    maps_status,
+    maps_autocomplete,
+    maps_place_details,
+    maps_geocode_address,
+    maps_reverse_geocode,
 )
 
 
@@ -74,4 +79,9 @@ urlpatterns = [
     path("add-address/", add_address,name='add_address'),
     path("my-addresses/", my_addresses,name='my_addresses'),
     path("delete-address/<int:address_id>/", delete_address,name='delete_address'),
+    path("maps/status/", maps_status, name="maps_status"),
+    path("maps/autocomplete/", maps_autocomplete, name="maps_autocomplete"),
+    path("maps/place-details/", maps_place_details, name="maps_place_details"),
+    path("maps/geocode-address/", maps_geocode_address, name="maps_geocode_address"),
+    path("maps/reverse-geocode/", maps_reverse_geocode, name="maps_reverse_geocode"),
 ]

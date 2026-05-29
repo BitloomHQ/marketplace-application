@@ -95,7 +95,7 @@ def login_api(request):
             "email": user.email,
             "role": role,
             "phone": user.phone,
-            "address": user.address,
+            "address": "",
         },
         "redirect_url": redirect_map.get(role, "/dashboard")
     }, status=status.HTTP_200_OK)
@@ -272,7 +272,7 @@ def customer_dashboard(request):
             "username": user.username,
             "email": user.email,
             "phone": user.phone,
-            "address": user.address,
+            "address": "",
         }
     })
 
@@ -286,23 +286,63 @@ from .models import CustomerAddress
 @permission_classes([IsAuthenticated])
 def add_address(request):
 
+    if request.user.role != "customer":
+        return Response(
+            {"success": False, "message": "Only customers allowed"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    count = CustomerAddress.objects.filter(customer=request.user).count()
+    if count >= 5:
+        return Response(
+            {"success": False, "message": "Maximum 5 addresses allowed"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    title = request.data.get("title")
+    address_text = request.data.get("address")
+    if not title or not address_text:
+        return Response(
+            {"success": False, "message": "title and address required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    lat = request.data.get("lat", request.data.get("latitude"))
+    lon = request.data.get("lon", request.data.get("longitude"))
+
+    if lat is None or lon is None:
+        return Response(
+            {"success": False, "message": "lat and lon required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        lat = float(lat)
+        lon = float(lon)
+    except (TypeError, ValueError):
+        return Response(
+            {"success": False, "message": "lat and lon must be valid numbers"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     address = CustomerAddress.objects.create(
         customer=request.user,
-        title=request.data.get("title"),
-        address=request.data.get("address"),
-        latitude=request.data.get("latitude"),
-        longitude=request.data.get("longitude"),
+        title=title,
+        address=address_text,
+        latitude=lat,
+        longitude=lon,
     )
 
     return Response({
         "success": True,
+        "message": "Address added successfully",
         "address": {
             "id": address.id,
             "title": address.title,
             "address": address.address,
-            "latitude": address.latitude,
-            "longitude": address.longitude,
-        }
+            "lat": address.latitude,
+            "lon": address.longitude,
+        },
     })
 
 @api_view(["GET"])
@@ -320,11 +360,11 @@ def my_addresses(request):
                 "id": item.id,
                 "title": item.title,
                 "address": item.address,
-                "latitude": item.latitude,
-                "longitude": item.longitude,
+                "lat": item.latitude,
+                "lon": item.longitude,
             }
             for item in addresses
-        ]
+        ],
     })
 
 @api_view(["DELETE"])
@@ -347,4 +387,127 @@ def delete_address(request, address_id):
     return Response({
         "success": True,
         "message": "Address deleted"
+    })
+
+
+# =====================================
+# GOOGLE MAPS (server-side proxy)
+# =====================================
+from .google_maps import (
+    autocomplete_places,
+    geocode_address_text,
+    maps_configured,
+    place_details,
+    reverse_geocode,
+)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def maps_status(request):
+    return Response({
+        "success": True,
+        "configured": maps_configured(),
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def maps_autocomplete(request):
+    query = (request.query_params.get("input") or "").strip()
+    configured = maps_configured()
+
+    if len(query) < 2:
+        return Response({
+            "success": True,
+            "configured": configured,
+            "predictions": [],
+        })
+
+    predictions, err = autocomplete_places(query)
+    if err:
+        return Response(
+            {"success": False, "configured": configured, "message": err},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response({
+        "success": True,
+        "configured": True,
+        "predictions": predictions,
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def maps_place_details(request):
+    place_id = (request.query_params.get("place_id") or "").strip()
+    if not place_id:
+        return Response(
+            {"success": False, "message": "place_id required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    details, err = place_details(place_id)
+    if err:
+        return Response(
+            {"success": False, "message": err},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response({"success": True, **details})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def maps_geocode_address(request):
+    address = (request.query_params.get("address") or "").strip()
+    if len(address) < 3:
+        return Response(
+            {"success": False, "message": "address required (min 3 characters)"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    details, err = geocode_address_text(address)
+    if err:
+        return Response(
+            {"success": False, "message": err},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response({"success": True, **details})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def maps_reverse_geocode(request):
+    lat = request.query_params.get("lat")
+    lon = request.query_params.get("lon")
+    if lat is None or lon is None:
+        return Response(
+            {"success": False, "message": "lat and lon required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        lat_f = float(lat)
+        lon_f = float(lon)
+    except (TypeError, ValueError):
+        return Response(
+            {"success": False, "message": "lat and lon must be numbers"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    address, err = reverse_geocode(lat_f, lon_f)
+    if err:
+        return Response(
+            {"success": False, "message": err},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response({
+        "success": True,
+        "address": address,
+        "lat": lat_f,
+        "lon": lon_f,
     })

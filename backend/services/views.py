@@ -19,6 +19,8 @@ from accounts.models import (
     CustomerAddress
 )
 
+import json
+
 from django.core.paginator import Paginator
 from django.db.models import Exists, OuterRef
 
@@ -72,6 +74,27 @@ def get_booking_or_404(id):
 
     except Booking.DoesNotExist:
         return None
+
+
+def service_request_address_text(sr):
+    if sr.customer_address_id:
+        return sr.customer_address.address
+    if isinstance(sr.address, str):
+        return sr.address
+    return ""
+
+
+def parse_polygon_points(raw):
+    if raw is None or raw == "":
+        return None
+    if isinstance(raw, (list, dict)):
+        return raw
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+    return None
 
 
 def provider_profile_payload(user):
@@ -182,47 +205,31 @@ def create_service_request(request):
     # GET CUSTOMER ADDRESS
     # =========================================
     try:
-
         customer_address = CustomerAddress.objects.get(
             id=address_id,
-            user=request.user
+            customer=request.user,
         )
-
     except CustomerAddress.DoesNotExist:
-
         return Response(
             {
                 "success": False,
-                "message": "Address not found"
+                "message": "Address not found",
             },
-            status=status.HTTP_404_NOT_FOUND
+            status=status.HTTP_404_NOT_FOUND,
         )
 
-    # =========================================
-    # CREATE SERVICE REQUEST
-    # =========================================
     sr = ServiceRequest.objects.create(
-
         customer=request.user,
-
         service_type=service_type,
-
-        address=customer_address,
-
-        # AUTO FROM ADDRESS
-        lat=customer_address.lat,
-        lon=customer_address.lon,
-
-        # GARDENER FEATURES
+        customer_address=customer_address,
+        address=customer_address.address,
+        lat=customer_address.latitude,
+        lon=customer_address.longitude,
         lawn_area=data.get("lawn_area"),
-
-        polygon_points=data.get("polygon_points"),
-
+        polygon_points=parse_polygon_points(data.get("polygon_points")),
         description=data.get("description"),
-
         image=request.FILES.get("image"),
-
-        status="pending"
+        status="pending",
     )
 
     # =========================================
@@ -301,11 +308,13 @@ def provider_leads(request):
 
                 "customer": lead.customer.username,
 
-                "address": lead.address.address,
+                "address": service_request_address_text(lead),
 
                 "lat": lead.lat,
 
                 "lon": lead.lon,
+
+                "area": lead.lawn_area,
 
                 "lawn_area": lead.lawn_area,
 
@@ -598,6 +607,13 @@ def my_bookings(request):
                 "status": booking.status,
 
                 "created_at": booking.created_at,
+
+                "provider_id": booking.provider.id,
+
+                "has_review": Review.objects.filter(
+                    booking=booking,
+                    customer=booking.customer,
+                ).exists(),
             }
 
             for booking in bookings
@@ -655,7 +671,7 @@ def my_requests(request):
 
             "service_type": req.service_type,
 
-            "address": req.address.address,
+            "address": service_request_address_text(req),
 
             "lat": req.lat,
 
@@ -671,18 +687,27 @@ def my_requests(request):
 
             "is_booked": req.is_booked,
 
-            "booking_id": (
-                booking.id
-                if booking else None
-            ),
+            "booking_id": booking.id if booking else None,
 
-            "booking_status": (
-                booking.status
-                if booking else None
-            ),
+            "booking_status": booking.status if booking else None,
 
             "created_at": req.created_at,
+            "provider_id": None,
+            "provider": None,
+            "provider_email": None,
+            "provider_phone": None,
+            "provider_address": None,
+            "average_rating": None,
+            "total_reviews": None,
         })
+
+        if booking:
+            row = requests_data[-1]
+            row.update(provider_profile_payload(booking.provider))
+        elif req.selected_provider_id:
+            requests_data[-1].update(
+                provider_profile_payload(req.selected_provider)
+            )
 
     return Response({
 
@@ -711,26 +736,21 @@ def get_notifications(request):
         user=request.user
     ).order_by("-created_at")
 
+    unread = notifications.filter(is_read=False).count()
+
     return Response({
-
         "success": True,
-
+        "unread_count": unread,
         "notifications": [
-
             {
                 "id": n.id,
-
                 "title": n.title,
-
                 "message": n.message,
-
                 "is_read": n.is_read,
-
-                "created_at": n.created_at
+                "created_at": n.created_at,
             }
-
             for n in notifications
-        ]
+        ],
     })
 
 
@@ -743,9 +763,220 @@ def mark_notifications_read(request):
 
     Notification.objects.filter(
         user=request.user,
-        is_read=False
+        is_read=False,
     ).update(is_read=True)
 
     return Response({
-        "success": True
+        "success": True,
+        "unread_count": 0,
+    })
+
+
+# =========================================
+# UPDATE BOOKING STATUS
+# =========================================
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def update_booking_status(request):
+
+    booking = get_booking_or_404(request.data.get("booking_id"))
+    new_status = request.data.get("status")
+
+    if not booking:
+        return Response(
+            {"success": False, "message": "Booking not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if booking.status in ["completed", "cancelled"]:
+        return Response(
+            {"success": False, "message": f"Booking already {booking.status}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    allowed = ["assigned", "pending", "in_progress", "completed", "cancelled"]
+    if new_status not in allowed:
+        return Response(
+            {"success": False, "message": "Invalid status"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if booking.provider == request.user:
+        booking.status = new_status
+        booking.save()
+        booking.service_request.status = new_status
+        booking.service_request.save()
+        notify(booking.customer, "Booking Update", f"Your job is now {new_status}")
+        return Response({"success": True, "status": new_status})
+
+    if booking.customer == request.user:
+        if new_status != "cancelled":
+            return Response(
+                {"success": False, "message": "Customers can only cancel bookings"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if booking.status not in ["assigned", "pending"]:
+            return Response(
+                {"success": False, "message": "Booking cannot be cancelled now"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        booking.status = "cancelled"
+        booking.save()
+        booking.service_request.status = "cancelled"
+        booking.service_request.save()
+        notify(
+            booking.provider,
+            "Booking Cancelled",
+            f"{booking.customer.username} cancelled the booking",
+        )
+        return Response({"success": True, "status": "cancelled"})
+
+    return Response(
+        {"success": False, "message": "Unauthorized"},
+        status=status.HTTP_403_FORBIDDEN,
+    )
+
+
+# =========================================
+# SUBMIT REVIEW
+# =========================================
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def submit_review(request):
+
+    booking_id = request.data.get("booking_id")
+    provider_id = request.data.get("provider_id")
+    rating = request.data.get("rating")
+
+    booking = get_booking_or_404(booking_id)
+    if not booking:
+        return Response(
+            {"success": False, "message": "Booking not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if booking.customer != request.user:
+        return Response(
+            {"success": False, "message": "Only customer can submit review"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if booking.status != "completed":
+        return Response(
+            {"success": False, "message": "Review allowed only after completion"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if int(provider_id) != booking.provider.id:
+        return Response(
+            {"success": False, "message": "Invalid provider"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if Review.objects.filter(booking=booking, customer=request.user).exists():
+        return Response(
+            {"success": False, "message": "Review already submitted"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        rating = int(rating)
+        if rating < 1 or rating > 5:
+            raise ValueError
+    except (TypeError, ValueError):
+        return Response(
+            {"success": False, "message": "Rating must be between 1 and 5"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    review = Review.objects.create(
+        booking=booking,
+        customer=request.user,
+        provider=booking.provider,
+        rating=rating,
+        review=request.data.get("review"),
+    )
+
+    try:
+        notify(
+            booking.provider,
+            "New Review",
+            f"You received {review.rating} stars",
+        )
+    except Exception:
+        pass
+
+    return Response(
+        {"success": True, "review_id": review.id},
+        status=status.HTTP_201_CREATED,
+    )
+
+
+# =========================================
+# GET PROFILE
+# =========================================
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_profile(request):
+
+    user = request.user
+    return Response({
+        "success": True,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "phone": user.phone,
+            "address": "",
+        },
+    })
+
+
+# =========================================
+# UPDATE PROFILE
+# =========================================
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def update_profile(request):
+
+    user = request.user
+    username = request.data.get("username")
+    email = request.data.get("email")
+    phone = request.data.get("phone")
+    service_type = request.data.get("service_type")
+
+    if username:
+        user.username = username
+    if email:
+        user.email = email
+    if phone is not None:
+        user.phone = phone
+
+    if service_type:
+        if user.role == "customer":
+            return Response(
+                {"success": False, "message": "Customers cannot update service type"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if service_type not in VALID_SERVICES:
+            return Response(
+                {"success": False, "message": "Invalid service type"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.role = service_type
+
+    user.save()
+
+    return Response({
+        "success": True,
+        "message": "Profile updated successfully",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "phone": user.phone,
+            "address": "",
+        },
     })

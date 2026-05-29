@@ -13,7 +13,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             'password',
             'phone',
             'role',
-            'address'
         ]
 
         extra_kwargs = {

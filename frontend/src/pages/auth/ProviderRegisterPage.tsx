@@ -15,7 +15,6 @@ export function ProviderRegisterPage() {
     email: '',
     password: '',
     phone: '',
-    address: '',
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -103,13 +102,6 @@ export function ProviderRegisterPage() {
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
             required
-          />
-        </Field>
-        <Field label="Business / service address">
-          <Input
-            value={form.address}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
-            placeholder="Where you operate from"
           />
         </Field>
         <Button type="submit" className="w-full" disabled={loading}>

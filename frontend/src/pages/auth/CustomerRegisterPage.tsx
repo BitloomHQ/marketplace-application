@@ -12,7 +12,6 @@ export function CustomerRegisterPage() {
     email: '',
     password: '',
     phone: '',
-    address: '',
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -85,13 +84,6 @@ export function CustomerRegisterPage() {
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
             required
-          />
-        </Field>
-        <Field label="Address">
-          <Input
-            value={form.address}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
-            placeholder="Your home address"
           />
         </Field>
         <Button type="submit" className="w-full" disabled={loading}>

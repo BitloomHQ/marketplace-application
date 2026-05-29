@@ -10,6 +10,7 @@ import { CustomerRegisterPage } from './pages/auth/CustomerRegisterPage'
 import { ProviderLoginPage } from './pages/auth/ProviderLoginPage'
 import { ProviderRegisterPage } from './pages/auth/ProviderRegisterPage'
 import { CustomerDashboard } from './pages/customer/CustomerDashboard'
+import { CustomerAddressesPage } from './pages/customer/CustomerAddressesPage'
 import { MyBookingsPage } from './pages/customer/MyBookingsPage'
 import { MyRequestsPage } from './pages/customer/MyRequestsPage'
 import { ViewQuotesPage } from './pages/customer/ViewQuotesPage'
@@ -50,6 +51,7 @@ function AppRoutes() {
         <Route path="/customer/quotes/:requestId" element={<ProtectedRoute roles={['customer']}><ViewQuotesPage /></ProtectedRoute>} />
         <Route path="/customer/requests" element={<ProtectedRoute roles={['customer']}><MyRequestsPage /></ProtectedRoute>} />
         <Route path="/customer/bookings" element={<ProtectedRoute roles={['customer']}><MyBookingsPage /></ProtectedRoute>} />
+        <Route path="/customer/addresses" element={<ProtectedRoute roles={['customer']}><CustomerAddressesPage /></ProtectedRoute>} />
 
         <Route path="/gardener-dashboard" element={<ProtectedRoute roles={['gardener']}><ProviderDashboard /></ProtectedRoute>} />
         <Route path="/electrician-dashboard" element={<ProtectedRoute roles={['electrician']}><ProviderDashboard /></ProtectedRoute>} />

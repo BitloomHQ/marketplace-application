@@ -1,5 +1,13 @@
 import { apiRequest } from './client'
-import type { Booking, Lead, ProviderRole, Quote, ServiceType, User } from '../types'
+import type {
+  Booking,
+  Lead,
+  PolygonPoint,
+  ProviderRole,
+  Quote,
+  ServiceType,
+  User,
+} from '../types'
 
 export type ServiceRequestSummary = {
   id: number
@@ -20,35 +28,27 @@ export type ServiceRequestSummary = {
   total_reviews: number | null
 }
 
-export function createServiceRequest(
-  data: {
-    service_type: ServiceType
-    address: string
-    description?: string
-    lat?: number
-    lon?: number
-    lawn_area?: number
-  },
-  image?: File,
-) {
-  if (image) {
-    const formData = new FormData()
-    formData.append('service_type', data.service_type)
-    formData.append('address', data.address)
-    if (data.description) formData.append('description', data.description)
-    if (data.lat != null) formData.append('lat', String(data.lat))
-    if (data.lon != null) formData.append('lon', String(data.lon))
-    if (data.lawn_area != null) formData.append('lawn_area', String(data.lawn_area))
-    formData.append('image', image)
-    return apiRequest<{ success: boolean; request_id: number }>(
-      '/api/services/create/',
-      { method: 'POST', formData },
-    )
+export function createServiceRequest(data: {
+  service_type: ServiceType
+  address_id: number
+  description?: string
+  lawn_area?: number
+  polygon_points?: PolygonPoint[]
+  image?: File
+}) {
+  const formData = new FormData()
+  formData.append('service_type', data.service_type)
+  formData.append('address_id', String(data.address_id))
+  if (data.description) formData.append('description', data.description)
+  if (data.lawn_area != null) formData.append('lawn_area', String(data.lawn_area))
+  if (data.polygon_points?.length) {
+    formData.append('polygon_points', JSON.stringify(data.polygon_points))
   }
+  if (data.image) formData.append('image', data.image)
 
   return apiRequest<{ success: boolean; request_id: number }>(
     '/api/services/create/',
-    { method: 'POST', body: data },
+    { method: 'POST', formData },
   )
 }
 

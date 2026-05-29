@@ -12,8 +12,18 @@ export interface User {
   email: string
   role: UserRole
   phone: string
-  address: string
+  address?: string
 }
+
+export interface CustomerAddress {
+  id: number
+  title: string
+  address: string
+  lat: number | null
+  lon: number | null
+}
+
+export type PolygonPoint = { x: number; y: number }
 
 export interface LoginResponse {
   success: boolean
@@ -30,6 +40,8 @@ export interface Lead {
   lat: number | null
   lon: number | null
   area: number | null
+  lawn_area?: number | null
+  polygon_points?: PolygonPoint[] | null
   description: string | null
   image: string | null
   status: string

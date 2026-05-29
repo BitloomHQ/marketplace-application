@@ -71,8 +71,25 @@ function LeadCard({
               </button>
             )
           })()}
-          {lead.area != null && (
-            <p className="mt-1 text-xs text-zinc-400">Lawn area: {lead.area} m²</p>
+          {(lead.lawn_area ?? lead.area) != null && (
+            <p className="mt-1 text-xs text-zinc-400">
+              Lawn area: {lead.lawn_area ?? lead.area} m²
+            </p>
+          )}
+          {lead.polygon_points && lead.polygon_points.length > 0 && (
+            <p className="mt-1 text-xs text-violet-600">
+              Lawn map: {lead.polygon_points.length} points marked
+            </p>
+          )}
+          {lead.lat != null && lead.lon != null && (
+            <a
+              href={`https://www.google.com/maps?q=${lead.lat},${lead.lon}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-block text-xs font-medium text-violet-600"
+            >
+              Open in Maps →
+            </a>
           )}
         </div>
 

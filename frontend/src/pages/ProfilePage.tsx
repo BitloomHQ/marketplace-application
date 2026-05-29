@@ -11,7 +11,6 @@ export function ProfilePage() {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [address, setAddress] = useState('')
   const [serviceType, setServiceType] = useState<ProviderRole>('plumber')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -27,7 +26,6 @@ export function ProfilePage() {
         setUsername(res.user.username)
         setEmail(res.user.email)
         setPhone(res.user.phone ?? '')
-        setAddress(res.user.address ?? '')
         if (isProviderRole(res.user.role)) {
           setServiceType(res.user.role)
         }
@@ -49,7 +47,6 @@ export function ProfilePage() {
         username,
         email,
         phone,
-        address,
         ...(isProvider ? { service_type: serviceType } : {}),
       })
       setUser(res.user)
@@ -95,9 +92,6 @@ export function ProfilePage() {
             </Field>
             <Field label="Phone">
               <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </Field>
-            <Field label="Address">
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} />
             </Field>
             {isProvider && (
               <Field label="Service type">
