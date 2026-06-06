@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import heroImg from '../../assets/hero.png'
+import heroImg from '../../assets/heroService.png'
 import { CreateRequestModal } from '../../components/CreateRequestModal'
 import { fetchMyServiceRequests } from '../../api/services'
 import { Button, SectionTitle } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
 import { ServiceCards } from '../../components/ServiceCards'
 import type { ServiceType } from '../../types'
+import backgroundImage from '../../assets/bg.png'
+
+const POPULAR_SERVICES: ServiceType[] = ['gardener', 'plumber', 'electrician']
 
 export function CustomerDashboard() {
   const { user } = useAuth()
@@ -36,61 +39,77 @@ export function CustomerDashboard() {
   const firstName = user?.username?.split(' ')[0] ?? 'there'
 
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 to-violet-800 px-4 py-5 text-white shadow-lg shadow-violet-600/25 sm:px-5 sm:py-6">
-        <div className="relative z-10 pr-24 sm:max-w-[58%] sm:pr-0">
-          <p className="text-sm font-medium text-violet-200">Hello, {firstName} 👋</p>
-          <h1 className="mt-1 text-xl font-bold leading-tight sm:text-2xl">
-            Home services at your doorstep
-          </h1>
-          <p className="mt-2 text-sm text-violet-100/90">
-            Book verified plumbers, electricians & gardeners near you.
-          </p>
-          <Button
-            className="mt-4 w-full !bg-white !text-violet-700 hover:!bg-violet-50 sm:w-auto"
-            onClick={() => openCreate()}
-          >
-            Book a service
-          </Button>
+    <div className="space-y-8">
+      <section className="relative h-80 rounded-[1.75rem] px-5 py-6 sm:px-7 sm:py-8 text-white bg-cover bg-center" style={{ backgroundImage: `url(${backgroundImage})` }}>
+        <div className="relative z-10 flex sm:items-center sm:justify-between">
+          <div className="w-full relative">
+            <p className="inline-flex items-center gap-2 text-base font-medium text-sky-100">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-xs">
+                👋
+              </span>
+              Hello, {firstName}
+            </p>
+            <h1 className="mt-3 text-2xl font-bold leading-tight sm:text-3xl">
+              Trusted home experts, one tap away
+            </h1>
+            <p className="mt-3 max-w-lg text-sm leading-relaxed text-sky-100/90 sm:text-[15px]">
+              Book verified professionals for repairs, maintenance, and everyday home needs —
+              reliable service delivered right to your doorstep.
+            </p>
+            <Button
+              className="mt-5 w-full !rounded-full !bg-white !px-6 !py-3 !text-sm !font-bold !text-sky-700 shadow-lg shadow-sky-950/20 hover:!bg-sky-50 sm:w-auto"
+              onClick={() => openCreate()}
+            >
+              Book a service
+            </Button>
+          </div>
         </div>
-        <img
-          src={heroImg}
-          alt=""
-          className="pointer-events-none absolute -right-1 bottom-0 h-28 w-auto object-contain opacity-95 sm:-right-2 sm:h-36"
-        />
       </section>
 
       {(activeBookings > 0 || openRequests > 0) && (
-        <div className="flex gap-3  pb-1">
+        <div className="grid grid-cols-2 gap-3">
           {openRequests > 0 && (
             <Link
               to="/customer/requests"
-              className="bg-violet-50 px-4 py-3 md:py-4 w-full rounded-2xl border border-zinc-200"
+              className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-4 transition hover:border-sky-200 hover:shadow-sm"
             >
-              <p className="text-xs font-medium text-violet-600">Waiting for quotes</p>
-              <p className="text-lg font-bold text-violet-900">{openRequests}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+                Waiting for quotes
+              </p>
+              <p className="mt-1 text-2xl font-bold text-sky-900">{openRequests}</p>
             </Link>
           )}
           {activeBookings > 0 && (
             <Link
               to="/customer/bookings"
-              className="bg-white px-4 py-3 md:py-4 w-full rounded-2xl border border-zinc-200"
+              className="rounded-2xl border border-zinc-200 bg-white px-4 py-4 transition hover:shadow-sm"
             >
-              <p className="text-xs font-medium text-zinc-500">Active bookings</p>
-              <p className="text-lg font-bold text-zinc-900">{activeBookings}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Active bookings
+              </p>
+              <p className="mt-1 text-2xl font-bold text-zinc-900">{activeBookings}</p>
             </Link>
           )}
         </div>
       )}
 
       <section>
-        <SectionTitle>Our Services</SectionTitle>
-        <ServiceCards layout="scroll" titleCentered onSelect={openCreate} />
+        <SectionTitle subtitle="Choose a category and get matched with nearby pros">
+          Services at your fingertips
+        </SectionTitle>
+        <ServiceCards variant="circle" titleCentered onSelect={openCreate} />
       </section>
 
       <section>
-        <SectionTitle>Popular services</SectionTitle>
-        <ServiceCards layout="scroll" showCta onSelect={openCreate} />
+        <SectionTitle subtitle="Most booked this week in your area">
+          Popular services
+        </SectionTitle>
+        <ServiceCards
+          variant="circle"
+          showCta
+          services={POPULAR_SERVICES}
+          onSelect={openCreate}
+        />
       </section>
 
       <CreateRequestModal

@@ -65,7 +65,7 @@ export function UserMenuDropdown() {
               }}
               className="w-full px-4 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-50"
             >
-              Saved addresses
+              My addresses
             </button>
           )}
           <button

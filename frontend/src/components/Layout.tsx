@@ -5,6 +5,8 @@ import { isProviderRole } from '../lib/format'
 import { NotificationBell } from './NotificationBell'
 import { NotificationToasts } from './NotificationToasts'
 import { UserMenuDropdown } from './UserMenuDropdown'
+import logo from '../assets/logo.png'
+import backgroundImage from '../assets/background.png'
 
 type NavItem = { to: string; label: string; icon: 'home' | 'list' | 'calendar' | 'briefcase' }
 
@@ -78,9 +80,7 @@ export function Layout() {
       <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 sm:py-3">
           <Link to={nav[0]?.to ?? '/'} className="flex shrink-0 items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-600 text-sm font-bold text-white shadow-md shadow-violet-600/25">
-              HS
-            </span>
+          <img src={logo} alt="HomeServices" className="h-10 w-10" />
             <span className="text-base font-bold tracking-tight text-zinc-900 sm:text-lg">
               Home<span className="text-violet-600">Services</span>
             </span>
@@ -145,9 +145,9 @@ export function Layout() {
 
 export function AuthLayout() {
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-violet-50 via-white to-zinc-50">
-      <div className="flex flex-1 items-center justify-center p-4">
-        <div className="w-full max-w-md">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-zinc-100 bg-cover bg-center" style={{ backgroundImage: `url(${backgroundImage})` }}>
+      <div className="flex flex-1 items-center justify-center p-4 sm:p-6">
+        <div className="relative z-10 w-full max-w-md">
           <Outlet />
         </div>
       </div>

@@ -99,8 +99,19 @@ export function PageHeader({ title, subtitle }: { title: string; subtitle?: stri
   )
 }
 
-export function SectionTitle({ children }: { children: ReactNode }) {
-  return <h2 className="mb-3 text-lg font-bold text-zinc-900">{children}</h2>
+export function SectionTitle({
+  children,
+  subtitle,
+}: {
+  children: ReactNode
+  subtitle?: string
+}) {
+  return (
+    <div className="mb-4">
+      <h2 className="text-lg font-bold text-zinc-900 sm:text-xl">{children}</h2>
+      {subtitle && <p className="mt-1 text-sm text-zinc-500">{subtitle}</p>}
+    </div>
+  )
 }
 
 export function EmptyState({ message, icon }: { message: string; icon?: string }) {

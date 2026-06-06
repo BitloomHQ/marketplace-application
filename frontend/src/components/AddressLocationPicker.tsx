@@ -37,6 +37,8 @@ type Props = {
   onAddressChange: (value: string) => void
   onLocationChange: (lat: number | null, lon: number | null, address?: string) => void
   disabled?: boolean
+  /** map-only: search + map (for modal with external lat/lon fields) */
+  variant?: 'full' | 'map-only'
 }
 
 type Suggestion = { place_id: string; description: string }
@@ -121,7 +123,8 @@ function ManualLocationFields({
 }
 
 export function AddressLocationPicker(props: Props) {
-  const { address, lat, lon, onAddressChange, onLocationChange, disabled } = props
+  const { address, lat, lon, onAddressChange, onLocationChange, disabled, variant = 'full' } =
+    props
 
   const [configured, setConfigured] = useState<boolean | null>(null)
   const [query, setQuery] = useState(address)
@@ -213,6 +216,14 @@ export function AddressLocationPicker(props: Props) {
   }
 
   if (!configured) {
+    if (variant === 'map-only') {
+      return (
+        <Alert variant="error">
+          Map search is unavailable. Enter latitude and longitude manually, or configure{' '}
+          GOOGLE_MAPS_API_KEY on the server.
+        </Alert>
+      )
+    }
     return (
       <ManualLocationFields
         {...props}
@@ -221,10 +232,10 @@ export function AddressLocationPicker(props: Props) {
     )
   }
 
-  return (
-    <div className="space-y-3">
+  const mapBlock = (
+    <>
       <div ref={searchRef} className="relative z-[1000]">
-        <Field label="Search address">
+        <Field label={variant === 'map-only' ? 'Search on map' : 'Search address'}>
           <Input
             value={query}
             onChange={(e) => {
@@ -248,7 +259,7 @@ export function AddressLocationPicker(props: Props) {
               <li key={s.place_id}>
                 <button
                   type="button"
-                  className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-violet-50"
+                  className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-sky-50"
                   onClick={() => pickSuggestion(s)}
                 >
                   {s.description}
@@ -291,8 +302,18 @@ export function AddressLocationPicker(props: Props) {
       </div>
 
       <p className="text-xs text-zinc-500">
-        Search above, tap the map, or drag the pin. Address lookup runs on the server.
+        Search, tap the map, or drag the pin. Coordinates update automatically.
       </p>
+    </>
+  )
+
+  if (variant === 'map-only') {
+    return <div className="space-y-3">{mapBlock}</div>
+  }
+
+  return (
+    <div className="space-y-3">
+      {mapBlock}
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Latitude">
