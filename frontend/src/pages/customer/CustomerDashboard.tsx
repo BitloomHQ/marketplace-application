@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import heroImg from '../../assets/heroService.png'
 import { CreateRequestModal } from '../../components/CreateRequestModal'
 import { fetchMyServiceRequests } from '../../api/services'
 import { Button, SectionTitle } from '../../components/ui'
