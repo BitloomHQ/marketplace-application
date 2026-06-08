@@ -26,6 +26,7 @@ from .views import (
     # PROFILE
     get_profile,
     update_profile,
+    view_lead_detail,
 )
 
 urlpatterns = [
@@ -125,4 +126,5 @@ urlpatterns = [
         update_profile,
         name="update_profile"
     ),
+    path("lead/<int:request_id>/",view_lead_detail,name="view_lead_detail"),
 ]

@@ -95,7 +95,7 @@ def login_api(request):
             "email": user.email,
             "role": role,
             "phone": user.phone,
-            "address": "",
+            "address": user.address,
         },
         "redirect_url": redirect_map.get(role, "/dashboard")
     }, status=status.HTTP_200_OK)
@@ -119,8 +119,14 @@ def dashboard_api(request):
         "address": user.address,
     }
 
+    provider_roles = [
+        "gardener",
+        "electrician",
+        "plumber"
+    ]
+
     # Provider rating logic
-    if user.role != "customer":
+    if user.role in provider_roles:
 
         provider_reviews = Review.objects.filter(
             provider=user
@@ -141,7 +147,6 @@ def dashboard_api(request):
             )
 
         dashboard_data["average_rating"] = average_rating
-
         dashboard_data["total_reviews"] = provider_reviews.count()
 
     # Customer Dashboard
@@ -161,18 +166,17 @@ def dashboard_api(request):
             "Track Requests"
         ]
 
-    # Gardener Dashboard
     elif user.role == "gardener":
 
         dashboard_data["dashboard_type"] = "Gardener Dashboard"
 
         dashboard_data["features"] = [
             "View Lawn Requests",
-            "Accept Booking",
-            "Manage Services"
+            "Send Quotations",
+            "Manage Jobs",
+            "View Rating"
         ]
 
-    # Electrician Dashboard
     elif user.role == "electrician":
 
         dashboard_data["dashboard_type"] = "Electrician Dashboard"
@@ -180,10 +184,10 @@ def dashboard_api(request):
         dashboard_data["features"] = [
             "View Electrical Requests",
             "Send Quotations",
-            "Manage Jobs"
+            "Manage Jobs",
+            "View Rating"
         ]
 
-    # Plumber Dashboard
     elif user.role == "plumber":
 
         dashboard_data["dashboard_type"] = "Plumber Dashboard"
@@ -191,7 +195,8 @@ def dashboard_api(request):
         dashboard_data["features"] = [
             "View Plumbing Requests",
             "Send Quotations",
-            "Manage Jobs"
+            "Manage Jobs",
+            "View Rating"
         ]
 
     return Response({
@@ -272,7 +277,7 @@ def customer_dashboard(request):
             "username": user.username,
             "email": user.email,
             "phone": user.phone,
-            "address": "",
+            "address": user.address,
         }
     })
 
@@ -286,63 +291,23 @@ from .models import CustomerAddress
 @permission_classes([IsAuthenticated])
 def add_address(request):
 
-    if request.user.role != "customer":
-        return Response(
-            {"success": False, "message": "Only customers allowed"},
-            status=status.HTTP_403_FORBIDDEN,
-        )
-
-    count = CustomerAddress.objects.filter(customer=request.user).count()
-    if count >= 5:
-        return Response(
-            {"success": False, "message": "Maximum 5 addresses allowed"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    title = request.data.get("title")
-    address_text = request.data.get("address")
-    if not title or not address_text:
-        return Response(
-            {"success": False, "message": "title and address required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    lat = request.data.get("lat", request.data.get("latitude"))
-    lon = request.data.get("lon", request.data.get("longitude"))
-
-    if lat is None or lon is None:
-        return Response(
-            {"success": False, "message": "lat and lon required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    try:
-        lat = float(lat)
-        lon = float(lon)
-    except (TypeError, ValueError):
-        return Response(
-            {"success": False, "message": "lat and lon must be valid numbers"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
     address = CustomerAddress.objects.create(
         customer=request.user,
-        title=title,
-        address=address_text,
-        latitude=lat,
-        longitude=lon,
+        title=request.data.get("title"),
+        address=request.data.get("address"),
+        latitude=request.data.get("latitude"),
+        longitude=request.data.get("longitude"),
     )
 
     return Response({
         "success": True,
-        "message": "Address added successfully",
         "address": {
             "id": address.id,
             "title": address.title,
             "address": address.address,
-            "lat": address.latitude,
-            "lon": address.longitude,
-        },
+            "latitude": address.latitude,
+            "longitude": address.longitude,
+        }
     })
 
 @api_view(["GET"])
@@ -360,11 +325,11 @@ def my_addresses(request):
                 "id": item.id,
                 "title": item.title,
                 "address": item.address,
-                "lat": item.latitude,
-                "lon": item.longitude,
+                "latitude": item.latitude,
+                "longitude": item.longitude,
             }
             for item in addresses
-        ],
+        ]
     })
 
 @api_view(["DELETE"])
@@ -388,6 +353,56 @@ def delete_address(request, address_id):
         "success": True,
         "message": "Address deleted"
     })
+    
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def edit_address(request, address_id):
+
+    address = CustomerAddress.objects.filter(
+        id=address_id,
+        customer=request.user
+    ).first()
+
+    if not address:
+        return Response(
+            {
+                "success": False,
+                "message": "Address not found"
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    title = request.data.get("title")
+    address_text = request.data.get("address")
+    latitude = request.data.get("latitude")
+    longitude = request.data.get("longitude")
+
+    if title is not None:
+        address.title = title
+
+    if address_text is not None:
+        address.address = address_text
+
+    if latitude is not None:
+        address.latitude = latitude
+
+    if longitude is not None:
+        address.longitude = longitude
+
+    address.save()
+
+    return Response({
+        "success": True,
+        "message": "Address updated successfully",
+
+        "address": {
+            "id": address.id,
+            "title": address.title,
+            "address": address.address,
+            "latitude": address.latitude,
+            "longitude": address.longitude,
+        }
+    }, status=status.HTTP_200_OK)    
 
 
 # =====================================
@@ -511,3 +526,4 @@ def maps_reverse_geocode(request):
         "lat": lat_f,
         "lon": lon_f,
     })
+

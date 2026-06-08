@@ -279,21 +279,15 @@ def provider_leads(request):
     )
 
     leads = (
-
         ServiceRequest.objects.filter(
-
             service_type=request.user.role,
-
             is_booked=False,
-
             selected_provider__isnull=True,
-
+            status="pending"
         )
-
         .annotate(
             has_quoted=Exists(my_quote)
         )
-
         .order_by("-created_at")
     )
 
@@ -314,20 +308,26 @@ def provider_leads(request):
 
                 "lon": lead.lon,
 
-                "area": lead.lawn_area,
+                "lawn_area": (
+                    lead.lawn_area
+                    if lead.service_type == "gardener"
+                    else None
+                ),
 
-                "lawn_area": lead.lawn_area,
-
-                "polygon_points": lead.polygon_points,
+                "polygon_points": (
+                    lead.polygon_points
+                    if lead.service_type == "gardener"
+                    else None
+                ),
 
                 "description": lead.description,
 
                 "image": (
-                    lead.image.url
+                    request.build_absolute_uri(lead.image.url)
                     if lead.image else None
                 ),
 
-                "status": lead.status,
+                "status": lead.status if lead.status else "pending",
 
                 "has_quoted": lead.has_quoted,
             }
@@ -335,7 +335,6 @@ def provider_leads(request):
             for lead in leads
         ]
     })
-
 
 # =========================================
 # SEND QUOTE
@@ -990,3 +989,107 @@ def update_profile(request):
             "address": "",
         },
     })
+
+
+# =========================================
+# VIEW SPECIFIC LEAD / REQUEST
+# =========================================
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def view_lead_detail(request, request_id):
+
+    service_request = get_service_request_or_404(request_id)
+
+    if not service_request:
+        return Response(
+            {
+                "success": False,
+                "message": "Service request not found"
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Customer can view only own request
+    if request.user.role == "customer":
+
+        if service_request.customer != request.user:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Unauthorized"
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    # Provider can view only matching lead
+    elif request.user.role in VALID_SERVICES:
+
+        if service_request.service_type != request.user.role:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Unauthorized"
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    else:
+        return Response(
+            {
+                "success": False,
+                "message": "Unauthorized"
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    my_quote = None
+
+    if request.user.role in VALID_SERVICES:
+        my_quote = Quote.objects.filter(
+            service_request=service_request,
+            provider=request.user
+        ).first()
+
+    return Response({
+        "success": True,
+        "lead": {
+            "id": service_request.id,
+            "customer": service_request.customer.username,
+            "service_type": service_request.service_type,
+            "address": service_request_address_text(service_request),
+            "lat": service_request.lat,
+            "lon": service_request.lon,
+
+            "lawn_area": (
+                service_request.lawn_area
+                if service_request.service_type == "gardener"
+                else None
+            ),
+
+            "polygon_points": (
+                service_request.polygon_points
+                if service_request.service_type == "gardener"
+                else None
+            ),
+
+            "description": service_request.description,
+
+            "image": (
+                request.build_absolute_uri(service_request.image.url)
+                if service_request.image else None
+            ),
+
+            "status": service_request.status,
+            "is_booked": service_request.is_booked,
+            "created_at": service_request.created_at,
+
+            "has_quoted": my_quote is not None,
+
+            "my_quote": {
+                "id": my_quote.id,
+                "price": my_quote.price,
+                "message": my_quote.message,
+                "status": my_quote.status
+            } if my_quote else None
+        }
+    })    
