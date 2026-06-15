@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ServiceRequest, Quote, Booking, Review, Notification
+from .models import ServiceRequest, Quote, Booking, Review, Notification, ProviderPortfolio
 
 
 @admin.register(ServiceRequest)
@@ -34,3 +34,8 @@ class NotificationAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "title", "is_read", "created_at")
     list_filter = ("is_read",)
     search_fields = ("user__username", "title")
+
+@admin.register(ProviderPortfolio)
+class ProviderPortfolioAdmin(admin.ModelAdmin):
+    list_display = ("id", "provider", "caption", "created_at")
+    search_fields = ("provider__username", "caption")    

@@ -14,6 +14,7 @@ class CustomUserAdmin(UserAdmin):
         'role',
         'phone',
         'is_staff',
+        'is_verified',
     )
 
     list_filter = (
@@ -42,19 +43,22 @@ class CustomUserAdmin(UserAdmin):
                     'email',
                     'phone',
                     'address',
+                    'profile_picture',
+                    'bio',
+                    'experience_years',
                 )
             }
         ),
 
         (
-            'Role Information',
-            {
-                'fields': (
-                    'role',
-                )
-            }
-        ),
-
+    'Role Information',
+    {
+        'fields': (
+            'role',
+            'is_verified',
+        )
+    }
+),
         (
             'Permissions',
             {
@@ -92,6 +96,7 @@ class CustomUserAdmin(UserAdmin):
                     'address',
                     'password1',
                     'password2',
+                    'profile_picture',
                 ),
             },
         ),

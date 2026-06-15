@@ -22,6 +22,23 @@ class User(AbstractUser):
         null=True,
         blank=True
     )
+    profile_picture = models.ImageField(
+    upload_to="profile_pictures/",
+    null=True,
+    blank=True
+    )
+    bio = models.TextField(
+    null=True,
+    blank=True
+    )
+
+    experience_years = models.PositiveIntegerField(
+    null=True,
+    blank=True
+    )
+    is_verified = models.BooleanField(
+    default=False
+    )
 
     def __str__(self):
         return self.username

@@ -11,7 +11,8 @@ from .models import (
     Booking,
     Quote,
     Review,
-    Notification
+    Notification,
+    ProviderPortfolio
 )
 
 from accounts.models import (
@@ -97,7 +98,7 @@ def parse_polygon_points(raw):
     return None
 
 
-def provider_profile_payload(user):
+def provider_profile_payload(user, request=None):
 
     provider_reviews = Review.objects.filter(
         provider=user
@@ -118,11 +119,49 @@ def provider_profile_payload(user):
         )
 
     return {
+
         "provider_id": user.id,
+
         "provider": user.username,
+
         "provider_email": user.email,
+
         "provider_phone": user.phone,
+
+        "provider_address": user.address,
+
+        "provider_role": user.role,
+
+        "is_verified": user.is_verified,
+
+        "provider_profile_picture": (
+            request.build_absolute_uri(
+                user.profile_picture.url
+            )
+            if request and user.profile_picture
+            else None
+        ),
+
+        "bio": user.bio,
+
+        "experience_years": user.experience_years,
+
+        "portfolio_images": [
+            {
+                "id": item.id,
+
+                "image": (
+                    request.build_absolute_uri(item.image.url)
+                    if request and item.image else None
+                ),
+
+                "caption": item.caption,
+            }
+            for item in user.portfolio_images.all().order_by("-created_at")[:5]
+        ],
+
         "average_rating": average_rating,
+
         "total_reviews": provider_reviews.count(),
     }
 
@@ -929,6 +968,7 @@ def submit_review(request):
 def get_profile(request):
 
     user = request.user
+
     return Response({
         "success": True,
         "user": {
@@ -937,30 +977,50 @@ def get_profile(request):
             "email": user.email,
             "role": user.role,
             "phone": user.phone,
-            "address": "",
+            "address": user.address,
+            "profile_picture": (
+                request.build_absolute_uri(user.profile_picture.url)
+                if user.profile_picture else None
+            ),
         },
     })
 
 
-# =========================================
-# UPDATE PROFILE
-# =========================================
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def update_profile(request):
 
     user = request.user
+
     username = request.data.get("username")
     email = request.data.get("email")
     phone = request.data.get("phone")
+    address = request.data.get("address")
     service_type = request.data.get("service_type")
+    bio = request.data.get("bio")
+    experience_years = request.data.get("experience_years")
+    profile_picture = request.FILES.get("profile_picture")
 
     if username:
         user.username = username
+
     if email:
         user.email = email
+
     if phone is not None:
         user.phone = phone
+
+    if address is not None:
+        user.address = address
+
+    if bio is not None:
+        user.bio = bio
+
+    if experience_years is not None:
+        user.experience_years = experience_years
+
+    if profile_picture:
+        user.profile_picture = profile_picture
 
     if service_type:
         if user.role == "customer":
@@ -968,11 +1028,13 @@ def update_profile(request):
                 {"success": False, "message": "Customers cannot update service type"},
                 status=status.HTTP_403_FORBIDDEN,
             )
+
         if service_type not in VALID_SERVICES:
             return Response(
                 {"success": False, "message": "Invalid service type"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
         user.role = service_type
 
     user.save()
@@ -986,7 +1048,13 @@ def update_profile(request):
             "email": user.email,
             "role": user.role,
             "phone": user.phone,
-            "address": "",
+            "address": user.address,
+            "bio": user.bio,
+            "experience_years": user.experience_years,
+            "profile_picture": (
+                request.build_absolute_uri(user.profile_picture.url)
+                if user.profile_picture else None
+            ),
         },
     })
 

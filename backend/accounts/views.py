@@ -117,6 +117,15 @@ def dashboard_api(request):
         "role": user.role,
         "phone": user.phone,
         "address": user.address,
+
+        "profile_picture": (
+            request.build_absolute_uri(user.profile_picture.url)
+            if user.profile_picture else None
+        ),
+
+        "bio": user.bio,
+        "experience_years": user.experience_years,
+        "is_verified": user.is_verified,
     }
 
     provider_roles = [
@@ -125,7 +134,6 @@ def dashboard_api(request):
         "plumber"
     ]
 
-    # Provider rating logic
     if user.role in provider_roles:
 
         provider_reviews = Review.objects.filter(
@@ -149,21 +157,106 @@ def dashboard_api(request):
         dashboard_data["average_rating"] = average_rating
         dashboard_data["total_reviews"] = provider_reviews.count()
 
-    # Customer Dashboard
     if user.role == "customer":
 
         dashboard_data["dashboard_type"] = "Customer Dashboard"
 
+        dashboard_data["popular_services"] = [
+            {
+                "name": "Plumber",
+                "key": "plumber",
+                "status": "active",
+                "description": "Leak repair, tap repair, pipe fitting and bathroom plumbing services.",
+                "icon": "🪠"
+            },
+            {
+                "name": "Electrician",
+                "key": "electrician",
+                "status": "active",
+                "description": "Wiring, switchboard repair, light fitting and electrical maintenance.",
+                "icon": "⚡"
+            },
+            {
+                "name": "Gardener",
+                "key": "gardener",
+                "status": "active",
+                "description": "Lawn mowing, garden cleaning, grass cutting and maintenance services.",
+                "icon": "🌿"
+            }
+        ]
+
         dashboard_data["services"] = [
-            "Gardener",
-            "Electrician",
-            "Plumber"
+
+            {
+                "name": "Gardener",
+                "key": "gardener",
+                "status": "active",
+                "description": "Lawn mowing, garden cleaning, grass cutting and maintenance services.",
+                "start_date": None,
+                "icon": "🌿"
+            },
+
+            {
+                "name": "Electrician",
+                "key": "electrician",
+                "status": "active",
+                "description": "Wiring, switchboard repair, light fitting and electrical maintenance.",
+                "start_date": None,
+                "icon": "⚡"
+            },
+
+            {
+                "name": "Plumber",
+                "key": "plumber",
+                "status": "active",
+                "description": "Leak repair, tap repair, pipe fitting and bathroom plumbing services.",
+                "start_date": None,
+                "icon": "🪠"
+            },
+
+            {
+                "name": "Carpenter",
+                "key": "carpenter",
+                "status": "coming_soon",
+                "description": "Furniture repair, wood polishing, door fitting and custom woodwork services.",
+                "start_date": "Yet to start",
+                "icon": "🪚"
+            },
+
+            {
+                "name": "Cleaner",
+                "key": "cleaner",
+                "status": "coming_soon",
+                "description": "Home cleaning, deep cleaning, kitchen cleaning and bathroom cleaning.",
+                "start_date": "Yet to start",
+                "icon": "🧹"
+            },
+
+            {
+                "name": "Painter",
+                "key": "painter",
+                "status": "coming_soon",
+                "description": "Interior painting, exterior painting, wall texture and repainting services.",
+                "start_date": "Yet to start",
+                "icon": "🎨"
+            },
+
+            {
+                "name": "AC Repair",
+                "key": "ac_repair",
+                "status": "coming_soon",
+                "description": "AC servicing, gas refill, installation and cooling issue repair services.",
+                "start_date": "Yet to start",
+                "icon": "❄️"
+            }
         ]
 
         dashboard_data["features"] = [
             "Book Services",
             "View Bookings",
-            "Track Requests"
+            "Track Requests",
+            "Popular Services",
+            "Coming Soon Services"
         ]
 
     elif user.role == "gardener":

@@ -29,6 +29,7 @@ from .views import (
     view_lead_detail,
 )
 
+
 urlpatterns = [
 
     # =========================================
