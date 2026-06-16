@@ -15,7 +15,7 @@ from services.models import Review
 # REGISTER API
 # =====================================
 from rest_framework.views import APIView
-
+from adminpanel.models import ServiceCategory
 
 class RegisterView(APIView):
 
@@ -161,94 +161,38 @@ def dashboard_api(request):
 
         dashboard_data["dashboard_type"] = "Customer Dashboard"
 
+        popular_services = ServiceCategory.objects.filter(
+            status="active"
+        ).order_by("display_order", "id")[:3]
+
         dashboard_data["popular_services"] = [
             {
-                "name": "Plumber",
-                "key": "plumber",
-                "status": "active",
-                "description": "Leak repair, tap repair, pipe fitting and bathroom plumbing services.",
-                "icon": "🪠"
-            },
-            {
-                "name": "Electrician",
-                "key": "electrician",
-                "status": "active",
-                "description": "Wiring, switchboard repair, light fitting and electrical maintenance.",
-                "icon": "⚡"
-            },
-            {
-                "name": "Gardener",
-                "key": "gardener",
-                "status": "active",
-                "description": "Lawn mowing, garden cleaning, grass cutting and maintenance services.",
-                "icon": "🌿"
+                "id": service.id,
+                "name": service.name,
+                "key": service.key,
+                "status": service.status,
+                "description": service.description,
+                "icon": service.icon,
+                "start_date": service.start_date,
             }
+            for service in popular_services
         ]
 
+        services = ServiceCategory.objects.exclude(
+            status="inactive"
+        ).order_by("display_order", "id")
+
         dashboard_data["services"] = [
-
             {
-                "name": "Gardener",
-                "key": "gardener",
-                "status": "active",
-                "description": "Lawn mowing, garden cleaning, grass cutting and maintenance services.",
-                "start_date": None,
-                "icon": "🌿"
-            },
-
-            {
-                "name": "Electrician",
-                "key": "electrician",
-                "status": "active",
-                "description": "Wiring, switchboard repair, light fitting and electrical maintenance.",
-                "start_date": None,
-                "icon": "⚡"
-            },
-
-            {
-                "name": "Plumber",
-                "key": "plumber",
-                "status": "active",
-                "description": "Leak repair, tap repair, pipe fitting and bathroom plumbing services.",
-                "start_date": None,
-                "icon": "🪠"
-            },
-
-            {
-                "name": "Carpenter",
-                "key": "carpenter",
-                "status": "coming_soon",
-                "description": "Furniture repair, wood polishing, door fitting and custom woodwork services.",
-                "start_date": "Yet to start",
-                "icon": "🪚"
-            },
-
-            {
-                "name": "Cleaner",
-                "key": "cleaner",
-                "status": "coming_soon",
-                "description": "Home cleaning, deep cleaning, kitchen cleaning and bathroom cleaning.",
-                "start_date": "Yet to start",
-                "icon": "🧹"
-            },
-
-            {
-                "name": "Painter",
-                "key": "painter",
-                "status": "coming_soon",
-                "description": "Interior painting, exterior painting, wall texture and repainting services.",
-                "start_date": "Yet to start",
-                "icon": "🎨"
-            },
-
-            {
-                "name": "AC Repair",
-                "key": "ac_repair",
-                "status": "coming_soon",
-                "description": "AC servicing, gas refill, installation and cooling issue repair services.",
-                "start_date": "Yet to start",
-                "icon": "❄️"
+                "id": service.id,
+                "name": service.name,
+                "key": service.key,
+                "status": service.status,
+                "description": service.description,
+                "icon": service.icon,
+                "start_date": service.start_date,
             }
+            for service in services
         ]
 
         dashboard_data["features"] = [
@@ -298,7 +242,6 @@ def dashboard_api(request):
         "data": dashboard_data
     }, status=status.HTTP_200_OK)
 
-
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -326,18 +269,42 @@ def providers_by_service(request):
             "message": "Invalid service type"
         }, status=400)
 
-    providers = User.objects.filter(role=service)
+    providers = User.objects.filter(
+        role=service,
+        is_active=True,
+        is_approved=True
+    )
 
     data = []
 
     for p in providers:
+
         data.append({
+
             "id": p.id,
+
             "username": p.username,
+
             "email": p.email,
+
             "phone": p.phone,
+
             "address": p.address,
-            "role": p.role
+
+            "role": p.role,
+
+            "bio": p.bio,
+
+            "experience_years": p.experience_years,
+
+            "is_verified": p.is_verified,
+
+            "profile_picture": (
+                request.build_absolute_uri(
+                    p.profile_picture.url
+                )
+                if p.profile_picture else None
+            ),
         })
 
     return Response({
@@ -346,7 +313,6 @@ def providers_by_service(request):
         "total_providers": providers.count(),
         "providers": data
     })
-
 
 # =====================================
 # CUSTOMER DASHBOARD API

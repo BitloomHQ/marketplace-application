@@ -75,6 +75,7 @@ INSTALLED_APPS = [
 
     "accounts",
     "services",
+    "adminpanel",
 ]
 
 MIDDLEWARE = [

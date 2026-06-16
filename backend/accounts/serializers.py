@@ -27,6 +27,16 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         user.set_password(password)
 
+        if user.role == "customer":
+            user.is_approved = True
+            user.is_verified = False
+            user.is_active = True
+
+        else:
+            user.is_approved = False
+            user.is_verified = False
+            user.is_active = True
+
         user.save()
 
         return user

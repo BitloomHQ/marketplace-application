@@ -44,6 +44,14 @@ def is_provider(user):
     return user.role in VALID_SERVICES
 
 
+def is_approved_provider(user):
+    return (
+        user.role in VALID_SERVICES
+        and user.is_active
+        and user.is_approved
+    )
+
+
 def get_service_request_or_404(id):
 
     try:
@@ -312,6 +320,16 @@ def provider_leads(request):
             status=status.HTTP_403_FORBIDDEN
         )
 
+    if not request.user.is_approved:
+
+        return Response(
+            {
+                "success": False,
+                "message": "Your provider account is pending admin approval"
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
     my_quote = Quote.objects.filter(
         service_request_id=OuterRef("pk"),
         provider_id=request.user.id,
@@ -388,6 +406,16 @@ def send_quote(request):
             {
                 "success": False,
                 "message": "Only providers"
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    if not request.user.is_approved:
+
+        return Response(
+            {
+                "success": False,
+                "message": "Your provider account is pending admin approval"
             },
             status=status.HTTP_403_FORBIDDEN
         )

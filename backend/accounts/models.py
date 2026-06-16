@@ -39,6 +39,14 @@ class User(AbstractUser):
     is_verified = models.BooleanField(
     default=False
     )
+    is_approved = models.BooleanField(
+    default=False
+    )
+
+    address = models.TextField(
+    null=True,
+    blank=True
+)
 
     def __str__(self):
         return self.username
