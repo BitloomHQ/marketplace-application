@@ -18,11 +18,11 @@ class ServiceCategory(models.Model):
 
     description = models.TextField()
 
-    icon = models.CharField(
-        max_length=20,
-        null=True,
-        blank=True
-    )
+    service_image = models.ImageField(
+    upload_to="service_categories/",
+    null=True,
+    blank=True
+     )
 
     status = models.CharField(
         max_length=20,

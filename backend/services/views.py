@@ -349,20 +349,20 @@ def provider_leads(request):
     )
 
     return Response({
-
         "success": True,
-
         "leads": [
-
             {
                 "id": lead.id,
-
                 "customer": lead.customer.username,
+                "customer_id": lead.customer.id,
+
+                "customer_profile_picture": (
+                    request.build_absolute_uri(lead.customer.profile_picture.url)
+                    if lead.customer.profile_picture else None
+                ),
 
                 "address": service_request_address_text(lead),
-
                 "lat": lead.lat,
-
                 "lon": lead.lon,
 
                 "lawn_area": (
@@ -385,14 +385,11 @@ def provider_leads(request):
                 ),
 
                 "status": lead.status if lead.status else "pending",
-
                 "has_quoted": lead.has_quoted,
             }
-
             for lead in leads
         ]
     })
-
 # =========================================
 # SEND QUOTE
 # =========================================
@@ -523,19 +520,15 @@ def view_quotes(request, request_id):
     for q in quotes:
 
         profile = provider_profile_payload(
-            q.provider
+            q.provider,
+            request
         )
 
         quotes_data.append({
-
             "id": q.id,
-
             "price": q.price,
-
             "message": q.message,
-
             "status": q.status,
-
             **profile,
         })
 
@@ -592,17 +585,11 @@ def select_provider(request):
         )
 
     booking = Booking.objects.create(
-
         service_request=sr,
-
         customer=request.user,
-
         provider=quote.provider,
-
         quote=quote,
-
         final_price=quote.price,
-
         status="assigned"
     )
 
@@ -630,7 +617,25 @@ def select_provider(request):
 
     return Response({
         "success": True,
-        "booking_id": booking.id
+        "booking_id": booking.id,
+
+        "provider": {
+            "id": quote.provider.id,
+            "username": quote.provider.username,
+            "profile_picture": (
+                request.build_absolute_uri(quote.provider.profile_picture.url)
+                if quote.provider.profile_picture else None
+            )
+        },
+
+        "customer": {
+            "id": request.user.id,
+            "username": request.user.username,
+            "profile_picture": (
+                request.build_absolute_uri(request.user.profile_picture.url)
+                if request.user.profile_picture else None
+            )
+        }
     })
 
 
@@ -654,36 +659,34 @@ def my_bookings(request):
         ).order_by("-created_at")
 
     return Response({
-
         "success": True,
-
         "bookings": [
-
             {
                 "id": booking.id,
-
                 "service_type": booking.service_request.service_type,
 
                 "customer": booking.customer.username,
+                "customer_id": booking.customer.id,
+                "customer_profile_picture": (
+                    request.build_absolute_uri(booking.customer.profile_picture.url)
+                    if booking.customer.profile_picture else None
+                ),
 
                 "provider": booking.provider.username,
+                "provider_id": booking.provider.id,
+                "provider_profile_picture": (
+                    request.build_absolute_uri(booking.provider.profile_picture.url)
+                    if booking.provider.profile_picture else None
+                ),
 
                 "final_price": booking.final_price,
-
                 "status": booking.status,
-
                 "created_at": booking.created_at,
 
-                "provider_id": booking.provider.id,
-
                 "address": service_request_address_text(booking.service_request),
-
                 "lat": booking.service_request.lat,
-
                 "lon": booking.service_request.lon,
-
                 "lawn_area": booking.service_request.lawn_area,
-
                 "polygon_points": booking.service_request.polygon_points,
 
                 "has_review": Review.objects.filter(
@@ -691,7 +694,6 @@ def my_bookings(request):
                     customer=booking.customer,
                 ).exists(),
             }
-
             for booking in bookings
         ]
     })
@@ -741,62 +743,62 @@ def my_requests(request):
             service_request=req
         ).first()
 
-        requests_data.append({
-
+        row = {
             "id": req.id,
-
             "service_type": req.service_type,
-
             "address": service_request_address_text(req),
-
             "lat": req.lat,
-
             "lon": req.lon,
-
             "lawn_area": req.lawn_area,
-
             "polygon_points": req.polygon_points,
-
             "description": req.description,
-
             "status": req.status,
-
             "is_booked": req.is_booked,
-
             "booking_id": booking.id if booking else None,
-
             "booking_status": booking.status if booking else None,
-
             "created_at": req.created_at,
+
+            "customer_id": req.customer.id,
+            "customer": req.customer.username,
+            "customer_profile_picture": (
+                request.build_absolute_uri(req.customer.profile_picture.url)
+                if req.customer.profile_picture else None
+            ),
+
             "provider_id": None,
             "provider": None,
             "provider_email": None,
             "provider_phone": None,
             "provider_address": None,
+            "provider_profile_picture": None,
             "average_rating": None,
             "total_reviews": None,
-        })
+        }
 
         if booking:
-            row = requests_data[-1]
-            row.update(provider_profile_payload(booking.provider))
-        elif req.selected_provider_id:
-            requests_data[-1].update(
-                provider_profile_payload(req.selected_provider)
+            row.update(
+                provider_profile_payload(
+                    booking.provider,
+                    request
+                )
             )
 
+        elif req.selected_provider_id:
+            row.update(
+                provider_profile_payload(
+                    req.selected_provider,
+                    request
+                )
+            )
+
+        requests_data.append(row)
+
     return Response({
-
         "success": True,
-
         "page": page,
-
         "page_size": page_size,
-
         "total": paginator.count,
-
         "total_pages": paginator.num_pages,
-
         "requests": requests_data
     })
 
@@ -1105,7 +1107,6 @@ def view_lead_detail(request, request_id):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    # Customer can view only own request
     if request.user.role == "customer":
 
         if service_request.customer != request.user:
@@ -1117,7 +1118,6 @@ def view_lead_detail(request, request_id):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-    # Provider can view only matching lead
     elif request.user.role in VALID_SERVICES:
 
         if service_request.service_type != request.user.role:
@@ -1150,7 +1150,14 @@ def view_lead_detail(request, request_id):
         "success": True,
         "lead": {
             "id": service_request.id,
+
+            "customer_id": service_request.customer.id,
             "customer": service_request.customer.username,
+            "customer_profile_picture": (
+                request.build_absolute_uri(service_request.customer.profile_picture.url)
+                if service_request.customer.profile_picture else None
+            ),
+
             "service_type": service_request.service_type,
             "address": service_request_address_text(service_request),
             "lat": service_request.lat,
@@ -1178,7 +1185,6 @@ def view_lead_detail(request, request_id):
             "status": service_request.status,
             "is_booked": service_request.is_booked,
             "created_at": service_request.created_at,
-
             "has_quoted": my_quote is not None,
 
             "my_quote": {
@@ -1188,4 +1194,4 @@ def view_lead_detail(request, request_id):
                 "status": my_quote.status
             } if my_quote else None
         }
-    })    
+    })

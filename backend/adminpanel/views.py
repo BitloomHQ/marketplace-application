@@ -138,7 +138,10 @@ def reject_provider(request, provider_id):
 @permission_classes([IsAdminUser])
 def service_categories(request):
 
-    services = ServiceCategory.objects.all().order_by("display_order", "id")
+    services = ServiceCategory.objects.all().order_by(
+        "display_order",
+        "id"
+    )
 
     return Response({
         "success": True,
@@ -148,7 +151,10 @@ def service_categories(request):
                 "name": service.name,
                 "key": service.key,
                 "description": service.description,
-                "icon": service.icon,
+                "service_image": (
+                    request.build_absolute_uri(service.service_image.url)
+                    if service.service_image else None
+                ),
                 "status": service.status,
                 "start_date": service.start_date,
                 "display_order": service.display_order,
@@ -165,6 +171,7 @@ def create_service_category(request):
     name = request.data.get("name")
     key = request.data.get("key")
     description = request.data.get("description")
+    service_image = request.FILES.get("service_image")
 
     if not name or not key or not description:
         return Response(
@@ -188,7 +195,7 @@ def create_service_category(request):
         name=name,
         key=key,
         description=description,
-        icon=request.data.get("icon"),
+        service_image=service_image,
         status=request.data.get("status", "coming_soon"),
         start_date=request.data.get("start_date", "Yet to start"),
         display_order=request.data.get("display_order", 0),
@@ -197,7 +204,11 @@ def create_service_category(request):
     return Response({
         "success": True,
         "message": "Service category created successfully",
-        "service_id": service.id
+        "service_id": service.id,
+        "service_image": (
+            request.build_absolute_uri(service.service_image.url)
+            if service.service_image else None
+        )
     }, status=status.HTTP_201_CREATED)
 
 
@@ -205,7 +216,9 @@ def create_service_category(request):
 @permission_classes([IsAdminUser])
 def update_service_category(request, service_id):
 
-    service = ServiceCategory.objects.filter(id=service_id).first()
+    service = ServiceCategory.objects.filter(
+        id=service_id
+    ).first()
 
     if not service:
         return Response(
@@ -216,30 +229,38 @@ def update_service_category(request, service_id):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    key = request.data.get("key")
-
-    if key and ServiceCategory.objects.exclude(id=service.id).filter(key=key).exists():
-        return Response(
-            {
-                "success": False,
-                "message": "Service key already exists"
-            },
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
     service.name = request.data.get("name", service.name)
-    service.key = request.data.get("key", service.key)
     service.description = request.data.get("description", service.description)
-    service.icon = request.data.get("icon", service.icon)
     service.status = request.data.get("status", service.status)
     service.start_date = request.data.get("start_date", service.start_date)
-    service.display_order = request.data.get("display_order", service.display_order)
+    service.display_order = request.data.get(
+        "display_order",
+        service.display_order
+    )
+
+    service_image = request.FILES.get("service_image")
+
+    if service_image:
+        service.service_image = service_image
 
     service.save()
 
     return Response({
         "success": True,
-        "message": "Service category updated successfully"
+        "message": "Service category updated successfully",
+        "service": {
+            "id": service.id,
+            "name": service.name,
+            "key": service.key,
+            "description": service.description,
+            "service_image": (
+                request.build_absolute_uri(service.service_image.url)
+                if service.service_image else None
+            ),
+            "status": service.status,
+            "start_date": service.start_date,
+            "display_order": service.display_order,
+        }
     })
 
 
@@ -247,7 +268,20 @@ def update_service_category(request, service_id):
 @permission_classes([IsAdminUser])
 def delete_service_category(request, service_id):
 
-    service = ServiceCategory.objects.filter(id=service_id).first()
+    reason = request.data.get("reason")
+
+    if not reason:
+        return Response(
+            {
+                "success": False,
+                "message": "Delete reason is required"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    service = ServiceCategory.objects.filter(
+        id=service_id
+    ).first()
 
     if not service:
         return Response(
@@ -258,50 +292,36 @@ def delete_service_category(request, service_id):
             status=status.HTTP_404_NOT_FOUND
         )
 
+    service_name = service.name
+    service_key = service.key
+
     service.delete()
 
     return Response({
         "success": True,
-        "message": "Service category deleted successfully"
-    })
-
-@api_view(["GET"])
-@permission_classes([IsAdminUser])
-def all_providers(request):
-
-    providers = User.objects.filter(
-        role__in=PROVIDER_ROLES
-    ).order_by("-date_joined")
-
-    return Response({
-        "success": True,
-        "providers": [
-            {
-                "id": provider.id,
-                "username": provider.username,
-                "email": provider.email,
-                "phone": provider.phone,
-                "address": provider.address,
-                "role": provider.role,
-                "bio": provider.bio,
-                "experience_years": provider.experience_years,
-                "is_active": provider.is_active,
-                "is_approved": provider.is_approved,
-                "is_verified": provider.is_verified,
-                "profile_picture": (
-                    request.build_absolute_uri(provider.profile_picture.url)
-                    if provider.profile_picture else None
-                ),
-                "date_joined": provider.date_joined,
-            }
-            for provider in providers
-        ]
+        "message": "Service category deleted successfully",
+        "deleted_service": {
+            "name": service_name,
+            "key": service_key,
+            "reason": reason
+        }
     })
 
 
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def activate_provider(request, provider_id):
+
+    reason = request.data.get("reason")
+
+    if not reason:
+        return Response(
+            {
+                "success": False,
+                "message": "Reason is required"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     provider = User.objects.filter(
         id=provider_id,
@@ -319,13 +339,25 @@ def activate_provider(request, provider_id):
 
     return Response({
         "success": True,
-        "message": "Provider activated successfully"
+        "message": "Provider activated successfully",
+        "reason": reason
     })
 
 
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def deactivate_provider(request, provider_id):
+
+    reason = request.data.get("reason")
+
+    if not reason:
+        return Response(
+            {
+                "success": False,
+                "message": "Reason is required"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     provider = User.objects.filter(
         id=provider_id,
@@ -343,13 +375,25 @@ def deactivate_provider(request, provider_id):
 
     return Response({
         "success": True,
-        "message": "Provider deactivated successfully"
+        "message": "Provider deactivated successfully",
+        "reason": reason
     })
 
 
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def verify_provider(request, provider_id):
+
+    reason = request.data.get("reason")
+
+    if not reason:
+        return Response(
+            {
+                "success": False,
+                "message": "Reason is required"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     provider = User.objects.filter(
         id=provider_id,
@@ -367,13 +411,25 @@ def verify_provider(request, provider_id):
 
     return Response({
         "success": True,
-        "message": "Provider verified successfully"
+        "message": "Provider verified successfully",
+        "reason": reason
     })
 
 
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def unverify_provider(request, provider_id):
+
+    reason = request.data.get("reason")
+
+    if not reason:
+        return Response(
+            {
+                "success": False,
+                "message": "Reason is required"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     provider = User.objects.filter(
         id=provider_id,
@@ -391,7 +447,8 @@ def unverify_provider(request, provider_id):
 
     return Response({
         "success": True,
-        "message": "Provider unverified successfully"
+        "message": "Provider unverified successfully",
+        "reason": reason
     })
 
 @api_view(["GET"])

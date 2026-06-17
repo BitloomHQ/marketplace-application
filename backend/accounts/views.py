@@ -172,7 +172,10 @@ def dashboard_api(request):
                 "key": service.key,
                 "status": service.status,
                 "description": service.description,
-                "icon": service.icon,
+                "service_image": (
+                    request.build_absolute_uri(service.service_image.url)
+                    if service.service_image else None
+                ),
                 "start_date": service.start_date,
             }
             for service in popular_services
@@ -189,7 +192,10 @@ def dashboard_api(request):
                 "key": service.key,
                 "status": service.status,
                 "description": service.description,
-                "icon": service.icon,
+                "service_image": (
+                    request.build_absolute_uri(service.service_image.url)
+                    if service.service_image else None
+                ),
                 "start_date": service.start_date,
             }
             for service in services
@@ -586,3 +592,31 @@ def maps_reverse_geocode(request):
         "lon": lon_f,
     })
 
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def active_services(request):
+
+    services = ServiceCategory.objects.filter(
+        status="active"
+    ).order_by("display_order")
+
+    return Response({
+        "success": True,
+        "services": [
+            {
+                "id": service.id,
+                "name": service.name,
+                "key": service.key,
+                "description": service.description,
+                "status": service.status,
+
+                "service_image": (
+                    request.build_absolute_uri(
+                        service.service_image.url
+                    )
+                    if service.service_image else None
+                )
+            }
+            for service in services
+        ]
+    })

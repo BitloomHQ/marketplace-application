@@ -31,6 +31,7 @@ from .views import (
     maps_geocode_address,
     maps_reverse_geocode,
     edit_address,
+    active_services,
 )
 
 
@@ -86,4 +87,5 @@ urlpatterns = [
     path("maps/geocode-address/", maps_geocode_address, name="maps_geocode_address"),
     path("maps/reverse-geocode/", maps_reverse_geocode, name="maps_reverse_geocode"),
     path("edit-address/<int:address_id>/",edit_address,name="edit_address"),
+    path("active-services/",active_services,name="active_services"),
 ]
