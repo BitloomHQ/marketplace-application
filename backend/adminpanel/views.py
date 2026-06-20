@@ -335,6 +335,7 @@ def activate_provider(request, provider_id):
         )
 
     provider.is_active = True
+    provider.deactivate_reason = None
     provider.save()
 
     return Response({
@@ -371,6 +372,7 @@ def deactivate_provider(request, provider_id):
         )
 
     provider.is_active = False
+    provider.deactivate_reason = reason
     provider.save()
 
     return Response({

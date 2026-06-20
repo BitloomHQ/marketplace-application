@@ -9,7 +9,7 @@ from .views import (
     create_service_category,
     update_service_category,
     delete_service_category,
-    all_providers,
+    
     activate_provider,
     deactivate_provider,
     verify_provider,
@@ -21,6 +21,7 @@ from .views import (
     all_bookings,
     all_quotes,
     provider_performance,
+    all_providers,
 )
 
 urlpatterns = [
@@ -34,7 +35,7 @@ urlpatterns = [
     path("services/create/", create_service_category, name="create_service_category"),
     path("services/<int:service_id>/update/", update_service_category, name="update_service_category"),
     path("services/<int:service_id>/delete/", delete_service_category, name="delete_service_category"),
-    path("providers/", all_providers, name="all_providers"),
+    
     path("providers/<int:provider_id>/activate/", activate_provider, name="activate_provider"),
     path("providers/<int:provider_id>/deactivate/", deactivate_provider, name="deactivate_provider"),
     path("providers/<int:provider_id>/verify/", verify_provider, name="verify_provider"),
@@ -46,4 +47,5 @@ urlpatterns = [
     path("bookings/", all_bookings, name="all_bookings"),
     path("quotes/", all_quotes, name="all_quotes"),
     path("provider-performance/", provider_performance, name="provider_performance"),
+    path("providers/", all_providers, name="all_providers"),
 ]
