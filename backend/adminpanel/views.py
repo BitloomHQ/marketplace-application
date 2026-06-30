@@ -691,3 +691,37 @@ def provider_performance(request):
         "success": True,
         "providers": data
     })
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def all_providers(request):
+
+    providers = User.objects.filter(
+        role__in=PROVIDER_ROLES
+    ).order_by("-date_joined")
+
+    return Response({
+        "success": True,
+        "providers": [
+            {
+                "id": provider.id,
+                "username": provider.username,
+                "email": provider.email,
+                "phone": provider.phone,
+                "address": provider.address,
+                "role": provider.role,
+                "bio": provider.bio,
+                "experience_years": provider.experience_years,
+                "is_active": provider.is_active,
+                "is_approved": provider.is_approved,
+                "is_verified": provider.is_verified,
+                "deactivate_reason": provider.deactivate_reason,
+                "profile_picture": (
+                    request.build_absolute_uri(provider.profile_picture.url)
+                    if provider.profile_picture else None
+                ),
+                "date_joined": provider.date_joined,
+            }
+            for provider in providers
+        ]
+    })    
