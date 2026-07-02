@@ -27,6 +27,7 @@ from .views import (
     get_profile,
     update_profile,
     view_lead_detail,
+    popular_providers,
 )
 
 
@@ -128,4 +129,9 @@ urlpatterns = [
         name="update_profile"
     ),
     path("lead/<int:request_id>/",view_lead_detail,name="view_lead_detail"),
+    path(
+    "popular-providers/",
+    popular_providers,
+    name="popular_providers"
+),
 ]

@@ -43,6 +43,10 @@ class User(AbstractUser):
     null=True,
     blank=True
 )
+    deactivate_reason = models.TextField(
+    null=True,
+    blank=True
+)
 
     address = models.TextField(
         blank=True,

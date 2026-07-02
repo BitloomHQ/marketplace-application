@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -949,7 +949,12 @@ def update_profile(request):
     service_type = request.data.get("service_type")
     bio = request.data.get("bio")
     experience_years = request.data.get("experience_years")
+
+    # Direct upload method
     profile_picture = request.FILES.get("profile_picture")
+
+    # Signed/local upload method
+    profile_picture_key = request.data.get("profile_picture_key")
 
     if username:
         user.username = username
@@ -986,6 +991,9 @@ def update_profile(request):
 
     if profile_picture:
         user.profile_picture = profile_picture
+
+    if profile_picture_key:
+        user.profile_picture = profile_picture_key
 
     if service_type:
         if user.role == "customer":
@@ -1120,4 +1128,68 @@ def view_lead_detail(request, request_id):
                 "status": my_quote.status
             } if my_quote else None
         }
+    })
+
+
+from django.db.models import Avg, Count
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def popular_providers(request):
+
+    providers = User.objects.filter(
+        role__in=VALID_SERVICES,
+        is_active=True,
+        is_approved=True,
+    )
+
+    data = []
+
+    for provider in providers:
+
+        reviews = Review.objects.filter(
+            provider=provider
+        )
+
+        avg_rating = 0
+
+        if reviews.exists():
+            avg_rating = round(
+                reviews.aggregate(
+                    Avg("rating")
+                )["rating__avg"],
+                1
+            )
+
+        data.append({
+            "id": provider.id,
+            "username": provider.username,
+            "role": provider.role,
+
+            "profile_picture": (
+                request.build_absolute_uri(
+                    provider.profile_picture.url
+                )
+                if provider.profile_picture else None
+            ),
+
+            "experience_years": provider.experience_years,
+            "is_verified": provider.is_verified,
+
+            "average_rating": avg_rating,
+            "total_reviews": reviews.count(),
+        })
+
+    data = sorted(
+        data,
+        key=lambda x: (
+            x["average_rating"],
+            x["total_reviews"]
+        ),
+        reverse=True
+    )[:10]
+
+    return Response({
+        "success": True,
+        "providers": data
     })
