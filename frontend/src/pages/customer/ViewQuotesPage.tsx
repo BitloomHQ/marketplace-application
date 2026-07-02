@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchQuotes, selectProvider } from '../../api/services'
 import { ApiRequestError } from '../../api/client'
+import { ProviderAvatar } from '../../components/ProviderAvatar'
 import { ProviderProfileModal } from '../../components/ProviderProfileModal'
+import { StarRating } from '../../components/StarRating'
 import { Alert, Badge, Button, EmptyState } from '../../components/ui'
 import type { ProviderProfile, Quote } from '../../types'
 
@@ -12,11 +14,6 @@ function quoteStatusTone(status: string): 'neutral' | 'success' | 'warning' | 'd
   return 'warning'
 }
 
-function formatRating(quote: Quote): string {
-  if (quote.total_reviews === 0) return 'No reviews yet'
-  return `${quote.average_rating} ★`
-}
-
 function quoteToProfile(q: Quote): ProviderProfile {
   return {
     provider_id: q.provider_id,
@@ -24,6 +21,12 @@ function quoteToProfile(q: Quote): ProviderProfile {
     provider_email: q.provider_email,
     provider_phone: q.provider_phone,
     provider_address: q.provider_address,
+    provider_role: q.provider_role,
+    is_verified: q.is_verified,
+    provider_profile_picture: q.provider_profile_picture,
+    bio: q.bio,
+    experience_years: q.experience_years,
+    portfolio_images: q.portfolio_images,
     average_rating: q.average_rating,
     total_reviews: q.total_reviews,
   }
@@ -132,9 +135,11 @@ export function ViewQuotesPage() {
               className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
             >
               <div className="flex gap-3">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-lg font-bold text-violet-700">
-                  {q.provider.charAt(0).toUpperCase()}
-                </span>
+                <ProviderAvatar
+                  name={q.provider}
+                  imageUrl={q.provider_profile_picture}
+                  size="md"
+                />
                 <div className="min-w-0 flex-1">
                   <button
                     type="button"
@@ -143,7 +148,9 @@ export function ViewQuotesPage() {
                   >
                     {q.provider}
                   </button>
-                  <p className="mt-0.5 text-sm font-medium text-amber-700">{formatRating(q)}</p>
+                  <div className="mt-1">
+                    <StarRating rating={q.average_rating} totalReviews={q.total_reviews} />
+                  </div>
                   <p className="mt-1 text-2xl font-bold text-zinc-900">₹{q.price}</p>
                   {q.message && <p className="mt-2 text-sm text-zinc-500">{q.message}</p>}
                 </div>

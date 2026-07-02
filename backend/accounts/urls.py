@@ -3,28 +3,13 @@ from django.urls import path
 from .views import (
     RegisterView,
     login_api,
-    
-)
-
-from django.urls import path
-
-from .views import (
-
-    RegisterView,
-
-    login_api,
-
     dashboard_api,
-
     providers_by_service,
-
     customer_dashboard,
-    
     add_address,
-
     my_addresses,
-
     delete_address,
+    edit_address,
     maps_status,
     maps_autocomplete,
     maps_place_details,
@@ -33,7 +18,6 @@ from .views import (
     edit_address,
     active_services,
 )
-
 
 urlpatterns = [
 

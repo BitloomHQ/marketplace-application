@@ -13,6 +13,8 @@ class CustomUserAdmin(UserAdmin):
         'email',
         'role',
         'phone',
+        'is_approved',
+        'is_verified',
         'is_staff',
         'is_verified',
     )
@@ -43,22 +45,24 @@ class CustomUserAdmin(UserAdmin):
                     'email',
                     'phone',
                     'address',
-                    'profile_picture',
                     'bio',
                     'experience_years',
+                    'profile_picture',
                 )
             }
         ),
 
         (
-    'Role Information',
-    {
-        'fields': (
-            'role',
-            'is_verified',
-        )
-    }
-),
+            'Role Information',
+            {
+                'fields': (
+                    'role',
+                    'is_approved',
+                    'is_verified',
+                )
+            }
+        ),
+
         (
             'Permissions',
             {

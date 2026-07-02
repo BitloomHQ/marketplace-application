@@ -39,13 +39,21 @@ export const PROVIDER_SERVICE_OPTIONS: { value: ProviderRole; label: string }[] 
   { value: 'gardener', label: 'Gardener' },
 ]
 
-export function isProviderRole(role: string): role is ProviderRole {
-  return role === 'gardener' || role === 'electrician' || role === 'plumber'
+export function isProviderRole(role: string): boolean {
+  return role !== 'customer' && role !== 'admin'
 }
 
-export function providerDashboardPath(role: string): string {
-  if (role === 'gardener') return '/gardener-dashboard'
-  if (role === 'electrician') return '/electrician-dashboard'
-  if (role === 'plumber') return '/plumber-dashboard'
-  return '/dashboard'
+export function providerDashboardPath(_role?: string): string {
+  return '/provider-dashboard'
+}
+
+export function adminDashboardPath(): string {
+  return '/admin-dashboard'
+}
+
+export function homePathForRole(role: string): string {
+  if (role === 'admin') return adminDashboardPath()
+  if (role === 'customer') return '/customer-dashboard'
+  if (isProviderRole(role)) return providerDashboardPath(role)
+  return '/'
 }

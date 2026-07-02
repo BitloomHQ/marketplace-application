@@ -1,21 +1,22 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useId, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { fetchMyAddresses } from '../api/accounts'
+import { fetchActiveServices, fetchMyAddresses } from '../api/accounts'
 import { createServiceRequest } from '../api/services'
 import { ApiRequestError } from '../api/client'
+import { FileUploadZone } from './FileUploadZone'
 import { LawnPolygonDrawer } from './LawnPolygonDrawer'
-import { Alert, Button, Field, Input, Modal, Select, Textarea } from './ui'
+import { Alert, Field, Modal, ModalActions, Select, Textarea } from './ui'
 import { polygonAreaSqMeters } from '../lib/polygon'
-import { SERVICE_OPTIONS } from '../lib/format'
+import { addressLatLon } from '../lib/address'
 import { addStoredRequestId } from '../lib/storage'
-import type { CustomerAddress, PolygonPoint, ServiceType } from '../types'
+import type { ActiveService, CustomerAddress, PolygonPoint } from '../types'
 
 const LAWN_CORNERS = 4
 
 type Props = {
   open: boolean
   onClose: () => void
-  initialServiceType?: ServiceType
+  initialServiceType?: string
   onCreated?: (requestId: number) => void
 }
 
@@ -26,7 +27,10 @@ export function CreateRequestModal({
   onCreated,
 }: Props) {
   const navigate = useNavigate()
-  const [serviceType, setServiceType] = useState<ServiceType>(initialServiceType)
+  const formId = useId()
+  const resolvedFormId = formId.replace(/:/g, '')
+  const [serviceType, setServiceType] = useState<string>(initialServiceType)
+  const [activeServices, setActiveServices] = useState<ActiveService[]>([])
   const [addresses, setAddresses] = useState<CustomerAddress[]>([])
   const [addressId, setAddressId] = useState('')
   const [description, setDescription] = useState('')
@@ -38,6 +42,7 @@ export function CreateRequestModal({
 
   const isGardener = serviceType === 'gardener'
   const selectedAddress = addresses.find((a) => String(a.id) === addressId)
+  const selectedCoords = selectedAddress ? addressLatLon(selectedAddress) : null
   const lawnAreaM2 =
     polygonPoints.length >= 3 ? Math.round(polygonAreaSqMeters(polygonPoints)) : undefined
 
@@ -49,12 +54,20 @@ export function CreateRequestModal({
     setPolygonPoints([])
     setError('')
     setLoadingAddresses(true)
-    fetchMyAddresses()
-      .then((res) => {
-        setAddresses(res.addresses)
-        setAddressId(res.addresses[0] ? String(res.addresses[0].id) : '')
+    Promise.all([fetchMyAddresses(), fetchActiveServices()])
+      .then(([addressRes, servicesRes]) => {
+        setAddresses(addressRes.addresses)
+        setAddressId(addressRes.addresses[0] ? String(addressRes.addresses[0].id) : '')
+        setActiveServices(servicesRes.services)
+        if (servicesRes.services.length > 0) {
+          const match = servicesRes.services.find((s) => s.key === initialServiceType)
+          setServiceType(match?.key ?? servicesRes.services[0].key)
+        }
       })
-      .catch(() => setAddresses([]))
+      .catch(() => {
+        setAddresses([])
+        setActiveServices([])
+      })
       .finally(() => setLoadingAddresses(false))
   }, [open, initialServiceType])
 
@@ -73,7 +86,7 @@ export function CreateRequestModal({
       return
     }
     if (isGardener) {
-      if (selectedAddress?.lat == null || selectedAddress?.lon == null) {
+      if (!selectedCoords) {
         setError('Selected address must have a map location. Update it in Saved addresses.')
         return
       }
@@ -106,11 +119,27 @@ export function CreateRequestModal({
     }
   }
 
+  const canSubmit = addresses.length > 0 && !loadingAddresses
+
   return (
-    <Modal open={open} onClose={handleClose} title="Book a service" wide>
-      <p className="mb-4 text-sm text-zinc-500">
-        Choose a saved address. Plumbers and electricians can attach a photo; gardeners mark the lawn area.
-      </p>
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title="Book a service"
+      subtitle="Select your address, share service details, and connect with verified professionals ready to help at your doorstep."
+      wide
+      footer={
+        canSubmit ? (
+          <ModalActions
+            formId={resolvedFormId}
+            onCancel={handleClose}
+            submitLabel="Submit request"
+            loading={loading}
+            disabled={addresses.length === 0}
+          />
+        ) : undefined
+      }
+    >
       {error && (
         <div className="mb-4">
           <Alert variant="error">{error}</Alert>
@@ -118,56 +147,78 @@ export function CreateRequestModal({
       )}
 
       {loadingAddresses ? (
-        <p className="text-sm text-zinc-400">Loading your addresses…</p>
+        <p className="text-center text-sm text-zinc-400">Loading your addresses…</p>
       ) : addresses.length === 0 ? (
-        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-900">
           <p>You need at least one saved address before booking.</p>
-          <Link to="/customer/addresses" className="mt-2 inline-block font-semibold text-violet-600">
+          <Link to="/customer/addresses" className="mt-2 inline-block font-semibold text-sky-600">
             Add an address →
           </Link>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Field label="Service type">
+        <form id={resolvedFormId} onSubmit={handleSubmit} className="space-y-5">
+          <Field label="Service type" required>
             <Select
               value={serviceType}
-              onChange={(e) => setServiceType(e.target.value as ServiceType)}
+              onChange={(e) => setServiceType(e.target.value)}
+              className="!rounded-xl"
             >
-              {SERVICE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
+              <option value="" disabled>
+                Select
+              </option>
+              {activeServices.map((service) => (
+                <option key={service.id} value={service.key}>
+                  {service.name}
                 </option>
               ))}
             </Select>
           </Field>
 
-          <Field label="Saved address">
-            <Select value={addressId} onChange={(e) => setAddressId(e.target.value)} required>
+          <Field
+            label="Saved address"
+            required
+            action={
+              <Link
+                to="/customer/addresses"
+                className="text-xs font-semibold text-sky-600 hover:text-sky-700"
+              >
+                Manage addresses
+              </Link>
+            }
+          >
+            <Select
+              value={addressId}
+              onChange={(e) => setAddressId(e.target.value)}
+              required
+              className="!rounded-xl"
+            >
+              <option value="" disabled>
+                Select
+              </option>
               {addresses.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.title} — {a.address}
                 </option>
               ))}
             </Select>
-            <Link to="/customer/addresses" className="mt-1 inline-block text-xs font-medium text-violet-600">
-              Manage addresses
-            </Link>
           </Field>
 
           <Field label="Description">
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder={isGardener ? 'Need grass cutting' : 'Kitchen pipe leakage'}
+              placeholder="Enter the service description for this one please"
+              className="!min-h-[100px] !rounded-xl"
             />
           </Field>
 
           {isGardener ? (
-            <Field label="Lawn area">
-              {selectedAddress?.lat != null && selectedAddress?.lon != null ? (
+            <div>
+              <p className="mb-2 text-sm font-semibold text-zinc-900">Lawn area</p>
+              {selectedCoords ? (
                 <LawnPolygonDrawer
-                  centerLat={selectedAddress.lat}
-                  centerLon={selectedAddress.lon}
+                  centerLat={selectedCoords.lat}
+                  centerLon={selectedCoords.lon}
                   value={polygonPoints}
                   onChange={setPolygonPoints}
                   disabled={loading}
@@ -175,41 +226,18 @@ export function CreateRequestModal({
               ) : (
                 <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   This address has no coordinates.{' '}
-                  <Link to="/customer/addresses" className="font-semibold text-violet-600">
+                  <Link to="/customer/addresses" className="font-semibold text-sky-600">
                     Update the address on the map
                   </Link>{' '}
                   before booking gardener services.
                 </p>
               )}
-            </Field>
+            </div>
           ) : (
-            <Field label="Photo (optional)">
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setImage(e.target.files?.[0] ?? null)}
-              />
-            </Field>
+            <div>
+              <FileUploadZone file={image} onChange={setImage} disabled={loading} />
+            </div>
           )}
-
-          <div className="flex flex-col-reverse gap-2 border-t border-zinc-100 pt-4 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full sm:w-auto"
-              disabled={loading}
-              onClick={handleClose}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="w-full sm:w-auto"
-              disabled={loading || addresses.length === 0}
-            >
-              {loading ? 'Submitting…' : 'Submit request'}
-            </Button>
-          </div>
         </form>
       )}
     </Modal>

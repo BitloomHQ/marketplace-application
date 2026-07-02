@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react'
 import { fetchMyBookings, updateBookingStatus } from '../../api/services'
 import { ApiRequestError } from '../../api/client'
-import { Alert, Badge, EmptyState, Select } from '../../components/ui'
+import { RequestLawnMapSection } from '../../components/RequestLawnMapSection'
+import {
+  formatListDate,
+  ServiceListCard,
+} from '../../components/ServiceListCard'
+import { Alert, EmptyState, PageHeader, Select } from '../../components/ui'
 import { canEditBookingStatus, providerStatusOptions } from '../../lib/bookingStatus'
-import { formatService, formatStatus } from '../../lib/format'
-import { SERVICE_META } from '../../lib/serviceMeta'
+import { formatStatus } from '../../lib/format'
+import { mapsUrlForLocation } from '../../lib/maps'
 import type { Booking, BookingStatus } from '../../types'
-
-function statusTone(s: string): 'neutral' | 'success' | 'warning' | 'danger' {
-  if (s === 'completed') return 'success'
-  if (s === 'cancelled') return 'danger'
-  if (s === 'in_progress') return 'warning'
-  return 'neutral'
-}
 
 export function ProviderBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -45,12 +43,16 @@ export function ProviderBookingsPage() {
     }
   }
 
+  const activeCount = bookings.filter(
+    (b) => b.status !== 'completed' && b.status !== 'cancelled',
+  ).length
+
   return (
     <div>
-      <div className="mb-5">
-        <h1 className="text-2xl font-bold text-zinc-900">My schedule</h1>
-        <p className="mt-1 text-sm text-zinc-500">Update visit status for confirmed jobs</p>
-      </div>
+      <PageHeader
+        title="My schedule"
+        subtitle={`${activeCount} active visit${activeCount !== 1 ? 's' : ''} on your calendar`}
+      />
 
       {error && (
         <div className="mb-4">
@@ -61,71 +63,68 @@ export function ProviderBookingsPage() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2].map((i) => (
-            <div key={i} className="h-36 animate-pulse rounded-2xl bg-zinc-200" />
+            <div key={i} className="h-40 animate-pulse rounded-2xl bg-zinc-200" />
           ))}
         </div>
       ) : bookings.length === 0 ? (
         <EmptyState icon="📅" message="No confirmed jobs yet. Send quotes on new jobs to get booked." />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {bookings.map((b) => {
-            const meta = SERVICE_META[b.service_type]
             const editable = canEditBookingStatus(b.status)
 
             return (
-              <article
+              <ServiceListCard
                 key={b.id}
-                className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
-              >
-                <div className="flex gap-3">
-                  <span
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl ${meta.bg}`}
-                  >
-                    {meta.emoji}
-                  </span>
-
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-zinc-900">{formatService(b.service_type)}</h3>
-                    <p className="text-sm text-zinc-600">
-                      For <span className="font-semibold">{b.customer}</span>
-                    </p>
-                    <p className="mt-1 text-lg font-bold text-zinc-900">₹{b.final_price}</p>
-                  </div>
-
-                  <div className="flex w-[6.75rem] shrink-0 flex-col items-end gap-2">
-                    <Badge tone={statusTone(b.status)}>{formatStatus(b.status)}</Badge>
-
-                    {editable ? (
-                      <>
-                        <label className="sr-only" htmlFor={`status-${b.id}`}>
-                          Change status
-                        </label>
-                        <Select
-                          id={`status-${b.id}`}
-                          value={b.status}
-                          disabled={updatingId === b.id}
-                          onChange={(e) =>
-                            handleStatusChange(b.id, e.target.value as BookingStatus)
-                          }
-                          className="!w-full !rounded-lg !px-2 !py-1.5 text-xs font-medium"
-                          aria-label="Change booking status"
-                        >
-                          {providerStatusOptions(b.status).map((s) => (
-                            <option key={s} value={s}>
-                              {formatStatus(s)}
-                            </option>
-                          ))}
-                        </Select>
-                        {updatingId === b.id && (
-                          <p className="text-center text-[10px] text-zinc-400">Saving…</p>
-                        )}
-                      </>
-                    ) : (
-                      <p className="text-center text-[10px] text-zinc-400">Job closed</p>
-                    )}
-                  </div>
-                </div>
-              </article>
+                serviceType={b.service_type}
+                status={b.status}
+                rating={`₹${b.final_price.toLocaleString()}`}
+                date={formatListDate(b.created_at)}
+                location={b.address}
+                locationHref={mapsUrlForLocation(b.address, b.lat, b.lon)}
+                description={`Visit for ${b.customer}`}
+                extra={
+                  <RequestLawnMapSection
+                    serviceType={b.service_type}
+                    lat={b.lat}
+                    lon={b.lon}
+                    lawnArea={b.lawn_area}
+                    polygonPoints={b.polygon_points}
+                  />
+                }
+                actions={
+                  editable ? (
+                    <div className="w-full min-w-[9.5rem] space-y-1.5">
+                      <label className="sr-only" htmlFor={`status-${b.id}`}>
+                        Change status
+                      </label>
+                      <Select
+                        id={`status-${b.id}`}
+                        value={b.status}
+                        disabled={updatingId === b.id}
+                        onChange={(e) =>
+                          handleStatusChange(b.id, e.target.value as BookingStatus)
+                        }
+                        className="!w-full !rounded-full !px-4 !py-2.5 text-sm font-semibold"
+                        aria-label="Change booking status"
+                      >
+                        {providerStatusOptions(b.status).map((s) => (
+                          <option key={s} value={s}>
+                            {formatStatus(s)}
+                          </option>
+                        ))}
+                      </Select>
+                      {updatingId === b.id && (
+                        <p className="text-center text-xs text-zinc-400">Saving…</p>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="inline-flex min-w-[9.5rem] items-center justify-center rounded-full bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-500">
+                      Job closed
+                    </span>
+                  )
+                }
+              />
             )
           })}
         </div>

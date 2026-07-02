@@ -3,7 +3,7 @@ import { submitReview } from '../api/services'
 import { ApiRequestError } from '../api/client'
 import type { Booking } from '../types'
 import { Alert, Button, Field, Modal, Textarea } from './ui'
-import { StarRating } from './StarRating'
+import { StarRatingInput } from './StarRatingInput'
 
 type Props = {
   booking: Booking | null
@@ -82,7 +82,7 @@ export function ReviewModal({ booking, open, onClose, onSuccess }: Props) {
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Your rating">
-          <StarRating value={rating} onChange={setRating} disabled={loading} />
+          <StarRatingInput value={rating} onChange={setRating} disabled={loading} />
         </Field>
         <Field label="Review (optional)">
           <Textarea

@@ -3,15 +3,37 @@ from accounts.models import User, CustomerAddress
 
 
 # =========================================
+# SERVICE CATEGORIES (admin-managed)
+# =========================================
+class ServiceCategory(models.Model):
+
+    STATUS_CHOICES = (
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('coming_soon', 'Coming Soon'),
+    )
+
+    name = models.CharField(max_length=100)
+    key = models.CharField(max_length=50, unique=True)
+    description = models.TextField()
+    icon = models.CharField(max_length=16, default='🔧')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    start_date = models.CharField(max_length=100, blank=True, default='')
+    display_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['display_order', 'name']
+
+    def __str__(self):
+        return self.name
+
+
+# =========================================
 # SERVICE REQUEST MODEL
 # =========================================
 class ServiceRequest(models.Model):
 
-    SERVICE_TYPES = (
-        ("gardener", "Gardener"),
-        ("electrician", "Electrician"),
-        ("plumber", "Plumber"),
-    )
+    SERVICE_TYPES = ()
 
     STATUS_CHOICES = (
         ("pending", "Pending"),
@@ -30,8 +52,7 @@ class ServiceRequest(models.Model):
     )
 
     service_type = models.CharField(
-        max_length=20,
-        choices=SERVICE_TYPES
+        max_length=50,
     )
 
     # OLD ADDRESS FIELD
@@ -172,6 +193,7 @@ class Booking(models.Model):
 
     STATUS_CHOICES = (
         ("assigned", "Assigned"),
+        ("pending", "Pending"),
         ("in_progress", "In Progress"),
         ("completed", "Completed"),
         ("cancelled", "Cancelled"),
@@ -297,7 +319,7 @@ class ProviderPortfolio(models.Model):
     provider = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="portfolio_images"
+        related_name="legacy_portfolio_images"
     )
 
     image = models.ImageField(

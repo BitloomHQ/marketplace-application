@@ -54,10 +54,26 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
   )
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({
+  label,
+  children,
+  required,
+  action,
+}: {
+  label: string
+  children: ReactNode
+  required?: boolean
+  action?: ReactNode
+}) {
   return (
     <div className="block w-full space-y-1.5">
-      <span className="block text-sm font-medium text-zinc-700">{label}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-zinc-900">
+          {label}
+          {required && <span className="text-rose-500"> *</span>}
+        </span>
+        {action}
+      </div>
       {children}
     </div>
   )
@@ -72,10 +88,10 @@ export function Input({ className = '', ...props }: InputHTMLAttributes<HTMLInpu
   )
 }
 
-export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({ className = '', ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+      className={`w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 ${className}`}
       {...props}
     />
   )
@@ -127,45 +143,98 @@ export function Modal({
   open,
   onClose,
   title,
+  subtitle,
   children,
+  footer,
   wide = false,
 }: {
   open: boolean
   onClose: () => void
   title: string
+  subtitle?: string
   children: ReactNode
+  footer?: ReactNode
   wide?: boolean
 }) {
   if (!open) return null
 
+  const maxWidth = wide ? 'sm:max-w-xl' : 'sm:max-w-md'
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center p-0 sm:items-center sm:p-6">
       <button
         type="button"
-        className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-zinc-900/55 backdrop-blur-[2px]"
         onClick={onClose}
         aria-label="Close dialog"
       />
       <div
         role="dialog"
         aria-modal="true"
-        className={`relative z-10 flex max-h-[min(92dvh,100%)] w-full flex-col overflow-hidden rounded-t-3xl border border-zinc-200 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-3xl ${wide ? 'sm:max-w-lg' : 'sm:max-w-md'}`}
+        className={`relative z-10 flex max-h-[min(92dvh,100%)] w-full flex-col overflow-visible rounded-t-[1.75rem] border border-zinc-100 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-[1.75rem] ${maxWidth}`}
       >
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-zinc-100 px-6 py-4">
-          <h2 className="text-xl font-bold text-zinc-900">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
-            aria-label="Close"
-          >
-            ✕
-          </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute -right-2 -top-2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-sm font-bold text-white shadow-lg hover:bg-rose-600 sm:-right-3 sm:-top-3"
+          aria-label="Close"
+        >
+          ✕
+        </button>
+
+        <div className="shrink-0 px-6 pb-2 pt-8 text-center sm:px-8 sm:pt-10">
+          <h2 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl">{title}</h2>
+          {subtitle && (
+            <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-zinc-500">{subtitle}</p>
+          )}
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4 pb-tab-bar lg:pb-4">
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4 sm:px-8 pb-tab-bar lg:pb-4">
           {children}
         </div>
+
+        {footer && (
+          <div className="shrink-0 border-t border-zinc-100 px-6 py-4 pb-tab-bar sm:px-8 lg:pb-5">
+            {footer}
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+export function ModalActions({
+  onCancel,
+  submitLabel,
+  loading,
+  disabled,
+  formId,
+}: {
+  onCancel: () => void
+  submitLabel: string
+  loading?: boolean
+  disabled?: boolean
+  formId?: string
+}) {
+  return (
+    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={onCancel}
+        disabled={loading}
+        className="w-full !rounded-full border-zinc-300 py-3 font-semibold sm:w-auto sm:min-w-[9rem]"
+      >
+        Cancel
+      </Button>
+      <Button
+        type="submit"
+        form={formId}
+        disabled={disabled || loading}
+        className="w-full !rounded-full !bg-sky-600 py-3 font-bold shadow-md shadow-sky-600/20 hover:!bg-sky-700 sm:w-auto sm:min-w-[11rem]"
+      >
+        {loading ? 'Please wait…' : submitLabel}
+      </Button>
     </div>
   )
 }

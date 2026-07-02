@@ -1,8 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useId, useState, type FormEvent } from 'react'
 import { sendQuote } from '../api/services'
 import { ApiRequestError } from '../api/client'
 import type { Lead } from '../types'
-import { Alert, Button, Field, Input, Modal, Textarea } from './ui'
+import { Alert, Field, Input, Modal, ModalActions, Textarea } from './ui'
 
 type Props = {
   lead: Lead | null
@@ -12,6 +12,7 @@ type Props = {
 }
 
 export function SendQuoteModal({ lead, open, onClose, onSent }: Props) {
+  const formId = useId().replace(/:/g, '')
   const [price, setPrice] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
@@ -49,9 +50,24 @@ export function SendQuoteModal({ lead, open, onClose, onSent }: Props) {
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Send your quote" wide>
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title="Send your quote"
+      subtitle="Share your price, details, and connect with customers faster."
+      wide
+      footer={
+        <ModalActions
+          formId={formId}
+          onCancel={handleClose}
+          submitLabel="Submit quote"
+          loading={loading}
+          disabled={!lead}
+        />
+      }
+    >
       {lead && (
-        <p className="mb-4 text-sm text-zinc-500">
+        <p className="mb-5 text-center text-sm font-medium text-zinc-600">
           Job #{lead.id} · {lead.address}
         </p>
       )}
@@ -60,44 +76,35 @@ export function SendQuoteModal({ lead, open, onClose, onSent }: Props) {
           <Alert variant="error">{error}</Alert>
         </div>
       )}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id={formId} onSubmit={handleSubmit} className="space-y-5">
         <Field label="Price (₹)">
-          <Input
-            type="number"
-            min={1}
-            step={1}
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            required
-            placeholder="500"
-            className="max-w-[200px] text-lg font-semibold"
-            disabled={loading}
-          />
+          <div className="relative w-full">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-zinc-400">
+              ₹
+            </span>
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              required
+              placeholder="500"
+              className="!rounded-xl !pl-10 text-lg font-semibold"
+              disabled={loading}
+            />
+          </div>
         </Field>
         <Field label="Message to customer">
           <Textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="I can visit today afternoon…"
-            rows={3}
-            className="!min-h-[72px] resize-y"
+            placeholder="e.g. I can visit today afternoon"
+            rows={4}
+            className="!min-h-[100px] !rounded-xl resize-y"
             disabled={loading}
           />
         </Field>
-        <div className="flex flex-col-reverse gap-2 border-t border-zinc-100 pt-4 sm:flex-row sm:justify-end">
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full sm:w-auto"
-            disabled={loading}
-            onClick={handleClose}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" className="w-full sm:w-auto" disabled={loading || !lead}>
-            {loading ? 'Sending…' : 'Submit quote'}
-          </Button>
-        </div>
       </form>
     </Modal>
   )

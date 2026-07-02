@@ -1,9 +1,15 @@
 import { formatService } from '../lib/format'
 import { SERVICE_META } from '../lib/serviceMeta'
-import { SERVICE_IMAGES } from '../lib/serviceImages'
-import type { ServiceType } from '../types'
+import { DEFAULT_SERVICE_IMAGE } from '../lib/defaultServiceImage'
+import { resolveMediaUrl } from '../lib/media'
+import type { ServiceCategory, ServiceType } from '../types'
 
 const DEFAULT_SERVICES: ServiceType[] = ['plumber', 'electrician', 'gardener']
+
+function categoryImage(category: ServiceCategory): string {
+  const fromApi = category.service_image ? resolveMediaUrl(category.service_image) : null
+  return fromApi ?? DEFAULT_SERVICE_IMAGE
+}
 
 type ServiceCardsLayout = 'grid' | 'scroll'
 type ServiceCardsVariant = 'card' | 'circle'
@@ -12,7 +18,6 @@ type ServiceCardProps = {
   service: ServiceType
   layout: ServiceCardsLayout
   variant: ServiceCardsVariant
-  showCta?: boolean
   titleCentered?: boolean
   onClick: () => void
 }
@@ -21,7 +26,6 @@ function ServiceCard({
   service,
   layout,
   variant,
-  showCta = false,
   titleCentered = false,
   onClick,
 }: ServiceCardProps) {
@@ -33,11 +37,11 @@ function ServiceCard({
       <button
         type="button"
         onClick={onClick}
-        className="group flex w-full flex-col items-center text-center transition active:scale-[0.97]"
+        className="group flex flex-col items-center text-center transition active:scale-[0.97]"
       >
-        <div className="relative h-[5.5rem] w-[5.5rem] overflow-hidden rounded-full bg-sky-100 ring-[3px] ring-sky-100 shadow-md transition group-hover:ring-sky-300 sm:h-28 sm:w-28 md:h-32 md:w-32 lg:h-36 lg:w-36">
+        <div className="relative h-[5.5rem] w-[5.5rem] overflow-hidden rounded-full bg-sky-100 ring-[3px] ring-sky-100 shadow-md transition group-hover:ring-sky-300 sm:h-28 sm:w-28 md:h-32 md:w-32 lg:h-40 lg:w-40">
           <img
-            src={SERVICE_IMAGES[service]}
+            src={DEFAULT_SERVICE_IMAGE}
             alt={formatService(service)}
             className="h-full w-full object-cover"
             loading="lazy"
@@ -49,9 +53,6 @@ function ServiceCard({
         <p className="mt-1 line-clamp-2 px-1 text-xs leading-snug text-zinc-500 sm:text-sm">
           {meta.tagline}
         </p>
-        {showCta && (
-          <p className="mt-2 text-xs font-semibold text-sky-600 sm:text-sm">Book now</p>
-        )}
       </button>
     )
   }
@@ -67,7 +68,7 @@ function ServiceCard({
       } ${align}`}
     >
       <img
-        src={SERVICE_IMAGES[service]}
+        src={DEFAULT_SERVICE_IMAGE}
         alt={formatService(service)}
         className="aspect-[4/3] w-full rounded-2xl object-cover"
         loading="lazy"
@@ -83,52 +84,152 @@ function ServiceCard({
         <p className="mt-0.5 line-clamp-2 text-[10px] leading-tight text-zinc-500 sm:text-xs">
           {meta.tagline}
         </p>
-        {showCta && (
-          <p className="mt-2 text-xs font-semibold text-sky-600">Book now →</p>
-        )}
       </div>
     </button>
   )
 }
 
 type ServiceCardsProps = {
-  onSelect: (service: ServiceType) => void
+  onSelect: (serviceKey: string) => void
+  onComingSoon?: (category: ServiceCategory) => void
   services?: ServiceType[]
+  categories?: ServiceCategory[]
   layout?: ServiceCardsLayout
   variant?: ServiceCardsVariant
-  showCta?: boolean
   titleCentered?: boolean
   className?: string
 }
 
+function CategoryCircleCard({
+  category,
+  onSelect,
+  onComingSoon,
+}: {
+  category: ServiceCategory
+  onSelect: (serviceKey: string) => void
+  onComingSoon?: (category: ServiceCategory) => void
+}) {
+  const isActive = category.status === 'active'
+  const isComingSoon = category.status === 'coming_soon'
+  const imageSrc = categoryImage(category)
+
+  const handleClick = () => {
+    if (isActive) {
+      onSelect(category.key)
+      return
+    }
+    if (isComingSoon && onComingSoon) {
+      onComingSoon(category)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className={`group flex flex-col items-center text-center transition ${
+        isActive || isComingSoon ? 'cursor-pointer active:scale-[0.97]' : 'cursor-default'
+      }`}
+    >
+      <div className="relative h-[5.5rem] w-[5.5rem] overflow-hidden rounded-full bg-sky-100 ring-[3px] ring-sky-100 shadow-md sm:h-28 sm:w-28 md:h-32 md:w-32 lg:h-40 lg:w-40">
+        <img
+          src={imageSrc}
+          alt={category.name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+        {isComingSoon && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 px-2">
+            <span className="text-center text-[10px] font-bold uppercase leading-tight tracking-wide text-white sm:text-xs">
+              Coming
+              <br />
+              Soon
+            </span>
+          </div>
+        )}
+      </div>
+      <p className="mt-3 text-sm font-bold sm:text-base">{category.name}</p>
+      <p className="mt-1 line-clamp-2 px-1 text-xs leading-snug text-zinc-500 sm:text-sm">
+        {category.description}
+      </p>
+      {!isActive && !isComingSoon && (
+        <p className="mt-2 text-xs font-semibold text-zinc-400 sm:text-sm">Unavailable</p>
+      )}
+    </button>
+  )
+}
+
+const CIRCLE_SLOT_WIDTH = [
+  'w-[calc((100%-4*1rem)/5)]',
+  'sm:w-[calc((100%-4*1.5rem)/5)]',
+  'md:w-[calc((100%-4*2rem)/5)]',
+].join(' ')
+
+const CIRCLE_ITEM_BASE = `flex shrink-0 flex-col items-center ${CIRCLE_SLOT_WIDTH}`
+
+function circleLayoutClasses(count: number) {
+  const useSlider = count > 5
+
+  return {
+    container: useSlider
+      ? 'scrollbar-none flex w-full gap-4 overflow-x-auto snap-x snap-mandatory pb-2 sm:gap-6 md:gap-8'
+      : 'flex w-full gap-4 justify-start items-start sm:gap-6 md:gap-8',
+    item: useSlider ? `${CIRCLE_ITEM_BASE} snap-start` : CIRCLE_ITEM_BASE,
+  }
+}
+
 export function ServiceCards({
   onSelect,
+  onComingSoon,
   services = DEFAULT_SERVICES,
+  categories,
   layout = 'grid',
   variant = 'card',
-  showCta = false,
   titleCentered = false,
   className = '',
 }: ServiceCardsProps) {
+  const count = categories?.length ?? services.length
+  const circleLayout = variant === 'circle' ? circleLayoutClasses(count) : null
+
   const containerClass =
     variant === 'circle'
-      ? 'grid grid-cols-3 gap-4 sm:gap-8 md:gap-10'
+      ? circleLayout!.container
       : layout === 'grid'
-        ? 'grid grid-cols-3 gap-2 sm:gap-3'
+        ? 'flex gap-2 sm:gap-3'
         : 'scrollbar-none flex gap-3 overflow-x-auto px-4 pb-1 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0'
+
+  if (categories !== undefined) {
+    if (categories.length === 0) {
+      return null
+    }
+
+    return (
+      <div className={`${containerClass} ${className}`.trim()}>
+        {categories.map((category) => (
+          <div key={category.id ?? category.key} className={circleLayout?.item}>
+            <CategoryCircleCard
+              category={category}
+              onSelect={onSelect}
+              onComingSoon={onComingSoon}
+            />
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className={`${containerClass} ${className}`.trim()}>
       {services.map((service) => (
-        <ServiceCard
-          key={service}
-          service={service}
-          layout={layout}
-          variant={variant}
-          showCta={showCta}
-          titleCentered={titleCentered}
-          onClick={() => onSelect(service)}
-        />
+        <div key={service} className={circleLayout?.item}>
+          <ServiceCard
+            service={service}
+            layout={layout}
+            variant={variant}
+            titleCentered={titleCentered}
+            onClick={() => onSelect(service)}
+          />
+        </div>
       ))}
     </div>
   )

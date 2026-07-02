@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('services', '0009_servicerequest_customer_address_and_more'),
+        ('services', '0011_seed_service_categories'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -20,7 +20,11 @@ class Migration(migrations.Migration):
                 ('image', models.ImageField(upload_to='provider_portfolio/')),
                 ('caption', models.CharField(blank=True, max_length=255, null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('provider', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='portfolio_images', to=settings.AUTH_USER_MODEL)),
+                ('provider', models.ForeignKey(
+                    on_delete=django.db.models.deletion.CASCADE,
+                    related_name='legacy_portfolio_images',
+                    to=settings.AUTH_USER_MODEL,
+                )),
             ],
         ),
     ]

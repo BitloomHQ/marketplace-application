@@ -4,10 +4,11 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from accounts.models import User
+from accounts.helpers import is_provider_role, provider_role_keys
 from services.models import ServiceRequest, Quote, Booking, Review
 from .models import ServiceCategory
 
-PROVIDER_ROLES = ["gardener", "electrician", "plumber"]
+PROVIDER_ROLES = provider_role_keys()
 
 
 @api_view(["GET"])
@@ -101,6 +102,7 @@ def approve_provider(request, provider_id):
     provider.is_approved = True
     provider.is_verified = True
     provider.is_active = True
+    provider.status_note = ''
     provider.save()
 
     return Response({
@@ -112,6 +114,17 @@ def approve_provider(request, provider_id):
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def reject_provider(request, provider_id):
+
+    reason = request.data.get("reason")
+
+    if not reason:
+        return Response(
+            {
+                "success": False,
+                "message": "Reason is required",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     provider = User.objects.filter(
         id=provider_id,
@@ -127,11 +140,13 @@ def reject_provider(request, provider_id):
     provider.is_approved = False
     provider.is_verified = False
     provider.is_active = False
+    provider.status_note = reason
     provider.save()
 
     return Response({
         "success": True,
-        "message": "Provider rejected/deactivated successfully"
+        "message": "Provider rejected successfully",
+        "reason": reason,
     })
 
 @api_view(["GET"])
@@ -308,6 +323,41 @@ def delete_service_category(request, service_id):
     })
 
 
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def all_providers(request):
+
+    providers = User.objects.filter(
+        role__in=PROVIDER_ROLES
+    ).order_by("-date_joined")
+
+    return Response({
+        "success": True,
+        "providers": [
+            {
+                "id": provider.id,
+                "username": provider.username,
+                "email": provider.email,
+                "phone": provider.phone,
+                "address": provider.address,
+                "role": provider.role,
+                "bio": provider.bio,
+                "experience_years": provider.experience_years,
+                "is_approved": provider.is_approved,
+                "is_verified": provider.is_verified,
+                "is_active": provider.is_active,
+                "status_note": provider.status_note or "",
+                "profile_picture": (
+                    request.build_absolute_uri(provider.profile_picture.url)
+                    if provider.profile_picture else None
+                ),
+                "date_joined": provider.date_joined,
+            }
+            for provider in providers
+        ]
+    })
+
+
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def activate_provider(request, provider_id):
@@ -335,6 +385,7 @@ def activate_provider(request, provider_id):
         )
 
     provider.is_active = True
+    provider.status_note = ''
     provider.save()
 
     return Response({
@@ -371,6 +422,7 @@ def deactivate_provider(request, provider_id):
         )
 
     provider.is_active = False
+    provider.status_note = reason
     provider.save()
 
     return Response({
@@ -407,6 +459,9 @@ def verify_provider(request, provider_id):
         )
 
     provider.is_verified = True
+    provider.is_approved = True
+    provider.is_active = True
+    provider.status_note = ''
     provider.save()
 
     return Response({

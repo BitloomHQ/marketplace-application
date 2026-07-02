@@ -56,6 +56,18 @@ export function UserMenuDropdown() {
           >
             Account
           </button>
+          {user.role === 'admin' && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                navigate('/admin-dashboard')
+              }}
+              className="w-full px-4 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-50"
+            >
+              Admin dashboard
+            </button>
+          )}
           {user.role === 'customer' && (
             <button
               type="button"

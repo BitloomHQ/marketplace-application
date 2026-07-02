@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { isProviderRole } from '../lib/format'
+import { homePathForRole, isProviderRole } from '../lib/format'
 import { NotificationBell } from './NotificationBell'
 import { NotificationToasts } from './NotificationToasts'
 import { UserMenuDropdown } from './UserMenuDropdown'
 import logo from '../assets/logo.png'
 import backgroundImage from '../assets/background.png'
 
-type NavItem = { to: string; label: string; icon: 'home' | 'list' | 'calendar' | 'briefcase' }
+type NavItem = { to: string; label: string; icon: 'home' | 'list' | 'calendar' | 'briefcase' | 'clock' }
 
 function NavIcon({ name, active }: { name: NavItem['icon']; active: boolean }) {
   const c = active ? 'text-violet-600' : 'text-zinc-400'
@@ -24,6 +24,9 @@ function NavIcon({ name, active }: { name: NavItem['icon']; active: boolean }) {
     ),
     briefcase: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 6V8a2 2 0 00-2-2H8a2 2 0 00-2 2v4" />
+    ),
+    clock: (
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
     ),
   }
   return (
@@ -41,15 +44,9 @@ function customerNav(): NavItem[] {
   ]
 }
 
-function providerNav(role: string): NavItem[] {
-  const base =
-    role === 'gardener'
-      ? '/gardener-dashboard'
-      : role === 'electrician'
-        ? '/electrician-dashboard'
-        : '/plumber-dashboard'
+function providerNav(): NavItem[] {
   return [
-    { to: base, label: 'Home', icon: 'home' },
+    { to: '/provider-dashboard', label: 'Home', icon: 'home' },
     { to: '/provider/leads', label: 'Jobs', icon: 'briefcase' },
     { to: '/provider/bookings', label: 'Schedule', icon: 'calendar' },
   ]
@@ -67,15 +64,74 @@ function bottomNavClass(isActive: boolean) {
   }`
 }
 
+function adminNav(): NavItem[] {
+  return [
+    { to: '/admin-dashboard', label: 'Home', icon: 'home' },
+    { to: '/admin/pending-providers', label: 'Pending', icon: 'clock' },
+    { to: '/admin/providers', label: 'Providers', icon: 'briefcase' },
+    { to: '/admin/services', label: 'Services', icon: 'list' },
+    { to: '/admin/marketplace', label: 'Monitor', icon: 'calendar' },
+  ]
+}
+
+function RoleRouteGuard() {
+  const { user } = useAuth()
+  const { pathname } = useLocation()
+  if (!user) return null
+
+  const home = homePathForRole(user.role)
+  const sharedPaths = ['/profile']
+  if (sharedPaths.includes(pathname)) return null
+
+  if (user.role === 'admin') {
+    if (!pathname.startsWith('/admin')) {
+      return <Navigate to={home} replace />
+    }
+    return null
+  }
+
+  if (user.role === 'customer') {
+    const allowed =
+      pathname === '/customer-dashboard' ||
+      pathname.startsWith('/customer/') ||
+      pathname === '/profile'
+    if (!allowed) return <Navigate to={home} replace />
+    return null
+  }
+
+  if (isProviderRole(user.role)) {
+    const providerHome = homePathForRole(user.role)
+    const allowed =
+      pathname === providerHome ||
+      pathname === '/provider-dashboard' ||
+      pathname.startsWith('/gardener-dashboard') ||
+      pathname.startsWith('/electrician-dashboard') ||
+      pathname.startsWith('/plumber-dashboard') ||
+      pathname.startsWith('/provider/') ||
+      pathname === '/profile'
+    if (!allowed) return <Navigate to={providerHome} replace />
+  }
+
+  return null
+}
+
 export function Layout() {
   const { user } = useAuth()
 
   if (!user) return null
 
-  const nav = user.role === 'customer' ? customerNav() : isProviderRole(user.role) ? providerNav(user.role) : []
+  const nav =
+    user.role === 'admin'
+      ? adminNav()
+      : user.role === 'customer'
+        ? customerNav()
+        : isProviderRole(user.role)
+          ? providerNav()
+          : []
 
   return (
     <div className="min-h-screen bg-zinc-100">
+      <RoleRouteGuard />
       <NotificationToasts />
       <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 sm:py-3">

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   fetchMyServiceRequests,
   updateBookingStatus,
@@ -9,18 +8,17 @@ import { ApiRequestError } from '../../api/client'
 import { CreateRequestModal } from '../../components/CreateRequestModal'
 import { ProviderProfileModal } from '../../components/ProviderProfileModal'
 import { RequestLawnMapSection } from '../../components/RequestLawnMapSection'
-import { Alert, Badge, Button, EmptyState, Pagination } from '../../components/ui'
+import { StarRating } from '../../components/StarRating'
+import {
+  formatListDate,
+  ListCardButton,
+  ListCardLink,
+  ServiceListCard,
+} from '../../components/ServiceListCard'
+import { mapsUrlForLocation } from '../../lib/maps'
+import { Alert, Button, EmptyState, Pagination } from '../../components/ui'
 import type { ProviderProfile } from '../../types'
 import { canCustomerCancelBooking } from '../../lib/bookingStatus'
-import { formatService, formatStatus } from '../../lib/format'
-import { SERVICE_META } from '../../lib/serviceMeta'
-
-function statusTone(s: string): 'neutral' | 'success' | 'warning' | 'danger' {
-  if (s === 'completed') return 'success'
-  if (s === 'cancelled') return 'danger'
-  if (s === 'in_progress' || s === 'assigned' || s === 'pending') return 'warning'
-  return 'neutral'
-}
 
 function toProviderProfile(r: ServiceRequestSummary): ProviderProfile | null {
   if (!r.provider_id || !r.provider) return null
@@ -30,14 +28,20 @@ function toProviderProfile(r: ServiceRequestSummary): ProviderProfile | null {
     provider_email: r.provider_email ?? '',
     provider_phone: r.provider_phone,
     provider_address: r.provider_address,
+    provider_role: r.provider_role ?? undefined,
+    is_verified: r.is_verified ?? undefined,
+    provider_profile_picture: r.provider_profile_picture,
+    bio: r.bio,
+    experience_years: r.experience_years,
+    portfolio_images: r.portfolio_images,
     average_rating: r.average_rating ?? 0,
     total_reviews: r.total_reviews ?? 0,
   }
 }
 
-function formatProviderRating(r: ServiceRequestSummary): string {
-  if (!r.total_reviews) return 'No reviews yet'
-  return `${r.average_rating ?? 0} ★`
+function displayStatus(r: ServiceRequestSummary): string {
+  if (r.booking_status) return r.booking_status
+  return r.status
 }
 
 function RequestCard({
@@ -51,29 +55,27 @@ function RequestCard({
   cancelling: boolean
   onProviderClick: (profile: ProviderProfile) => void
 }) {
-  const meta = SERVICE_META[r.service_type as keyof typeof SERVICE_META]
   const canCancel =
     r.booking_id != null && r.booking_status != null && canCustomerCancelBooking(r.booking_status)
   const providerProfile = toProviderProfile(r)
+  const quoteLabel = r.status === 'quotation_received' ? 'Compare quotes' : 'View quotes'
 
-  const quoteLabel =
-    r.status === 'quotation_received' ? 'Compare quotes' : 'View quotes'
+  const rating =
+    providerProfile && r.total_reviews ? (
+      <StarRating rating={r.average_rating ?? 0} totalReviews={r.total_reviews ?? 0} />
+    ) : null
 
   return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <div className="flex gap-3">
-        <div
-          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl ${meta?.bg ?? 'bg-zinc-100'}`}
-        >
-          {meta?.emoji ?? '📋'}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <h3 className="font-bold text-zinc-900">{formatService(r.service_type)}</h3>
-          <p className="mt-1 truncate text-sm text-zinc-500">{r.address}</p>
-          {r.description && (
-            <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{r.description}</p>
-          )}
+    <ServiceListCard
+      serviceType={r.service_type}
+      status={displayStatus(r)}
+      rating={rating}
+      date={formatListDate(r.created_at)}
+      location={r.address}
+      locationHref={mapsUrlForLocation(r.address, r.lat, r.lon)}
+      description={r.description ?? undefined}
+      extra={
+        <>
           <RequestLawnMapSection
             serviceType={r.service_type}
             lat={r.lat}
@@ -82,57 +84,49 @@ function RequestCard({
             polygonPoints={r.polygon_points}
           />
           {providerProfile && (
-            <p className="mt-2 text-sm text-zinc-600">
+            <p className="text-sm text-zinc-600">
+              Assigned to{' '}
               <button
                 type="button"
                 onClick={() => onProviderClick(providerProfile)}
-                className="font-semibold text-violet-600 underline-offset-2 hover:underline"
+                className="font-semibold text-sky-600 underline-offset-2 hover:underline"
               >
                 {r.provider}
               </button>
-              <span className="ml-1.5 text-xs font-medium text-amber-700">
-                {formatProviderRating(r)}
-              </span>
             </p>
           )}
-          <p className="mt-2 text-xs text-zinc-400">
-            {new Date(r.created_at).toLocaleDateString(undefined, {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })}
-          </p>
-        </div>
-
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          <Badge tone={statusTone(r.status)}>{formatStatus(r.status)}</Badge>
-
+        </>
+      }
+      actions={
+        <>
           {r.booking_id ? (
-            <div className="flex flex-col items-stretch gap-1.5">
-              <Link to="/customer/bookings">
-                <Button variant="secondary" className="whitespace-nowrap px-3 py-1.5 text-xs">
-                  View booking
-                </Button>
-              </Link>
+            <>
+              <ListCardLink to="/customer/bookings" icon="calendar">
+                View booking
+              </ListCardLink>
               {canCancel && (
-                <Button
+                <ListCardButton
                   variant="danger"
-                  className="whitespace-nowrap px-3 py-1.5 text-xs"
+                  icon="cancel"
                   disabled={cancelling}
                   onClick={() => onCancel(r.booking_id!)}
                 >
-                  {cancelling ? '…' : 'Cancel'}
-                </Button>
+                  {cancelling ? 'Cancelling…' : 'Cancel'}
+                </ListCardButton>
               )}
-            </div>
+            </>
           ) : r.status !== 'cancelled' ? (
-            <Link to={`/customer/quotes/${r.id}`}>
-              <Button className="whitespace-nowrap px-3 py-1.5 text-xs">{quoteLabel}</Button>
-            </Link>
-          ) : null}
-        </div>
-      </div>
-    </article>
+            <ListCardLink to={`/customer/quotes/${r.id}`} icon="calendar">
+              {quoteLabel}
+            </ListCardLink>
+          ) : (
+            <ListCardLink to="/customer/bookings" icon="calendar">
+              View booking
+            </ListCardLink>
+          )}
+        </>
+      }
+    />
   )
 }
 
@@ -184,9 +178,9 @@ export function MyRequestsPage() {
     <div>
       <div className="mb-5 flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Your requests</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Your requests</h1>
           <p className="mt-1 text-sm text-zinc-500">
-            {total} booking request{total !== 1 ? 's' : ''}
+            {total} booking request{total !== 1 ? 's' : ''} for you
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>+ New</Button>
@@ -201,7 +195,7 @@ export function MyRequestsPage() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2].map((i) => (
-            <div key={i} className="h-32 animate-pulse rounded-2xl bg-zinc-200" />
+            <div key={i} className="h-40 animate-pulse rounded-2xl bg-zinc-200" />
           ))}
         </div>
       ) : requests.length === 0 ? (
@@ -210,7 +204,7 @@ export function MyRequestsPage() {
           message="No requests yet. Book a service and pros near you will send quotes."
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {requests.map((r) => (
             <RequestCard
               key={r.id}

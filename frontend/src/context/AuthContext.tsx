@@ -50,8 +50,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     fetchProfile()
       .then((res) => {
-        saveUser(res.user)
-        setUserState(res.user)
+        const stored = loadUser()
+        const user =
+          stored?.role === 'admin' && res.user.role !== 'admin'
+            ? { ...res.user, role: 'admin' as const }
+            : res.user
+        saveUser(user)
+        setUserState(user)
       })
       .catch(() => {
         clearToken()

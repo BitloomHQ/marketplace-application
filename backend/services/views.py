@@ -12,12 +12,20 @@ from .models import (
     Quote,
     Review,
     Notification,
-    ProviderPortfolio
 )
 
 from accounts.models import (
     User,
     CustomerAddress
+)
+
+from accounts.helpers import (
+    active_service_keys,
+    is_active_service_key,
+    is_provider_role,
+    provider_access_ok,
+    provider_profile_payload,
+    user_base_payload,
 )
 
 import json
@@ -29,24 +37,17 @@ from django.db.models import Exists, OuterRef
 # =========================================
 # HELPERS
 # =========================================
-VALID_SERVICES = [
-    "gardener",
-    "electrician",
-    "plumber"
-]
-
-
 def is_customer(user):
     return user.role == "customer"
 
 
 def is_provider(user):
-    return user.role in VALID_SERVICES
+    return is_provider_role(user.role)
 
 
 def is_approved_provider(user):
     return (
-        user.role in VALID_SERVICES
+        is_provider_role(user.role)
         and user.is_active
         and user.is_approved
     )
@@ -104,74 +105,6 @@ def parse_polygon_points(raw):
         except json.JSONDecodeError:
             return None
     return None
-
-
-def provider_profile_payload(user, request=None):
-
-    provider_reviews = Review.objects.filter(
-        provider=user
-    )
-
-    average_rating = 0
-
-    if provider_reviews.exists():
-
-        total = sum(
-            review.rating
-            for review in provider_reviews
-        )
-
-        average_rating = round(
-            total / provider_reviews.count(),
-            1
-        )
-
-    return {
-
-        "provider_id": user.id,
-
-        "provider": user.username,
-
-        "provider_email": user.email,
-
-        "provider_phone": user.phone,
-
-        "provider_address": user.address,
-
-        "provider_role": user.role,
-
-        "is_verified": user.is_verified,
-
-        "provider_profile_picture": (
-            request.build_absolute_uri(
-                user.profile_picture.url
-            )
-            if request and user.profile_picture
-            else None
-        ),
-
-        "bio": user.bio,
-
-        "experience_years": user.experience_years,
-
-        "portfolio_images": [
-            {
-                "id": item.id,
-
-                "image": (
-                    request.build_absolute_uri(item.image.url)
-                    if request and item.image else None
-                ),
-
-                "caption": item.caption,
-            }
-            for item in user.portfolio_images.all().order_by("-created_at")[:5]
-        ],
-
-        "average_rating": average_rating,
-
-        "total_reviews": provider_reviews.count(),
-    }
 
 
 # =========================================
@@ -238,7 +171,7 @@ def create_service_request(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    if service_type not in VALID_SERVICES:
+    if not is_active_service_key(service_type):
 
         return Response(
             {
@@ -283,7 +216,9 @@ def create_service_request(request):
     # NOTIFY PROVIDERS
     # =========================================
     providers = User.objects.filter(
-        role=service_type
+        role=service_type,
+        is_active=True,
+        is_approved=True,
     )
 
     for provider in providers:
@@ -310,14 +245,11 @@ def create_service_request(request):
 @permission_classes([IsAuthenticated])
 def provider_leads(request):
 
-    if not is_provider(request.user):
-
+    ok, message = provider_access_ok(request.user)
+    if not ok:
         return Response(
-            {
-                "success": False,
-                "message": "Only providers"
-            },
-            status=status.HTTP_403_FORBIDDEN
+            {"success": False, "message": message},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     if not request.user.is_approved:
@@ -397,14 +329,11 @@ def provider_leads(request):
 @permission_classes([IsAuthenticated])
 def send_quote(request):
 
-    if not is_provider(request.user):
-
+    ok, message = provider_access_ok(request.user)
+    if not ok:
         return Response(
-            {
-                "success": False,
-                "message": "Only providers"
-            },
-            status=status.HTTP_403_FORBIDDEN
+            {"success": False, "message": message},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     if not request.user.is_approved:
@@ -728,6 +657,8 @@ def my_requests(request):
         customer=request.user
     ).order_by("-created_at")
 
+    booked_count = requests_queryset.filter(is_booked=True).count()
+
     paginator = Paginator(
         requests_queryset,
         page_size
@@ -1001,18 +932,7 @@ def get_profile(request):
 
     return Response({
         "success": True,
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "role": user.role,
-            "phone": user.phone,
-            "address": user.address,
-            "profile_picture": (
-                request.build_absolute_uri(user.profile_picture.url)
-                if user.profile_picture else None
-            ),
-        },
+        "user": user_base_payload(user, request),
     })
 
 
@@ -1039,6 +959,21 @@ def update_profile(request):
 
     if phone is not None:
         user.phone = phone
+    if address is not None:
+        user.address = address
+    if bio is not None:
+        user.bio = bio
+    if experience_years is not None and experience_years != '':
+        try:
+            user.experience_years = int(experience_years)
+        except (TypeError, ValueError):
+            return Response(
+                {"success": False, "message": "experience_years must be a number"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    if request.FILES.get("profile_picture"):
+        user.profile_picture = request.FILES["profile_picture"]
 
     if address is not None:
         user.address = address
@@ -1059,7 +994,7 @@ def update_profile(request):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if service_type not in VALID_SERVICES:
+        if not is_active_service_key(service_type):
             return Response(
                 {"success": False, "message": "Invalid service type"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1069,23 +1004,14 @@ def update_profile(request):
 
     user.save()
 
+    profile = user_base_payload(user, request)
+    profile["bio"] = user.bio or None
+    profile["experience_years"] = user.experience_years
+
     return Response({
         "success": True,
         "message": "Profile updated successfully",
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "role": user.role,
-            "phone": user.phone,
-            "address": user.address,
-            "bio": user.bio,
-            "experience_years": user.experience_years,
-            "profile_picture": (
-                request.build_absolute_uri(user.profile_picture.url)
-                if user.profile_picture else None
-            ),
-        },
+        "user": profile,
     })
 
 
@@ -1118,7 +1044,7 @@ def view_lead_detail(request, request_id):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-    elif request.user.role in VALID_SERVICES:
+    elif is_provider_role(request.user.role):
 
         if service_request.service_type != request.user.role:
             return Response(
@@ -1140,7 +1066,7 @@ def view_lead_detail(request, request_id):
 
     my_quote = None
 
-    if request.user.role in VALID_SERVICES:
+    if is_provider_role(request.user.role):
         my_quote = Quote.objects.filter(
             service_request=service_request,
             provider=request.user

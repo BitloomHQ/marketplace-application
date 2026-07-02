@@ -1,72 +1,32 @@
-import { useState } from 'react'
-
 type Props = {
-  value: number
-  onChange: (rating: number) => void
-  disabled?: boolean
+  rating: number
+  totalReviews?: number
+  size?: 'sm' | 'md'
 }
 
-function Star({ filled }: { filled: boolean }) {
+function Star({ filled, size }: { filled: boolean; size: 'sm' | 'md' }) {
+  const className = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'
   return (
     <svg
-      className={`h-9 w-9 transition-colors ${filled ? 'text-amber-400' : 'text-zinc-300'}`}
-      viewBox="0 0 24 24"
+      className={`${className} ${filled ? 'text-amber-400' : 'text-zinc-200'}`}
+      viewBox="0 0 20 20"
       fill="currentColor"
       aria-hidden
     >
-      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
     </svg>
   )
 }
 
-export function StarRating({ value, onChange, disabled }: Props) {
-  const [hover, setHover] = useState(0)
-  const [dragging, setDragging] = useState(false)
-
-  const display = hover || value
-
-  const setStar = (star: number) => {
-    if (disabled) return
-    onChange(star)
-  }
+export function StarRating({ rating, totalReviews = 0, size = 'sm' }: Props) {
+  const filledCount =
+    totalReviews > 0 ? Math.max(0, Math.min(5, Math.round(rating))) : 0
 
   return (
-    <div
-      className={`flex items-center gap-0.5 ${disabled ? 'opacity-50' : ''}`}
-      role="radiogroup"
-      aria-label="Rating"
-      onMouseLeave={() => {
-        setHover(0)
-        setDragging(false)
-      }}
-      onMouseUp={() => setDragging(false)}
-    >
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          disabled={disabled}
-          className="rounded-lg p-0.5 transition hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 disabled:cursor-not-allowed"
-          aria-label={`${star} out of 5 stars`}
-          aria-checked={value === star}
-          role="radio"
-          onMouseEnter={() => {
-            setHover(star)
-            if (dragging) setStar(star)
-          }}
-          onMouseDown={(e) => {
-            e.preventDefault()
-            setDragging(true)
-            setStar(star)
-          }}
-          onClick={() => setStar(star)}
-        >
-          <Star filled={star <= display} />
-        </button>
+    <span className="inline-flex items-center gap-0.5" aria-label={totalReviews > 0 ? `${rating} out of 5 stars` : 'No reviews yet'}>
+      {Array.from({ length: 5 }, (_, i) => (
+        <Star key={i} filled={i < filledCount} size={size} />
       ))}
-      <span className="ml-2 min-w-[4.5rem] text-sm font-semibold text-zinc-600">
-        {value > 0 ? `${value} / 5` : 'Tap a star'}
-      </span>
-    </div>
+    </span>
   )
 }

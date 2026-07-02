@@ -20,7 +20,8 @@ export function CustomerLoginPage() {
 
   useEffect(() => {
     if (!isAuthenticated || !user) return
-    if (user.role === 'customer') navigate('/customer-dashboard', { replace: true })
+    if (user.role === 'admin') navigate('/admin-dashboard', { replace: true })
+    else if (user.role === 'customer') navigate('/customer-dashboard', { replace: true })
     else if (isProviderRole(user.role)) navigate('/provider/login', { replace: true })
   }, [isAuthenticated, user, navigate])
 
@@ -30,6 +31,11 @@ export function CustomerLoginPage() {
     setLoading(true)
     try {
       const res = await login(email, password)
+      if (res.user.role === 'admin') {
+        logout()
+        setError('This account is an admin. Please sign in through the platform admin portal.')
+        return
+      }
       if (res.user.role !== 'customer') {
         logout()
         setError('This account is registered as a provider. Please use provider sign in.')

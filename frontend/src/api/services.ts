@@ -3,9 +3,9 @@ import type {
   Booking,
   Lead,
   PolygonPoint,
+  PopularProvider,
   ProviderRole,
   Quote,
-  ServiceType,
   User,
 } from '../types'
 
@@ -28,12 +28,18 @@ export type ServiceRequestSummary = {
   provider_email: string | null
   provider_phone: string | null
   provider_address: string | null
+  provider_role?: string | null
+  is_verified?: boolean | null
+  provider_profile_picture?: string | null
+  bio?: string | null
+  experience_years?: number | null
+  portfolio_images?: { id: number; image: string; caption: string }[]
   average_rating: number | null
   total_reviews: number | null
 }
 
 export function createServiceRequest(data: {
-  service_type: ServiceType
+  service_type: string
   address_id: number
   description?: string
   lawn_area?: number
@@ -59,6 +65,12 @@ export function createServiceRequest(data: {
 export function fetchProviderLeads() {
   return apiRequest<{ success: boolean; leads: Lead[] }>(
     '/api/services/provider-leads/',
+  )
+}
+
+export function fetchLeadDetail(requestId: number) {
+  return apiRequest<{ success: boolean; lead: Lead }>(
+    `/api/services/lead/${requestId}/`,
   )
 }
 
@@ -150,6 +162,12 @@ export function submitReview(data: {
   )
 }
 
+export function fetchPopularProviders() {
+  return apiRequest<{ success: boolean; providers: PopularProvider[] }>(
+    '/api/services/popular-providers/',
+  )
+}
+
 export function fetchProfile() {
   return apiRequest<{ success: boolean; user: User }>('/api/services/profile/')
 }
@@ -159,12 +177,31 @@ export function updateProfile(data: {
   email?: string
   phone?: string
   address?: string
-  /** Provider only — updates role / service category */
+  bio?: string
+  experience_years?: number
   service_type?: ProviderRole
+  profile_picture?: File | null
+  profile_picture_key?: string
 }) {
+  const formData = new FormData()
+  if (data.username) formData.append('username', data.username)
+  if (data.email) formData.append('email', data.email)
+  if (data.phone != null) formData.append('phone', data.phone)
+  if (data.address != null) formData.append('address', data.address)
+  if (data.bio != null) formData.append('bio', data.bio)
+  if (data.experience_years != null) {
+    formData.append('experience_years', String(data.experience_years))
+  }
+  if (data.service_type) formData.append('service_type', data.service_type)
+  if (data.profile_picture_key) {
+    formData.append('profile_picture_key', data.profile_picture_key)
+  } else if (data.profile_picture) {
+    formData.append('profile_picture', data.profile_picture)
+  }
+
   return apiRequest<{
     success: boolean
     message: string
     user: User
-  }>('/api/services/update-profile/', { method: 'POST', body: data })
+  }>('/api/services/update-profile/', { method: 'POST', formData })
 }

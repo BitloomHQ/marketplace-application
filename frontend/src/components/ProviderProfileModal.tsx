@@ -1,4 +1,6 @@
 import { Modal } from './ui'
+import { ProviderAvatar } from './ProviderAvatar'
+import { StarRating } from './StarRating'
 import type { ProviderProfile } from '../types'
 
 type Props = {
@@ -7,25 +9,29 @@ type Props = {
   onClose: () => void
 }
 
-function formatRating(profile: ProviderProfile): string {
-  if (profile.total_reviews === 0) return 'No reviews yet'
-  return `${profile.average_rating} ★`
-}
-
 export function ProviderProfileModal({ profile, open, onClose }: Props) {
   return (
     <Modal open={open} onClose={onClose} title={profile?.provider ?? 'Professional'}>
       {profile && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-violet-100 text-xl font-bold text-violet-700">
-              {profile.provider.charAt(0).toUpperCase()}
-            </span>
+            <ProviderAvatar
+              name={profile.provider}
+              imageUrl={profile.provider_profile_picture}
+              size="lg"
+            />
             <div>
               <p className="text-lg font-bold text-zinc-900">{profile.provider}</p>
-              <p className="text-sm font-medium text-amber-700">{formatRating(profile)}</p>
+              <StarRating
+                rating={profile.average_rating}
+                totalReviews={profile.total_reviews}
+              />
             </div>
           </div>
+
+          {profile.bio && (
+            <p className="text-sm leading-relaxed text-zinc-600">{profile.bio}</p>
+          )}
 
           <dl className="space-y-3 text-sm">
             {profile.provider_phone && (

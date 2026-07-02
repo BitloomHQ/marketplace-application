@@ -18,10 +18,17 @@ import { ProviderBookingsPage } from './pages/provider/ProviderBookingsPage'
 import { ProviderDashboard } from './pages/provider/ProviderDashboard'
 import { ProviderLeadsPage } from './pages/provider/ProviderLeadsPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { AdminLoginPage } from './pages/auth/AdminLoginPage'
+import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
+import { AdminProvidersPage } from './pages/admin/AdminProvidersPage'
+import { AdminServicesPage } from './pages/admin/AdminServicesPage'
+import { AdminMarketplacePage } from './pages/admin/AdminMarketplacePage'
+import { AdminPendingProvidersPage } from './pages/admin/AdminPendingProvidersPage'
 
 function HomeRedirect() {
   const { isAuthenticated, user } = useAuth()
   if (!isAuthenticated || !user) return <Navigate to="/" replace />
+  if (user.role === 'admin') return <Navigate to="/admin-dashboard" replace />
   if (user.role === 'customer') return <Navigate to="/customer-dashboard" replace />
   if (isProviderRole(user.role)) return <Navigate to={providerDashboardPath(user.role)} replace />
   return <Navigate to="/" replace />
@@ -36,6 +43,7 @@ function AppRoutes() {
         <Route path="/customer/register" element={<CustomerRegisterPage />} />
         <Route path="/provider/login" element={<ProviderLoginPage />} />
         <Route path="/provider/register" element={<ProviderRegisterPage />} />
+        <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/login" element={<Navigate to="/customer/login" replace />} />
         <Route path="/register" element={<Navigate to="/customer/register" replace />} />
       </Route>
@@ -53,12 +61,19 @@ function AppRoutes() {
         <Route path="/customer/bookings" element={<ProtectedRoute roles={['customer']}><MyBookingsPage /></ProtectedRoute>} />
         <Route path="/customer/addresses" element={<ProtectedRoute roles={['customer']}><CustomerAddressesPage /></ProtectedRoute>} />
 
-        <Route path="/gardener-dashboard" element={<ProtectedRoute roles={['gardener']}><ProviderDashboard /></ProtectedRoute>} />
-        <Route path="/electrician-dashboard" element={<ProtectedRoute roles={['electrician']}><ProviderDashboard /></ProtectedRoute>} />
-        <Route path="/plumber-dashboard" element={<ProtectedRoute roles={['plumber']}><ProviderDashboard /></ProtectedRoute>} />
-        <Route path="/provider/leads" element={<ProtectedRoute roles={['gardener', 'electrician', 'plumber']}><ProviderLeadsPage /></ProtectedRoute>} />
-        <Route path="/provider/bookings" element={<ProtectedRoute roles={['gardener', 'electrician', 'plumber']}><ProviderBookingsPage /></ProtectedRoute>} />
+        <Route path="/provider-dashboard" element={<ProtectedRoute providerOnly><ProviderDashboard /></ProtectedRoute>} />
+        <Route path="/gardener-dashboard" element={<Navigate to="/provider-dashboard" replace />} />
+        <Route path="/electrician-dashboard" element={<Navigate to="/provider-dashboard" replace />} />
+        <Route path="/plumber-dashboard" element={<Navigate to="/provider-dashboard" replace />} />
+        <Route path="/provider/leads" element={<ProtectedRoute providerOnly><ProviderLeadsPage /></ProtectedRoute>} />
+        <Route path="/provider/bookings" element={<ProtectedRoute providerOnly><ProviderBookingsPage /></ProtectedRoute>} />
         <Route path="/profile" element={<ProfilePage />} />
+
+        <Route path="/admin-dashboard" element={<ProtectedRoute roles={['admin']}><AdminDashboardPage /></ProtectedRoute>} />
+        <Route path="/admin/pending-providers" element={<ProtectedRoute roles={['admin']}><AdminPendingProvidersPage /></ProtectedRoute>} />
+        <Route path="/admin/providers" element={<ProtectedRoute roles={['admin']}><AdminProvidersPage /></ProtectedRoute>} />
+        <Route path="/admin/services" element={<ProtectedRoute roles={['admin']}><AdminServicesPage /></ProtectedRoute>} />
+        <Route path="/admin/marketplace" element={<ProtectedRoute roles={['admin']}><AdminMarketplacePage /></ProtectedRoute>} />
       </Route>
 
       <Route path="/dashboard" element={<HomeRedirect />} />

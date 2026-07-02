@@ -1,15 +1,15 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { register } from '../../api/accounts'
+import { fetchActiveServices, register } from '../../api/accounts'
 import { ApiRequestError } from '../../api/client'
 import { AuthPortalLinks } from '../../components/AuthPortalLinks'
 import { Alert, Button, Card, Field, Input, PageHeader, Select } from '../../components/ui'
-import { SERVICE_OPTIONS } from '../../lib/format'
-import type { ServiceType } from '../../types'
+import type { ActiveService } from '../../types'
 
 export function ProviderRegisterPage() {
   const navigate = useNavigate()
-  const [serviceType, setServiceType] = useState<ServiceType>('plumber')
+  const [services, setServices] = useState<ActiveService[]>([])
+  const [serviceType, setServiceType] = useState('')
   const [form, setForm] = useState({
     username: '',
     email: '',
@@ -19,6 +19,17 @@ export function ProviderRegisterPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingServices, setLoadingServices] = useState(true)
+
+  useEffect(() => {
+    fetchActiveServices()
+      .then((res) => {
+        setServices(res.services)
+        if (res.services[0]) setServiceType(res.services[0].key)
+      })
+      .catch(() => setServices([]))
+      .finally(() => setLoadingServices(false))
+  }, [])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -49,7 +60,7 @@ export function ProviderRegisterPage() {
     <Card>
       <PageHeader
         title="Provider registration"
-        subtitle="Join as a plumber, electrician, or gardener"
+        subtitle="Join as a verified home service professional"
       />
       {error && (
         <div className="mb-4">
@@ -65,13 +76,20 @@ export function ProviderRegisterPage() {
         <Field label="Service type">
           <Select
             value={serviceType}
-            onChange={(e) => setServiceType(e.target.value as ServiceType)}
+            onChange={(e) => setServiceType(e.target.value)}
+            disabled={loadingServices || services.length === 0}
           >
-            {SERVICE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
+            {loadingServices ? (
+              <option value="">Loading services…</option>
+            ) : services.length === 0 ? (
+              <option value="">No active services available</option>
+            ) : (
+              services.map((service) => (
+                <option key={service.id} value={service.key}>
+                  {service.name}
+                </option>
+              ))
+            )}
           </Select>
         </Field>
         <Field label="Username">
@@ -104,7 +122,11 @@ export function ProviderRegisterPage() {
             required
           />
         </Field>
-        <Button type="submit" className="w-full" disabled={loading}>
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={loading || loadingServices || services.length === 0}
+        >
           {loading ? 'Creating…' : 'Create provider account'}
         </Button>
       </form>

@@ -9,6 +9,7 @@ import {
 import { ApiRequestError } from '../../api/client'
 import { AddAddressModal } from '../../components/AddAddressModal'
 import { Alert, Button } from '../../components/ui'
+import { addressLatLon } from '../../lib/address'
 import type { CustomerAddress } from '../../types'
 
 function TrashIcon() {
@@ -39,9 +40,14 @@ function AddressCard({
       <div className="min-w-0 flex-1">
         <h3 className="text-base font-bold text-zinc-900">{item.title}</h3>
         <p className="mt-2 text-sm leading-relaxed text-zinc-600">{item.address}</p>
-        {item.lat != null && item.lon != null && (
-          <p className="mt-2 text-xs font-medium text-zinc-400">{formatCoords(item.lat, item.lon)}</p>
-        )}
+        {(() => {
+          const coords = addressLatLon(item)
+          return coords ? (
+            <p className="mt-2 text-xs font-medium text-zinc-400">
+              {formatCoords(coords.lat, coords.lon)}
+            </p>
+          ) : null
+        })()}
       </div>
       <button
         type="button"
@@ -98,13 +104,13 @@ export function CustomerAddressesPage() {
         saveAddress = geo.address || data.address
       }
 
-      const res = await addAddress({
+      await addAddress({
         title: data.title,
         address: saveAddress,
-        lat: saveLat,
-        lon: saveLon,
+        latitude: saveLat,
+        longitude: saveLon,
       })
-      setSuccess(res.message)
+      setSuccess('Address saved successfully')
       setModalOpen(false)
       load()
     } catch (err) {

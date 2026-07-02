@@ -4,11 +4,30 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-
+from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 
-from .models import User
+from .models import User, CustomerAddress
 from .serializers import RegisterSerializer
+from .helpers import (
+    active_service_keys,
+    dashboard_services,
+    effective_role,
+    is_active_service_key,
+    is_provider_role,
+    provider_list_payload,
+    provider_rating,
+    serialize_address,
+    serialize_service_category,
+    user_base_payload,
+)
+from .google_maps import (
+    autocomplete_places,
+    geocode_address_text,
+    maps_configured,
+    place_details,
+    reverse_geocode,
+)
 from services.models import Review
 
 # =====================================
@@ -20,38 +39,29 @@ from adminpanel.models import ServiceCategory
 class RegisterView(APIView):
 
     def post(self, request):
-
         serializer = RegisterSerializer(data=request.data)
-
         if serializer.is_valid():
-
             serializer.save()
-
             return Response(
                 {"success": True, "message": "User Registered Successfully"},
-                status=status.HTTP_201_CREATED
+                status=status.HTTP_201_CREATED,
             )
-
         return Response(
             {"success": False, "errors": serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
 
-# =====================================
-# LOGIN API
-# =====================================
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def login_api(request):
-
     email = request.data.get("email")
     password = request.data.get("password")
 
     if not email or not password:
         return Response(
             {"success": False, "message": "Email and password required"},
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     try:
@@ -60,30 +70,28 @@ def login_api(request):
     except User.DoesNotExist:
         return Response(
             {"success": False, "message": "User not found"},
-            status=status.HTTP_404_NOT_FOUND
+            status=status.HTTP_404_NOT_FOUND,
         )
 
     user = authenticate(username=username, password=password)
-
     if user is None:
         return Response(
             {"success": False, "message": "Invalid credentials"},
-            status=status.HTTP_401_UNAUTHORIZED
+            status=status.HTTP_401_UNAUTHORIZED,
         )
 
     role = "admin" if user.is_superuser else user.role
-
     token, _ = Token.objects.get_or_create(user=user)
-
     django_login(request, user)
 
     redirect_map = {
         "customer": "/customer-dashboard",
-        "gardener": "/gardener-dashboard",
-        "electrician": "/electrician-dashboard",
-        "plumber": "/plumber-dashboard",
         "admin": "/admin-dashboard",
     }
+    if is_provider_role(role):
+        redirect_url = "/provider-dashboard"
+    else:
+        redirect_url = redirect_map.get(role, "/dashboard")
 
     return Response({
         "success": True,
@@ -96,183 +104,86 @@ def login_api(request):
             "role": role,
             "phone": user.phone,
             "address": user.address,
+            "is_approved": user.is_approved,
+            "is_active": user.is_active,
+            "is_verified": user.is_verified,
+            "status_note": user.status_note or "",
         },
-        "redirect_url": redirect_map.get(role, "/dashboard")
+        "redirect_url": redirect_url,
     }, status=status.HTTP_200_OK)
 
 
-# =====================================
-# DASHBOARD API
-# =====================================
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def dashboard_api(request):
-
     user = request.user
+    role = effective_role(user)
+    dashboard_data = user_base_payload(user, request)
 
-    dashboard_data = {
-        "id": user.id,
-        "username": user.username,
-        "email": user.email,
-        "role": user.role,
-        "phone": user.phone,
-        "address": user.address,
-
-        "profile_picture": (
-            request.build_absolute_uri(user.profile_picture.url)
-            if user.profile_picture else None
-        ),
-
-        "bio": user.bio,
-        "experience_years": user.experience_years,
-        "is_verified": user.is_verified,
-    }
-
-    provider_roles = [
-        "gardener",
-        "electrician",
-        "plumber"
-    ]
-
-    if user.role in provider_roles:
-
-        provider_reviews = Review.objects.filter(
-            provider=user
-        )
-
-        average_rating = 0
-
-        if provider_reviews.exists():
-
-            total = sum(
-                review.rating
-                for review in provider_reviews
-            )
-
-            average_rating = round(
-                total / provider_reviews.count(),
-                1
-            )
-
+    if is_provider_role(role):
+        average_rating, total_reviews = provider_rating(user)
         dashboard_data["average_rating"] = average_rating
-        dashboard_data["total_reviews"] = provider_reviews.count()
+        dashboard_data["total_reviews"] = total_reviews
 
-    if user.role == "customer":
-
+    if role == "customer":
         dashboard_data["dashboard_type"] = "Customer Dashboard"
-
-        popular_services = ServiceCategory.objects.filter(
-            status="active"
-        ).order_by("display_order", "id")[:3]
-
+        categories = list(dashboard_services())
+        active = [c for c in categories if c.status == "active"]
         dashboard_data["popular_services"] = [
-            {
-                "id": service.id,
-                "name": service.name,
-                "key": service.key,
-                "status": service.status,
-                "description": service.description,
-                "service_image": (
-                    request.build_absolute_uri(service.service_image.url)
-                    if service.service_image else None
-                ),
-                "start_date": service.start_date,
-            }
-            for service in popular_services
+            serialize_service_category(c, request) for c in active[:3]
         ]
-
-        services = ServiceCategory.objects.exclude(
-            status="inactive"
-        ).order_by("display_order", "id")
-
         dashboard_data["services"] = [
-            {
-                "id": service.id,
-                "name": service.name,
-                "key": service.key,
-                "status": service.status,
-                "description": service.description,
-                "service_image": (
-                    request.build_absolute_uri(service.service_image.url)
-                    if service.service_image else None
-                ),
-                "start_date": service.start_date,
-            }
-            for service in services
+            serialize_service_category(c, request) for c in categories
         ]
-
         dashboard_data["features"] = [
             "Book Services",
             "View Bookings",
             "Track Requests",
             "Popular Services",
-            "Coming Soon Services"
+            "Coming Soon Services",
         ]
 
-    elif user.role == "gardener":
-
-        dashboard_data["dashboard_type"] = "Gardener Dashboard"
-
+    elif role == "admin":
+        dashboard_data["dashboard_type"] = "Admin Dashboard"
         dashboard_data["features"] = [
-            "View Lawn Requests",
-            "Send Quotations",
-            "Manage Jobs",
-            "View Rating"
+            "Manage Providers",
+            "Manage Services",
+            "Monitor Marketplace",
+            "View Performance",
         ]
 
-    elif user.role == "electrician":
-
-        dashboard_data["dashboard_type"] = "Electrician Dashboard"
-
+    elif is_provider_role(role):
+        service_name = role.replace('_', ' ').title()
+        dashboard_data["dashboard_type"] = f"{service_name} Dashboard"
         dashboard_data["features"] = [
-            "View Electrical Requests",
+            "View Service Requests",
             "Send Quotations",
             "Manage Jobs",
-            "View Rating"
-        ]
-
-    elif user.role == "plumber":
-
-        dashboard_data["dashboard_type"] = "Plumber Dashboard"
-
-        dashboard_data["features"] = [
-            "View Plumbing Requests",
-            "Send Quotations",
-            "Manage Jobs",
-            "View Rating"
+            "View Rating",
         ]
 
     return Response({
         "success": True,
         "message": "Dashboard Loaded Successfully",
-        "data": dashboard_data
+        "data": dashboard_data,
     }, status=status.HTTP_200_OK)
-
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from .models import User
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def providers_by_service(request):
-
     user = request.user
-
-    # 🚫 ONLY CUSTOMER CAN ACCESS
     if user.role != "customer":
         return Response({
             "success": False,
-            "message": "Only customers can view providers list"
+            "message": "Only customers can view providers list",
         }, status=403)
 
     service = request.GET.get("service")
-
-    if service not in ["gardener", "electrician", "plumber"]:
+    if not service or not is_active_service_key(service):
         return Response({
             "success": False,
-            "message": "Invalid service type"
+            "message": "Invalid service type",
         }, status=400)
 
     providers = User.objects.filter(
@@ -317,7 +228,9 @@ def providers_by_service(request):
         "success": True,
         "service": service,
         "total_providers": providers.count(),
-        "providers": data
+        "providers": [
+            provider_list_payload(p, request) for p in providers
+        ],
     })
 
 # =====================================
@@ -326,13 +239,11 @@ def providers_by_service(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def customer_dashboard(request):
-
     user = request.user
-
     if user.role != "customer":
         return Response(
             {"success": False, "message": "Only customers allowed"},
-            status=status.HTTP_403_FORBIDDEN
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     return Response({
@@ -346,10 +257,16 @@ def customer_dashboard(request):
         }
     })
 
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from .models import CustomerAddress
+
+def _parse_coords(request):
+    lat = request.data.get("latitude", request.data.get("lat"))
+    lon = request.data.get("longitude", request.data.get("lon"))
+    if lat is None or lon is None:
+        return None, None, "latitude and longitude required"
+    try:
+        return float(lat), float(lon), None
+    except (TypeError, ValueError):
+        return None, None, "latitude and longitude must be valid numbers"
 
 
 @api_view(["POST"])
@@ -375,12 +292,12 @@ def add_address(request):
         }
     })
 
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def my_addresses(request):
-
     addresses = CustomerAddress.objects.filter(
-        customer=request.user
+        customer=request.user,
     ).order_by("-created_at")
 
     return Response({
@@ -397,26 +314,25 @@ def my_addresses(request):
         ]
     })
 
+
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def delete_address(request, address_id):
-
     address = CustomerAddress.objects.filter(
         id=address_id,
-        customer=request.user
+        customer=request.user,
     ).first()
 
     if not address:
         return Response({
             "success": False,
-            "message": "Address not found"
-        })
+            "message": "Address not found",
+        }, status=status.HTTP_404_NOT_FOUND)
 
     address.delete()
-
     return Response({
         "success": True,
-        "message": "Address deleted"
+        "message": "Address deleted",
     })
     
 @api_view(["POST"])
@@ -470,16 +386,50 @@ def edit_address(request, address_id):
     }, status=status.HTTP_200_OK)    
 
 
-# =====================================
-# GOOGLE MAPS (server-side proxy)
-# =====================================
-from .google_maps import (
-    autocomplete_places,
-    geocode_address_text,
-    maps_configured,
-    place_details,
-    reverse_geocode,
-)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def edit_address(request, address_id):
+    if request.user.role != "customer":
+        return Response(
+            {"success": False, "message": "Only customers allowed"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    address = CustomerAddress.objects.filter(
+        id=address_id,
+        customer=request.user,
+    ).first()
+
+    if not address:
+        return Response({
+            "success": False,
+            "message": "Address not found",
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    title = request.data.get("title")
+    address_text = request.data.get("address")
+    lat, lon, err = _parse_coords(request)
+
+    if title:
+        address.title = title
+    if address_text:
+        address.address = address_text
+    if lat is not None and lon is not None:
+        address.latitude = lat
+        address.longitude = lon
+    elif err and (request.data.get("latitude") is not None or request.data.get("lat") is not None):
+        return Response(
+            {"success": False, "message": err},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    address.save()
+
+    return Response({
+        "success": True,
+        "message": "Address updated successfully",
+        "address": serialize_address(address),
+    })
 
 
 @api_view(["GET"])

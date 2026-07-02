@@ -1,21 +1,48 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { fetchDashboard } from '../../api/accounts'
+import { fetchMyServiceRequests, fetchPopularProviders } from '../../api/services'
+import { ComingSoonServiceModal } from '../../components/ComingSoonServiceModal'
 import { CreateRequestModal } from '../../components/CreateRequestModal'
-import { fetchMyServiceRequests } from '../../api/services'
-import { Button, SectionTitle } from '../../components/ui'
+import { ProviderAvatar } from '../../components/ProviderAvatar'
+import { StarRating } from '../../components/StarRating'
+import { Button, Card, SectionTitle } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
 import { ServiceCards } from '../../components/ServiceCards'
-import type { ServiceType } from '../../types'
+import { formatService } from '../../lib/format'
+import type { PopularProvider, ServiceCategory } from '../../types'
 import backgroundImage from '../../assets/bg.png'
 
-const POPULAR_SERVICES: ServiceType[] = ['gardener', 'plumber', 'electrician']
+function PopularProviderCard({ provider }: { provider: PopularProvider }) {
+  return (
+    <Card className="flex items-center gap-3">
+      <ProviderAvatar name={provider.username} imageUrl={provider.profile_picture} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-semibold text-zinc-900">{provider.username}</p>
+          {provider.is_verified && (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+              Verified
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-zinc-500">{formatService(provider.role)}</p>
+        <StarRating rating={provider.average_rating} totalReviews={provider.total_reviews} />
+      </div>
+    </Card>
+  )
+}
 
 export function CustomerDashboard() {
   const { user } = useAuth()
   const [activeBookings, setActiveBookings] = useState(0)
   const [openRequests, setOpenRequests] = useState(0)
   const [createOpen, setCreateOpen] = useState(false)
-  const [presetService, setPresetService] = useState<ServiceType>('plumber')
+  const [presetService, setPresetService] = useState('plumber')
+  const [services, setServices] = useState<ServiceCategory[] | undefined>(undefined)
+  const [popularServices, setPopularServices] = useState<ServiceCategory[] | undefined>(undefined)
+  const [popularProviders, setPopularProviders] = useState<PopularProvider[]>([])
+  const [comingSoonService, setComingSoonService] = useState<ServiceCategory | null>(null)
 
   const refreshCounts = () => {
     fetchMyServiceRequests(1, 1)
@@ -28,9 +55,18 @@ export function CustomerDashboard() {
 
   useEffect(() => {
     refreshCounts()
+    fetchDashboard()
+      .then((res) => {
+        setServices(res.data.services ?? [])
+        setPopularServices(res.data.popular_services ?? [])
+      })
+      .catch(() => {})
+    fetchPopularProviders()
+      .then((res) => setPopularProviders(res.providers))
+      .catch(() => setPopularProviders([]))
   }, [])
 
-  const openCreate = (service?: ServiceType) => {
+  const openCreate = (service?: string) => {
     setPresetService(service ?? 'plumber')
     setCreateOpen(true)
   }
@@ -39,7 +75,10 @@ export function CustomerDashboard() {
 
   return (
     <div className="space-y-8">
-      <section className="relative h-80 rounded-[1.75rem] px-5 py-6 sm:px-7 sm:py-8 text-white bg-cover bg-center" style={{ backgroundImage: `url(${backgroundImage})` }}>
+      <section
+        className="relative h-80 rounded-[1.75rem] bg-cover bg-center px-5 py-6 text-white sm:px-7 sm:py-8"
+        style={{ backgroundImage: `url(${backgroundImage})` }}
+      >
         <div className="relative z-10 flex sm:items-center sm:justify-between">
           <div className="w-full relative">
             <p className="inline-flex items-center gap-2 text-base font-medium text-sky-100">
@@ -96,26 +135,53 @@ export function CustomerDashboard() {
         <SectionTitle subtitle="Choose a category and get matched with nearby pros">
           Services at your fingertips
         </SectionTitle>
-        <ServiceCards variant="circle" titleCentered onSelect={openCreate} />
-      </section>
-
-      <section>
-        <SectionTitle subtitle="Most booked this week in your area">
-          Popular services
-        </SectionTitle>
         <ServiceCards
           variant="circle"
-          showCta
-          services={POPULAR_SERVICES}
+          titleCentered
+          categories={services}
           onSelect={openCreate}
+          onComingSoon={setComingSoonService}
         />
       </section>
+
+      {popularServices && popularServices.length > 0 && (
+        <section>
+          <SectionTitle subtitle="Most booked this week in your area">
+            Popular services
+          </SectionTitle>
+          <ServiceCards
+            variant="circle"
+            categories={popularServices}
+            onSelect={openCreate}
+            onComingSoon={setComingSoonService}
+          />
+        </section>
+      )}
+
+      {popularProviders.length > 0 && (
+        <section>
+          <SectionTitle subtitle="Top-rated professionals near you">
+            Popular providers
+          </SectionTitle>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {popularProviders.map((provider) => (
+              <PopularProviderCard key={provider.id} provider={provider} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <CreateRequestModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         initialServiceType={presetService}
         onCreated={refreshCounts}
+      />
+
+      <ComingSoonServiceModal
+        open={comingSoonService !== null}
+        service={comingSoonService}
+        onClose={() => setComingSoonService(null)}
       />
     </div>
   )
