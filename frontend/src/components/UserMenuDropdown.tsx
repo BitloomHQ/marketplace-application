@@ -32,8 +32,12 @@ export function UserMenuDropdown() {
         className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white py-1 pl-1 pr-3 shadow-sm transition hover:border-zinc-300"
         aria-label="Account menu"
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-sm font-bold text-violet-700">
-          {user.username.charAt(0).toUpperCase()}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-violet-100 text-sm font-bold text-violet-700">
+          {user.profile_picture ? (
+            <img src={user.profile_picture} alt="" className="h-full w-full object-cover" />
+          ) : (
+            user.username.charAt(0).toUpperCase()
+          )}
         </span>
         <span className="hidden max-w-[120px] truncate text-sm font-semibold text-zinc-900 sm:block">
           {user.username}

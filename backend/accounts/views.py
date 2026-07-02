@@ -97,18 +97,7 @@ def login_api(request):
         "success": True,
         "message": "Login successful",
         "token": token.key,
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "role": role,
-            "phone": user.phone,
-            "address": user.address,
-            "is_approved": user.is_approved,
-            "is_active": user.is_active,
-            "is_verified": user.is_verified,
-            "status_note": user.status_note or "",
-        },
+        "user": user_base_payload(user, request),
         "redirect_url": redirect_url,
     }, status=status.HTTP_200_OK)
 

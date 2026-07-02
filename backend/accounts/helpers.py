@@ -83,6 +83,7 @@ def user_base_payload(user, request=None):
         'is_approved': user.is_approved,
         'is_active': user.is_active,
         'status_note': user.status_note or '',
+        'deactivate_reason': user.deactivate_reason or None,
     }
     return data
 
@@ -139,7 +140,8 @@ def provider_access_ok(user):
         return False, 'Your provider account is pending admin approval'
     if not user.is_active:
         message = 'Your provider account is deactivated'
-        if user.status_note:
-            message = f'{message}: {user.status_note}'
+        reason = user.deactivate_reason or user.status_note
+        if reason:
+            message = f'{message}: {reason}'
         return False, message
     return True, None

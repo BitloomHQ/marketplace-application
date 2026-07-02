@@ -16,37 +16,8 @@ class User(AbstractUser):
     phone = models.CharField(
         max_length=15,
         null=True,
-        blank=True
+        blank=True,
     )
-    profile_picture = models.ImageField(
-    upload_to="profile_pictures/",
-    null=True,
-    blank=True
-    )
-    bio = models.TextField(
-    null=True,
-    blank=True
-    )
-
-    experience_years = models.PositiveIntegerField(
-    null=True,
-    blank=True
-    )
-    is_verified = models.BooleanField(
-    default=False
-    )
-    is_approved = models.BooleanField(
-    default=False
-    )
-
-    address = models.TextField(
-    null=True,
-    blank=True
-)
-    deactivate_reason = models.TextField(
-    null=True,
-    blank=True
-)
 
     address = models.TextField(
         blank=True,
@@ -74,12 +45,17 @@ class User(AbstractUser):
     )
 
     is_approved = models.BooleanField(
-        default=True,
+        default=False,
     )
 
     status_note = models.TextField(
         blank=True,
         default='',
+    )
+
+    deactivate_reason = models.TextField(
+        null=True,
+        blank=True,
     )
 
     def __str__(self):
