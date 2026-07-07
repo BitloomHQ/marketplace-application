@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import backgroundImage from '../../assets/bg.png'
+import { fetchDashboard } from '../../api/accounts'
 import { fetchMyBookings, fetchProfile, fetchProviderLeads } from '../../api/services'
+import { StarRating } from '../../components/StarRating'
 import { useAuth } from '../../context/AuthContext'
 import { providerDeactivationReason } from '../../lib/providerStatus'
-import { Alert, SectionTitle } from '../../components/ui'
+import { Alert, Card, SectionTitle } from '../../components/ui'
 
 function StatCard({
   title,
@@ -15,7 +17,7 @@ function StatCard({
 }: {
   title: string
   description: string
-  value: number
+  value: number | string
   tone: 'amber' | 'violet'
   watermark: React.ReactNode
 }) {
@@ -92,6 +94,10 @@ export function ProviderDashboard() {
   const { user, setUser } = useAuth()
   const [newJobs, setNewJobs] = useState(0)
   const [activeJobs, setActiveJobs] = useState(0)
+  const [dashboardType, setDashboardType] = useState<string | null>(null)
+  const [features, setFeatures] = useState<string[]>([])
+  const [averageRating, setAverageRating] = useState<number | null>(null)
+  const [totalReviews, setTotalReviews] = useState(0)
 
   const firstName = user?.username?.split(' ')[0] ?? 'Pro'
   const pendingApproval = user?.is_approved === false
@@ -103,6 +109,21 @@ export function ProviderDashboard() {
       .then((res) => setUser(res.user))
       .catch(() => {})
   }, [setUser])
+
+  useEffect(() => {
+    fetchDashboard()
+      .then((res) => {
+        setDashboardType(res.data.dashboard_type ?? null)
+        setFeatures(res.data.features ?? [])
+        if (res.data.average_rating != null) {
+          setAverageRating(res.data.average_rating)
+        }
+        if (res.data.total_reviews != null) {
+          setTotalReviews(res.data.total_reviews)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (pendingApproval || deactivated) return
@@ -133,9 +154,12 @@ export function ProviderDashboard() {
           {deactivationReason ? `: ${deactivationReason}` : '.'}
         </Alert>
       )}
-      <section className="relative h-80 rounded-[1.75rem] px-5 py-6 sm:px-7 sm:py-8 text-white bg-cover bg-center" style={{ backgroundImage: `url(${backgroundImage})` }}>
+      <section
+        className="relative h-80 rounded-[1.75rem] bg-cover bg-center px-5 py-6 text-white sm:px-7 sm:py-8"
+        style={{ backgroundImage: `url(${backgroundImage})` }}
+      >
         <div className="relative z-10 flex sm:items-center sm:justify-between">
-          <div className="w-full relative">
+          <div className="relative w-full">
             <p className="inline-flex items-center gap-2 text-base font-medium text-sky-100">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-xs">
                 👋
@@ -143,15 +167,30 @@ export function ProviderDashboard() {
               Hello, {firstName}
             </p>
             <h1 className="mt-3 text-2xl font-bold leading-tight sm:text-3xl">
-              Trusted home experts, one tap away
+              {dashboardType ?? 'Your provider dashboard'}
             </h1>
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-sky-100/90 sm:text-[15px]">
-              Book verified professionals for repairs, maintenance, and everyday home needs —
-              reliable service delivered right to your doorstep.
+              Manage new job requests, send quotes, and track your confirmed visits — all in one
+              place.
             </p>
+            {user?.is_verified && (
+              <p className="mt-3 inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+                ✅ Verified provider
+              </p>
+            )}
           </div>
         </div>
       </section>
+
+      {(averageRating != null && averageRating > 0) || totalReviews > 0 ? (
+        <Card className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-zinc-900">Your rating</p>
+            <p className="mt-0.5 text-xs text-zinc-500">Based on completed customer reviews</p>
+          </div>
+          <StarRating rating={averageRating ?? 0} totalReviews={totalReviews} />
+        </Card>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatCard
@@ -177,6 +216,23 @@ export function ProviderDashboard() {
           }
         />
       </div>
+
+      {features.length > 0 && (
+        <section>
+          <SectionTitle subtitle="What you can do on the platform">Your tools</SectionTitle>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {features.map((feature) => (
+              <li
+                key={feature}
+                className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-700"
+              >
+                <span className="text-sky-600">✓</span>
+                {feature}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section>
         <SectionTitle subtitle="Access important tools to manage jobs and schedules faster">

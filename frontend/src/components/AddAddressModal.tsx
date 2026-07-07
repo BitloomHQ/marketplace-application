@@ -1,10 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AddressLocationPicker } from './AddressLocationPicker'
 import { Alert, Button, Field, Input, Modal } from './ui'
+import { addressLatLon } from '../lib/address'
+import type { CustomerAddress } from '../types'
 
 type Props = {
   open: boolean
   onClose: () => void
+  initialAddress?: CustomerAddress | null
   onSubmit: (data: {
     title: string
     address: string
@@ -24,7 +27,15 @@ function CrosshairIcon() {
   )
 }
 
-export function AddAddressModal({ open, onClose, onSubmit, saving, error }: Props) {
+export function AddAddressModal({
+  open,
+  onClose,
+  initialAddress,
+  onSubmit,
+  saving,
+  error,
+}: Props) {
+  const isEdit = initialAddress != null
   const [title, setTitle] = useState('')
   const [address, setAddress] = useState('')
   const [lat, setLat] = useState('')
@@ -33,12 +44,20 @@ export function AddAddressModal({ open, onClose, onSubmit, saving, error }: Prop
 
   useEffect(() => {
     if (!open) return
-    setTitle('')
-    setAddress('')
-    setLat('')
-    setLon('')
+    if (initialAddress) {
+      const coords = addressLatLon(initialAddress)
+      setTitle(initialAddress.title ?? '')
+      setAddress(initialAddress.address)
+      setLat(coords ? String(coords.lat) : '')
+      setLon(coords ? String(coords.lon) : '')
+    } else {
+      setTitle('')
+      setAddress('')
+      setLat('')
+      setLon('')
+    }
     setShowMap(false)
-  }, [open])
+  }, [open, initialAddress])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -63,7 +82,12 @@ export function AddAddressModal({ open, onClose, onSubmit, saving, error }: Prop
     !Number.isNaN(Number(lon))
 
   return (
-    <Modal open={open} onClose={onClose} title="Add New Address" wide>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={isEdit ? 'Edit address' : 'Add New Address'}
+      wide
+    >
       {error && (
         <div className="mb-4">
           <Alert variant="error">{error}</Alert>
@@ -154,7 +178,7 @@ export function AddAddressModal({ open, onClose, onSubmit, saving, error }: Prop
           className="w-full !rounded-xl !bg-sky-600 hover:!bg-sky-700"
           disabled={saving || !canSubmit}
         >
-          {saving ? 'Adding…' : 'Add address'}
+          {saving ? (isEdit ? 'Saving…' : 'Adding…') : isEdit ? 'Save changes' : 'Add address'}
         </Button>
       </form>
     </Modal>

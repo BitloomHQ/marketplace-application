@@ -141,16 +141,28 @@ export function ViewQuotesPage() {
                   size="md"
                 />
                 <div className="min-w-0 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => setProviderProfile(quoteToProfile(q))}
-                    className="text-left font-bold text-violet-600 underline-offset-2 hover:underline"
-                  >
-                    {q.provider}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setProviderProfile(quoteToProfile(q))}
+                      className="text-left font-bold text-violet-600 underline-offset-2 hover:underline"
+                    >
+                      {q.provider}
+                    </button>
+                    {q.is_verified && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                        Verified
+                      </span>
+                    )}
+                  </div>
                   <div className="mt-1">
                     <StarRating rating={q.average_rating} totalReviews={q.total_reviews} />
                   </div>
+                  {q.experience_years != null && q.experience_years > 0 && (
+                    <p className="mt-0.5 text-xs text-zinc-500">
+                      {q.experience_years} yr{q.experience_years !== 1 ? 's' : ''} experience
+                    </p>
+                  )}
                   <p className="mt-1 text-2xl font-bold text-zinc-900">₹{q.price}</p>
                   {q.message && <p className="mt-2 text-sm text-zinc-500">{q.message}</p>}
                 </div>

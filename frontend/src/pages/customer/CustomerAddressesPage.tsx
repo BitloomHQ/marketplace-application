@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   addAddress,
   deleteAddress,
+  editAddress,
   fetchMapsGeocodeAddress,
   fetchMyAddresses,
 } from '../../api/accounts'
@@ -24,15 +25,29 @@ function TrashIcon() {
   )
 }
 
+function PencilIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+      />
+    </svg>
+  )
+}
+
 function formatCoords(lat: number, lon: number) {
   return `${lat}, ${lon}`
 }
 
 function AddressCard({
   item,
+  onEdit,
   onDelete,
 }: {
   item: CustomerAddress
+  onEdit: (item: CustomerAddress) => void
   onDelete: (id: number) => void
 }) {
   return (
@@ -46,17 +61,31 @@ function AddressCard({
             <p className="mt-2 text-xs font-medium text-zinc-400">
               {formatCoords(coords.lat, coords.lon)}
             </p>
-          ) : null
+          ) : (
+            <p className="mt-2 text-xs font-medium text-amber-600">
+              No map coordinates — edit to pin on map
+            </p>
+          )
         })()}
       </div>
-      <button
-        type="button"
-        onClick={() => onDelete(item.id)}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition hover:bg-rose-100"
-        aria-label={`Delete ${item.title}`}
-      >
-        <TrashIcon />
-      </button>
+      <div className="flex shrink-0 gap-2">
+        <button
+          type="button"
+          onClick={() => onEdit(item)}
+          className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-600 transition hover:bg-sky-100"
+          aria-label={`Edit ${item.title}`}
+        >
+          <PencilIcon />
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(item.id)}
+          className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition hover:bg-rose-100"
+          aria-label={`Delete ${item.title}`}
+        >
+          <TrashIcon />
+        </button>
+      </div>
     </article>
   )
 }
@@ -65,6 +94,7 @@ export function CustomerAddressesPage() {
   const [addresses, setAddresses] = useState<CustomerAddress[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingAddress, setEditingAddress] = useState<CustomerAddress | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [modalError, setModalError] = useState('')
@@ -84,6 +114,26 @@ export function CustomerAddressesPage() {
     load()
   }, [])
 
+  const resolveCoords = async (data: {
+    title: string
+    address: string
+    lat: number
+    lon: number
+  }) => {
+    let saveLat = data.lat
+    let saveLon = data.lon
+    let saveAddress = data.address
+
+    if (Number.isNaN(saveLat) || Number.isNaN(saveLon)) {
+      const geo = await fetchMapsGeocodeAddress(data.address)
+      saveLat = geo.lat
+      saveLon = geo.lon
+      saveAddress = geo.address || data.address
+    }
+
+    return { title: data.title, address: saveAddress, latitude: saveLat, longitude: saveLon }
+  }
+
   const handleAdd = async (data: {
     title: string
     address: string
@@ -93,28 +143,36 @@ export function CustomerAddressesPage() {
     setModalError('')
     setSaving(true)
     try {
-      let saveLat = data.lat
-      let saveLon = data.lon
-      let saveAddress = data.address
-
-      if (Number.isNaN(saveLat) || Number.isNaN(saveLon)) {
-        const geo = await fetchMapsGeocodeAddress(data.address)
-        saveLat = geo.lat
-        saveLon = geo.lon
-        saveAddress = geo.address || data.address
-      }
-
-      await addAddress({
-        title: data.title,
-        address: saveAddress,
-        latitude: saveLat,
-        longitude: saveLon,
-      })
+      const payload = await resolveCoords(data)
+      await addAddress(payload)
       setSuccess('Address saved successfully')
       setModalOpen(false)
       load()
     } catch (err) {
       setModalError(err instanceof ApiRequestError ? err.message : 'Could not add address')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleEdit = async (data: {
+    title: string
+    address: string
+    lat: number
+    lon: number
+  }) => {
+    if (!editingAddress) return
+    setModalError('')
+    setSaving(true)
+    try {
+      const payload = await resolveCoords(data)
+      await editAddress(editingAddress.id, payload)
+      setSuccess('Address updated successfully')
+      setEditingAddress(null)
+      setModalOpen(false)
+      load()
+    } catch (err) {
+      setModalError(err instanceof ApiRequestError ? err.message : 'Could not update address')
     } finally {
       setSaving(false)
     }
@@ -129,6 +187,24 @@ export function CustomerAddressesPage() {
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : 'Could not delete')
     }
+  }
+
+  const openAdd = () => {
+    setModalError('')
+    setEditingAddress(null)
+    setModalOpen(true)
+  }
+
+  const openEdit = (item: CustomerAddress) => {
+    setModalError('')
+    setEditingAddress(item)
+    setModalOpen(true)
+  }
+
+  const closeModal = () => {
+    if (saving) return
+    setModalOpen(false)
+    setEditingAddress(null)
   }
 
   const atLimit = addresses.length >= 5
@@ -177,7 +253,7 @@ export function CustomerAddressesPage() {
         <ul className="space-y-4">
           {addresses.map((a) => (
             <li key={a.id}>
-              <AddressCard item={a} onDelete={handleDelete} />
+              <AddressCard item={a} onEdit={openEdit} onDelete={handleDelete} />
             </li>
           ))}
         </ul>
@@ -187,10 +263,7 @@ export function CustomerAddressesPage() {
         <Button
           className="w-full !rounded-xl !bg-sky-600 py-3.5 text-base font-bold hover:!bg-sky-700 sm:w-auto sm:px-8"
           disabled={atLimit}
-          onClick={() => {
-            setModalError('')
-            setModalOpen(true)
-          }}
+          onClick={openAdd}
         >
           + Add address
         </Button>
@@ -201,8 +274,9 @@ export function CustomerAddressesPage() {
 
       <AddAddressModal
         open={modalOpen}
-        onClose={() => !saving && setModalOpen(false)}
-        onSubmit={handleAdd}
+        onClose={closeModal}
+        initialAddress={editingAddress}
+        onSubmit={editingAddress ? handleEdit : handleAdd}
         saving={saving}
         error={modalError}
       />
