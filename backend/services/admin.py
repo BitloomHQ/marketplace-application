@@ -1,12 +1,16 @@
 from django.contrib import admin
-from .models import ServiceRequest, Quote, Booking, Review, Notification, ProviderPortfolio
+from django.contrib import admin
+
+from .models import (
+    Booking,
+    Notification,
+    ProviderPortfolio,
+    Quote,
+    Review,
+    ServiceCategory,
+)
 
 
-@admin.register(ServiceRequest)
-class ServiceRequestAdmin(admin.ModelAdmin):
-    list_display = ("id", "customer", "service_type", "status", "is_booked", "created_at")
-    list_filter = ("service_type", "status", "is_booked")
-    search_fields = ("customer__username", "address")
 
 
 @admin.register(Quote)
@@ -39,3 +43,34 @@ class NotificationAdmin(admin.ModelAdmin):
 class ProviderPortfolioAdmin(admin.ModelAdmin):
     list_display = ("id", "provider", "caption", "created_at")
     search_fields = ("provider__username", "caption")    
+
+
+from django.contrib import admin
+
+from services.models import ServiceCategory
+
+
+@admin.register(ServiceCategory)
+class ServiceCategoryAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "name",
+        "key",
+        "status",
+        "display_order",
+    )
+
+    list_filter = (
+        "status",
+    )
+
+    search_fields = (
+        "name",
+        "key",
+        "description",
+    )
+
+    ordering = (
+        "display_order",
+        "name",
+    )

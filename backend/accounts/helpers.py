@@ -3,9 +3,14 @@ from adminpanel.models import ServiceCategory
 
 
 def provider_role_keys():
-    keys = list(ServiceCategory.objects.values_list('key', flat=True))
-    return keys or ['gardener', 'electrician', 'plumber']
-
+    return list(
+        ServiceCategory.objects.filter(
+            status='active'
+        ).values_list(
+            'key',
+            flat=True
+        )
+    )
 
 def active_service_keys():
     return list(

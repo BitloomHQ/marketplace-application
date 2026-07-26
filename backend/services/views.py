@@ -7,13 +7,15 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from .models import (
-    ServiceRequest,
-    Booking,
+    ServiceCategory,
     Quote,
+    Booking,
     Review,
     Notification,
+    ProviderPortfolio,
 )
 
+from service_requests.models import CustomerServiceRequest
 from accounts.models import (
     User,
     CustomerAddress
@@ -33,10 +35,14 @@ import json
 from django.core.paginator import Paginator
 from django.db.models import Exists, OuterRef
 
-
+from adminpanel.utils import (
+    get_active_service_keys,
+    is_active_service,
+)
 # =========================================
 # HELPERS
 # =========================================
+
 def is_customer(user):
     return user.role == "customer"
 
@@ -56,9 +62,9 @@ def is_approved_provider(user):
 def get_service_request_or_404(id):
 
     try:
-        return ServiceRequest.objects.get(id=id)
+        return CustomerServiceRequest.objects.get(id=id)
 
-    except ServiceRequest.DoesNotExist:
+    except CustomerServiceRequest.DoesNotExist:
         return None
 
 
@@ -198,7 +204,7 @@ def create_service_request(request):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    sr = ServiceRequest.objects.create(
+    sr = CustomerServiceRequest.objects.create(
         customer=request.user,
         service_type=service_type,
         customer_address=customer_address,
@@ -268,7 +274,7 @@ def provider_leads(request):
     )
 
     leads = (
-        ServiceRequest.objects.filter(
+        CustomerServiceRequest.objects.filter(
             service_type=request.user.role,
             is_booked=False,
             selected_provider__isnull=True,
@@ -653,7 +659,7 @@ def my_requests(request):
         request.GET.get("page_size", 10)
     )
 
-    requests_queryset = ServiceRequest.objects.filter(
+    requests_queryset = CustomerServiceRequest.objects.filter(
         customer=request.user
     ).order_by("-created_at")
 
@@ -1138,7 +1144,7 @@ from django.db.models import Avg, Count
 def popular_providers(request):
 
     providers = User.objects.filter(
-        role__in=VALID_SERVICES,
+        role__in=get_active_service_keys(),
         is_active=True,
         is_approved=True,
     )
@@ -1193,3 +1199,40 @@ def popular_providers(request):
         "success": True,
         "providers": data
     })
+
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+
+from services.models import ServiceCategory
+from services.serializers import ServiceCategorySerializer
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def service_category_list_api(request):
+    categories = ServiceCategory.objects.filter(
+        is_active=True,
+        parent__isnull=True,
+    ).prefetch_related(
+        "subcategories",
+    )
+
+    serializer = ServiceCategorySerializer(
+        categories,
+        many=True,
+        context={
+            "request": request,
+        },
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Service categories fetched successfully.",
+            "count": categories.count(),
+            "data": serializer.data,
+        },
+        status=status.HTTP_200_OK,
+    )

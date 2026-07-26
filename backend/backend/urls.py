@@ -26,11 +26,17 @@ urlpatterns = [
     path("api/services/",include("services.urls")),
     path("api/admin-panel/", include("adminpanel.urls")),
     path("api/uploads/", include("uploads.urls")),
+    path(
+        "api/providers/",
+        include("providers.urls"),
+    ),
+
+    path(
+        "api/service-requests/",
+        include("service_requests.urls"),
+    ),
 ]
 
-urlpatterns += static(
-    settings.MEDIA_URL,
-    document_root=settings.MEDIA_ROOT
-)
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
