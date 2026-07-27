@@ -3,14 +3,9 @@ from adminpanel.models import ServiceCategory
 
 
 def provider_role_keys():
-    return list(
-        ServiceCategory.objects.filter(
-            status='active'
-        ).values_list(
-            'key',
-            flat=True
-        )
-    )
+    keys = list(ServiceCategory.objects.values_list('key', flat=True))
+    return keys or ['gardener', 'electrician', 'plumber']
+
 
 def active_service_keys():
     return list(
@@ -85,6 +80,7 @@ def user_base_payload(user, request=None):
         'bio': user.bio or None,
         'experience_years': user.experience_years,
         'is_verified': user.is_verified,
+        'is_email_verified': user.is_email_verified,
         'is_approved': user.is_approved,
         'is_active': user.is_active,
         'status_note': user.status_note or '',

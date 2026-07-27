@@ -11,13 +11,12 @@ export function ProviderRegisterPage() {
   const [services, setServices] = useState<ActiveService[]>([])
   const [serviceType, setServiceType] = useState('')
   const [form, setForm] = useState({
-    username: '',
+    name: '',
     email: '',
     password: '',
-    phone: '',
+    confirm_password: '',
   })
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingServices, setLoadingServices] = useState(true)
 
@@ -34,23 +33,15 @@ export function ProviderRegisterPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
     setLoading(true)
     try {
       const res = await register({ ...form, role: serviceType })
-      setSuccess(res.message)
-      setTimeout(() => navigate('/provider/login'), 1500)
+      navigate('/verify-email', {
+        state: { email: res.data.email, portal: 'provider' },
+      })
     } catch (err) {
-      if (err instanceof ApiRequestError) {
-        const data = err.data as { errors?: Record<string, string[]> }
-        if (data?.errors) {
-          setError(
-            Object.entries(data.errors)
-              .map(([k, v]) => `${k}: ${v.join(', ')}`)
-              .join('; '),
-          )
-        } else setError(err.message)
-      } else setError('Registration failed')
+      if (err instanceof ApiRequestError) setError(err.message)
+      else setError('Registration failed')
     } finally {
       setLoading(false)
     }
@@ -65,11 +56,6 @@ export function ProviderRegisterPage() {
       {error && (
         <div className="mb-4">
           <Alert variant="error">{error}</Alert>
-        </div>
-      )}
-      {success && (
-        <div className="mb-4">
-          <Alert variant="success">{success}</Alert>
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -92,10 +78,10 @@ export function ProviderRegisterPage() {
             )}
           </Select>
         </Field>
-        <Field label="Username">
+        <Field label="Full name">
           <Input
-            value={form.username}
-            onChange={(e) => setForm({ ...form, username: e.target.value })}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
           />
         </Field>
@@ -115,10 +101,11 @@ export function ProviderRegisterPage() {
             required
           />
         </Field>
-        <Field label="Phone">
+        <Field label="Confirm password">
           <Input
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            type="password"
+            value={form.confirm_password}
+            onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
             required
           />
         </Field>

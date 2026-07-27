@@ -7,8 +7,8 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { login as loginApi } from '../api/accounts'
-import { fetchProfile } from '../api/services'
+import { login as loginApi, fetchAccountProfile } from '../api/accounts'
+import { accountProfileToUser } from '../lib/profile'
 import { clearToken, getToken, setToken } from '../api/client'
 import type { LoginResponse, User } from '../types'
 
@@ -48,13 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = getToken()
     if (!token) return
 
-    fetchProfile()
+    fetchAccountProfile()
       .then((res) => {
+        const profileUser = accountProfileToUser(res.data.profile)
         const stored = loadUser()
         const user =
-          stored?.role === 'admin' && res.user.role !== 'admin'
-            ? { ...res.user, role: 'admin' as const }
-            : res.user
+          stored?.role === 'admin' && profileUser.role !== 'admin'
+            ? { ...profileUser, role: 'admin' as const }
+            : profileUser
         saveUser(user)
         setUserState(user)
       })

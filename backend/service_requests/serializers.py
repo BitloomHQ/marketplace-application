@@ -89,11 +89,10 @@ class CustomerServiceRequestSerializer(serializers.ModelSerializer):
         )
 
     def validate_category(self, category):
-        if not category.is_active:
+        if category.status != 'active':
             raise serializers.ValidationError(
-                "The selected service category is inactive."
+                'The selected service category is inactive.',
             )
-
         return category
 
     def validate_preferred_date(self, value):

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ApiRequestError } from '../../api/client'
 import { AuthLoginShell } from '../../components/auth/AuthLoginShell'
 import { AuthPortalLinks } from '../../components/AuthPortalLinks'
@@ -39,7 +39,23 @@ export function ProviderLoginPage() {
       else localStorage.removeItem(REMEMBER_KEY)
       navigate(providerDashboardPath(res.user.role), { replace: true })
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : 'Login failed')
+      if (err instanceof ApiRequestError) {
+        const data = err.data as {
+          code?: string
+          data?: { email?: string; next_step?: string }
+        }
+        if (data.code === 'EMAIL_NOT_VERIFIED' && data.data?.email) {
+          navigate('/verify-email', {
+            state: { email: data.data.email, portal: 'provider' },
+          })
+          return
+        }
+        if (data.code === 'PROVIDER_APPROVAL_PENDING') {
+          setError(err.message)
+          return
+        }
+        setError(err.message)
+      } else setError('Login failed')
     } finally {
       setLoading(false)
     }
@@ -71,13 +87,12 @@ export function ProviderLoginPage() {
         <div>
           <div className="mb-1.5 flex items-center justify-between">
             <span className="text-sm font-medium text-zinc-700">Password</span>
-            <button
-              type="button"
+            <Link
+              to="/forgot-password"
               className="text-xs font-semibold text-sky-600 hover:text-sky-700"
-              onClick={() => setError('Password reset is not available yet. Contact support.')}
             >
               Forgot password
-            </button>
+            </Link>
           </div>
           <Input
             type="password"
