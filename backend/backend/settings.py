@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
 
     "corsheaders",
+    "anymail",
 
     "accounts",
     "services",
@@ -189,5 +190,21 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # Server-side only — used to proxy Places / Geocoding (never expose to the browser)
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+
+# Email (Resend via django-anymail)
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL",
+    "Marketplace <onboarding@resend.dev>",
+)
+
+if RESEND_API_KEY:
+    EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+    ANYMAIL = {
+        "RESEND_API_KEY": RESEND_API_KEY,
+    }
+else:
+    # Local dev: print emails to the console when Resend is not configured
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 ASGI_APPLICATION = "backend.asgi.application"

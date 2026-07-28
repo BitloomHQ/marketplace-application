@@ -11,6 +11,7 @@ cryptography==48.0.0
 daphne==4.2.1
 Django==5.2.14
 django-cors-headers==4.9.0
+django-anymail[resend]==14.0
 djangorestframework==3.17.1
 djangorestframework_simplejwt==5.5.1
 hyperlink==21.0.0
