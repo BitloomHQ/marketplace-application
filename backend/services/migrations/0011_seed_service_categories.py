@@ -1,11 +1,8 @@
 from django.db import migrations
-from django.utils import timezone
 
 
 def seed_service_categories(apps, schema_editor):
     ServiceCategory = apps.get_model("services", "ServiceCategory")
-    db_alias = schema_editor.connection.alias
-    now = timezone.now()
 
     categories = [
         {
@@ -17,7 +14,7 @@ def seed_service_categories(apps, schema_editor):
             ),
             "icon": "🪠",
             "status": "active",
-            "start_date": None,
+            "start_date": "Yet to start",
             "display_order": 1,
         },
         {
@@ -29,7 +26,7 @@ def seed_service_categories(apps, schema_editor):
             ),
             "icon": "⚡",
             "status": "active",
-            "start_date": None,
+            "start_date": "Yet to start",
             "display_order": 2,
         },
         {
@@ -41,7 +38,7 @@ def seed_service_categories(apps, schema_editor):
             ),
             "icon": "🌿",
             "status": "active",
-            "start_date": None,
+            "start_date": "Yet to start",
             "display_order": 3,
         },
         {
@@ -53,30 +50,29 @@ def seed_service_categories(apps, schema_editor):
             ),
             "icon": "🪚",
             "status": "coming_soon",
-            "start_date": None,
+            "start_date": "Yet to start",
             "display_order": 4,
         },
     ]
 
-    table_name = ServiceCategory._meta.db_table
+    table_name = schema_editor.quote_name(
+        ServiceCategory._meta.db_table
+    )
 
     with schema_editor.connection.cursor() as cursor:
         for category in categories:
             cursor.execute(
                 f"""
-                INSERT INTO {table_name}
-                    (
-                        name,
-                        key,
-                        description,
-                        icon,
-                        status,
-                        start_date,
-                        display_order,
-                        created_at,
-                        updated_at
-                    )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO {table_name} (
+                    name,
+                    key,
+                    description,
+                    icon,
+                    status,
+                    start_date,
+                    display_order
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (key)
                 DO UPDATE SET
                     name = EXCLUDED.name,
@@ -84,8 +80,7 @@ def seed_service_categories(apps, schema_editor):
                     icon = EXCLUDED.icon,
                     status = EXCLUDED.status,
                     start_date = EXCLUDED.start_date,
-                    display_order = EXCLUDED.display_order,
-                    updated_at = EXCLUDED.updated_at
+                    display_order = EXCLUDED.display_order
                 """,
                 [
                     category["name"],
@@ -95,8 +90,6 @@ def seed_service_categories(apps, schema_editor):
                     category["status"],
                     category["start_date"],
                     category["display_order"],
-                    now,
-                    now,
                 ],
             )
 

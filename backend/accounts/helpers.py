@@ -1,10 +1,16 @@
 from services.models import Review
-from adminpanel.models import ServiceCategory
+from services.models import ServiceCategory
 
+
+from django.db import ProgrammingError
+from django.db.utils import OperationalError
 
 def provider_role_keys():
-    keys = list(ServiceCategory.objects.values_list('key', flat=True))
-    return keys or ['gardener', 'electrician', 'plumber']
+    try:
+        keys = list(ServiceCategory.objects.values_list("key", flat=True))
+        return keys or ["gardener", "electrician", "plumber"]
+    except (ProgrammingError, OperationalError):
+        return ["gardener", "electrician", "plumber"]
 
 
 def active_service_keys():

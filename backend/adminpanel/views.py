@@ -10,7 +10,7 @@ from accounts.helpers import is_provider_role, provider_role_keys
 from services.models import ServiceRequest, Quote, Booking, Review
 from .models import ServiceCategory
 
-PROVIDER_ROLES = provider_role_keys()
+
 
 
 @api_view(["GET"])
@@ -25,12 +25,12 @@ def admin_dashboard(request):
                 "active_customers": User.objects.filter(role="customer", is_active=True).count(),
                 "inactive_customers": User.objects.filter(role="customer", is_active=False).count(),
 
-                "total_providers": User.objects.filter(role__in=PROVIDER_ROLES).count(),
-                "active_providers": User.objects.filter(role__in=PROVIDER_ROLES, is_active=True).count(),
-                "inactive_providers": User.objects.filter(role__in=PROVIDER_ROLES, is_active=False).count(),
-                "pending_providers": User.objects.filter(role__in=PROVIDER_ROLES, is_approved=False).count(),
-                "approved_providers": User.objects.filter(role__in=PROVIDER_ROLES, is_approved=True).count(),
-                "verified_providers": User.objects.filter(role__in=PROVIDER_ROLES, is_verified=True).count(),
+                "total_providers": User.objects.filter(role__in=provider_role_keys()).count(),
+                "active_providers": User.objects.filter(role__in=provider_role_keys(), is_active=True).count(),
+                "inactive_providers": User.objects.filter(role__in=provider_role_keys(), is_active=False).count(),
+                "pending_providers": User.objects.filter(role__in=provider_role_keys(), is_approved=False).count(),
+                "approved_providers": User.objects.filter(role__in=provider_role_keys(), is_approved=True).count(),
+                "verified_providers": User.objects.filter(role__in=provider_role_keys(), is_verified=True).count(),
             },
 
             "services": {
@@ -57,7 +57,7 @@ def admin_dashboard(request):
 def pending_providers(request):
 
     providers = User.objects.filter(
-        role__in=PROVIDER_ROLES,
+        role__in=provider_role_keys(),
         is_approved=False
     ).order_by("-date_joined")
 
@@ -92,7 +92,7 @@ def approve_provider(request, provider_id):
 
     provider = User.objects.filter(
         id=provider_id,
-        role__in=PROVIDER_ROLES
+        role__in=provider_role_keys()
     ).first()
 
     if not provider:
@@ -130,7 +130,7 @@ def reject_provider(request, provider_id):
 
     provider = User.objects.filter(
         id=provider_id,
-        role__in=PROVIDER_ROLES
+        role__in=provider_role_keys()
     ).first()
 
     if not provider:
@@ -330,7 +330,7 @@ def delete_service_category(request, service_id):
 def all_providers(request):
 
     providers = User.objects.filter(
-        role__in=PROVIDER_ROLES
+        role__in=provider_role_keys()
     ).order_by("-date_joined")
 
     return Response({
@@ -377,7 +377,7 @@ def activate_provider(request, provider_id):
 
     provider = User.objects.filter(
         id=provider_id,
-        role__in=PROVIDER_ROLES
+        role__in=provider_role_keys()
     ).first()
 
     if not provider:
@@ -415,7 +415,7 @@ def deactivate_provider(request, provider_id):
 
     provider = User.objects.filter(
         id=provider_id,
-        role__in=PROVIDER_ROLES
+        role__in=provider_role_keys()
     ).first()
 
     if not provider:
@@ -452,7 +452,7 @@ def verify_provider(request, provider_id):
 
     provider = User.objects.filter(
         id=provider_id,
-        role__in=PROVIDER_ROLES
+        role__in=provider_role_keys()
     ).first()
 
     if not provider:
@@ -491,7 +491,7 @@ def unverify_provider(request, provider_id):
 
     provider = User.objects.filter(
         id=provider_id,
-        role__in=PROVIDER_ROLES
+        role__in=provider_role_keys()
     ).first()
 
     if not provider:
@@ -671,7 +671,7 @@ def all_quotes(request):
 def provider_performance(request):
 
     providers = User.objects.filter(
-        role__in=PROVIDER_ROLES
+        role__in=provider_role_keys()
     ).order_by("username")
 
     data = []
@@ -753,7 +753,7 @@ def provider_performance(request):
 def all_providers(request):
 
     providers = User.objects.filter(
-        role__in=PROVIDER_ROLES
+        role__in=provider_role_keys()
     ).order_by("-date_joined")
 
     return Response({
