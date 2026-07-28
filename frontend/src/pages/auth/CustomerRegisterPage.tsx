@@ -8,35 +8,26 @@ import { Alert, Button, Card, Field, Input, PageHeader } from '../../components/
 export function CustomerRegisterPage() {
   const navigate = useNavigate()
   const [form, setForm] = useState({
-    username: '',
+    name: '',
     email: '',
     password: '',
-    phone: '',
+    confirm_password: '',
   })
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
     setLoading(true)
     try {
       const res = await register({ ...form, role: 'customer' })
-      setSuccess(res.message)
-      setTimeout(() => navigate('/customer/login'), 1500)
+      navigate('/verify-email', {
+        state: { email: res.data.email, portal: 'customer' },
+      })
     } catch (err) {
-      if (err instanceof ApiRequestError) {
-        const data = err.data as { errors?: Record<string, string[]> }
-        if (data?.errors) {
-          setError(
-            Object.entries(data.errors)
-              .map(([k, v]) => `${k}: ${v.join(', ')}`)
-              .join('; '),
-          )
-        } else setError(err.message)
-      } else setError('Registration failed')
+      if (err instanceof ApiRequestError) setError(err.message)
+      else setError('Registration failed')
     } finally {
       setLoading(false)
     }
@@ -50,16 +41,11 @@ export function CustomerRegisterPage() {
           <Alert variant="error">{error}</Alert>
         </div>
       )}
-      {success && (
-        <div className="mb-4">
-          <Alert variant="success">{success}</Alert>
-        </div>
-      )}
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Field label="Username">
+        <Field label="Full name">
           <Input
-            value={form.username}
-            onChange={(e) => setForm({ ...form, username: e.target.value })}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
           />
         </Field>
@@ -79,10 +65,11 @@ export function CustomerRegisterPage() {
             required
           />
         </Field>
-        <Field label="Phone">
+        <Field label="Confirm password">
           <Input
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            type="password"
+            value={form.confirm_password}
+            onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
             required
           />
         </Field>

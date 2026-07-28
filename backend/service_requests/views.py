@@ -20,6 +20,7 @@ def customer_service_request_list_create_api(request):
             .filter(customer=request.user)
             .select_related("category")
             .prefetch_related("images")
+            .order_by("-created_at")
         )
 
         serializer = CustomerServiceRequestSerializer(

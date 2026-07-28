@@ -28,7 +28,6 @@ from .views import (
     update_profile,
     view_lead_detail,
     popular_providers,
-    service_category_list_api,
 )
 
 
@@ -135,9 +134,4 @@ urlpatterns = [
     popular_providers,
     name="popular_providers"
 ),
-path(
-        "categories/",
-        service_category_list_api,
-        name="service-category-list",
-    ),
 ]

@@ -1,90 +1,146 @@
-from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-
-from accounts.models import User
+from accounts.models import User, CustomerAddress
 
 
 # =========================================
-# SERVICE CATEGORIES
+# SERVICE CATEGORIES (admin-managed)
 # =========================================
 class ServiceCategory(models.Model):
 
     STATUS_CHOICES = (
-        ("active", "Active"),
-        ("inactive", "Inactive"),
-        ("coming_soon", "Coming Soon"),
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('coming_soon', 'Coming Soon'),
     )
 
-    name = models.CharField(
-        max_length=100,
-        unique=True,
+    name = models.CharField(max_length=100)
+    key = models.CharField(max_length=50, unique=True)
+    description = models.TextField()
+    icon = models.CharField(max_length=16, default='🔧')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    start_date = models.CharField(max_length=100, blank=True, default='')
+    display_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['display_order', 'name']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+
+# =========================================
+# SERVICE REQUEST MODEL
+# =========================================
+class ServiceRequest(models.Model):
+
+    SERVICE_TYPES = ()
+
+    STATUS_CHOICES = (
+        ("pending", "Pending"),
+        ("area_selected", "Area Selected"),
+        ("quotation_received", "Quotation Received"),
+        ("assigned", "Assigned"),
+        ("in_progress", "In Progress"),
+        ("completed", "Completed"),
+        ("cancelled", "Cancelled"),
     )
 
-    slug = models.SlugField(
-    max_length=120,
-    null=True,
-    blank=True,
-)
+    customer = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="service_requests"
+    )
 
-    key = models.CharField(
+    service_type = models.CharField(
         max_length=50,
-        unique=True,
+    )
+
+    # OLD ADDRESS FIELD
+    # KEEP THIS TO AVOID MIGRATION ERROR
+    address = models.TextField(
+        null=True,
+        blank=True
+    )
+
+    # NEW MULTIPLE ADDRESS SUPPORT
+    customer_address = models.ForeignKey(
+        CustomerAddress,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="service_requests"
+    )
+
+    # AUTO FROM SELECTED ADDRESS
+    lat = models.FloatField(
+        null=True,
+        blank=True
+    )
+
+    lon = models.FloatField(
+        null=True,
+        blank=True
+    )
+
+    # GARDENER FEATURES
+    lawn_area = models.FloatField(
+        null=True,
+        blank=True
+    )
+
+    polygon_points = models.JSONField(
+        null=True,
+        blank=True
+    )
+
+    estimated_price = models.FloatField(
+        null=True,
+        blank=True
     )
 
     description = models.TextField(
-        blank=True,
-        default="",
-    )
-
-    icon = models.ImageField(
-        upload_to="service_categories/icons/",
         null=True,
-        blank=True,
+        blank=True
     )
 
-    parent = models.ForeignKey(
-        "self",
+    image = models.ImageField(
+        upload_to="service_requests/",
+        null=True,
+        blank=True
+    )
+
+    is_booked = models.BooleanField(
+        default=False
+    )
+
+    selected_provider = models.ForeignKey(
+        User,
         on_delete=models.SET_NULL,
-        related_name="subcategories",
         null=True,
         blank=True,
+        related_name="selected_jobs"
     )
 
     status = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=STATUS_CHOICES,
-        default="active",
-    )
-
-    start_date = models.DateField(
-        null=True,
-        blank=True,
-    )
-
-    display_order = models.PositiveIntegerField(
-        default=0,
+        default="pending"
     )
 
     created_at = models.DateTimeField(
-        auto_now_add=True,
+        auto_now_add=True
     )
 
     updated_at = models.DateTimeField(
-        auto_now=True,
+        auto_now=True
     )
 
-    class Meta:
-        ordering = [
-            "display_order",
-            "name",
-        ]
-        verbose_name_plural = "Service categories"
-
     def __str__(self):
-        if self.parent:
-            return f"{self.parent.name} → {self.name}"
-
-        return self.name
+        return f"{self.customer.username} - {self.service_type}"
 
 
 # =========================================
@@ -99,58 +155,36 @@ class Quote(models.Model):
     )
 
     service_request = models.ForeignKey(
-        "service_requests.CustomerServiceRequest",
+        ServiceRequest,
         on_delete=models.CASCADE,
-        related_name="quotes",
+        related_name="quotes"
     )
 
     provider = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="provider_quotes",
+        related_name="provider_quotes"
     )
 
-    price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[
-            MinValueValidator(0),
-        ],
-    )
+    price = models.FloatField()
 
     message = models.TextField(
         blank=True,
-        default="",
+        null=True
     )
 
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default="pending",
+        default="pending"
     )
 
     created_at = models.DateTimeField(
-        auto_now_add=True,
-    )
-
-    updated_at = models.DateTimeField(
-        auto_now=True,
+        auto_now_add=True
     )
 
     class Meta:
-        ordering = [
-            "-created_at",
-        ]
-
-        constraints = [
-            models.UniqueConstraint(
-                fields=[
-                    "service_request",
-                    "provider",
-                ],
-                name="unique_provider_quote_per_service_request",
-            ),
-        ]
+        unique_together = ("service_request", "provider")
 
     def __str__(self):
         return f"{self.provider.username} - ₹{self.price}"
@@ -170,63 +204,52 @@ class Booking(models.Model):
     )
 
     service_request = models.OneToOneField(
-        "service_requests.CustomerServiceRequest",
-        on_delete=models.CASCADE,
-        related_name="booking",
+        ServiceRequest,
+        on_delete=models.CASCADE
     )
 
     customer = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="customer_bookings",
+        related_name="customer_bookings"
     )
 
     provider = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="provider_bookings",
+        related_name="provider_bookings"
     )
 
     quote = models.OneToOneField(
         Quote,
         on_delete=models.SET_NULL,
-        related_name="booking",
         null=True,
-        blank=True,
+        blank=True
     )
 
-    final_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[
-            MinValueValidator(0),
-        ],
-    )
+    final_price = models.FloatField()
 
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default="assigned",
+        default="assigned"
     )
 
     created_at = models.DateTimeField(
-        auto_now_add=True,
+        auto_now_add=True
     )
 
     updated_at = models.DateTimeField(
-        auto_now=True,
+        auto_now=True
     )
 
     completed_at = models.DateTimeField(
         null=True,
-        blank=True,
+        blank=True
     )
 
     def __str__(self):
-        return (
-            f"{self.customer.username} booked "
-            f"{self.provider.username}"
-        )
+        return f"{self.customer.username} booked {self.provider.username}"
 
 
 # =========================================
@@ -236,44 +259,34 @@ class Review(models.Model):
 
     booking = models.OneToOneField(
         Booking,
-        on_delete=models.CASCADE,
-        related_name="review",
+        on_delete=models.CASCADE
     )
 
     customer = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="customer_reviews",
+        related_name="customer_reviews"
     )
 
     provider = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="provider_reviews",
+        related_name="provider_reviews"
     )
 
-    rating = models.PositiveSmallIntegerField(
-        validators=[
-            MinValueValidator(1),
-            MaxValueValidator(5),
-        ],
-    )
+    rating = models.IntegerField()
 
     review = models.TextField(
-        blank=True,
-        default="",
+        null=True,
+        blank=True
     )
 
     created_at = models.DateTimeField(
-        auto_now_add=True,
-    )
-
-    updated_at = models.DateTimeField(
-        auto_now=True,
+        auto_now_add=True
     )
 
     def __str__(self):
-        return f"{self.provider.username} - {self.rating} stars"
+        return f"{self.provider.username} - {self.rating} Stars"
 
 
 # =========================================
@@ -284,62 +297,48 @@ class Notification(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="notifications",
+        related_name="notifications"
     )
 
     title = models.CharField(
         max_length=255,
-        default="Update",
+        default="Update"
     )
 
     message = models.TextField()
 
     is_read = models.BooleanField(
-        default=False,
+        default=False
     )
 
     created_at = models.DateTimeField(
-        auto_now_add=True,
+        auto_now_add=True
     )
-
-    class Meta:
-        ordering = [
-            "-created_at",
-        ]
 
     def __str__(self):
         return f"{self.user.username} - {self.title}"
-
-
-# =========================================
-# PROVIDER PORTFOLIO
-# =========================================
+    
 class ProviderPortfolio(models.Model):
 
     provider = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="legacy_portfolio_images",
+        related_name="legacy_portfolio_images"
     )
 
     image = models.ImageField(
-        upload_to="provider_portfolio/",
+        upload_to="provider_portfolio/"
     )
 
     caption = models.CharField(
         max_length=255,
-        blank=True,
-        default="",
+        null=True,
+        blank=True
     )
 
     created_at = models.DateTimeField(
-        auto_now_add=True,
+        auto_now_add=True
     )
 
-    class Meta:
-        ordering = [
-            "-created_at",
-        ]
-
     def __str__(self):
-        return f"{self.provider.username} portfolio"
+        return f"{self.provider.username} Portfolio"    

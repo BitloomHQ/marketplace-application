@@ -9,6 +9,9 @@ import { CustomerLoginPage } from './pages/auth/CustomerLoginPage'
 import { CustomerRegisterPage } from './pages/auth/CustomerRegisterPage'
 import { ProviderLoginPage } from './pages/auth/ProviderLoginPage'
 import { ProviderRegisterPage } from './pages/auth/ProviderRegisterPage'
+import { VerifyEmailPage } from './pages/auth/VerifyEmailPage'
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { CustomerDashboard } from './pages/customer/CustomerDashboard'
 import { CustomerAddressesPage } from './pages/customer/CustomerAddressesPage'
 import { MyBookingsPage } from './pages/customer/MyBookingsPage'
@@ -43,6 +46,9 @@ function AppRoutes() {
         <Route path="/customer/register" element={<CustomerRegisterPage />} />
         <Route path="/provider/login" element={<ProviderLoginPage />} />
         <Route path="/provider/register" element={<ProviderRegisterPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/login" element={<Navigate to="/customer/login" replace />} />
         <Route path="/register" element={<Navigate to="/customer/register" replace />} />

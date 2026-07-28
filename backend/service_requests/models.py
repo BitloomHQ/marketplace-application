@@ -33,7 +33,7 @@ class CustomerServiceRequest(models.Model):
     customer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="service_requests",
+        related_name="customer_service_requests",
     )
 
     category = models.ForeignKey(

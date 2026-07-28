@@ -1,25 +1,29 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { fetchActiveServices } from '../api/accounts'
-import { fetchProfile, updateProfile } from '../api/services'
-import { uploadImageFile } from '../api/uploads'
+import {
+  deleteProfileImage,
+  fetchAccountProfile,
+  fetchProfileCompletion,
+  updateAccountProfile,
+  uploadProfileImage,
+} from '../api/accounts'
 import { ApiRequestError } from '../api/client'
-import { Alert, Button, Card, Field, Input, PageHeader, Select, Textarea } from '../components/ui'
+import { accountProfileToUser } from '../lib/profile'
+import { Alert, Button, Card, Field, Input, PageHeader, Textarea } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { isProviderRole } from '../lib/format'
-import type { ActiveService } from '../types'
 
 export function ProfilePage() {
   const { user, setUser } = useAuth()
-  const [username, setUsername] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [bio, setBio] = useState('')
   const [experienceYears, setExperienceYears] = useState('')
-  const [serviceType, setServiceType] = useState('plumber')
-  const [serviceOptions, setServiceOptions] = useState<ActiveService[]>([])
   const [profilePicture, setProfilePicture] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [completion, setCompletion] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -29,27 +33,22 @@ export function ProfilePage() {
 
   useEffect(() => {
     setError('')
-    Promise.all([
-      fetchProfile(),
-      isProvider ? fetchActiveServices().catch(() => ({ services: [] as ActiveService[] })) : null,
-    ])
-      .then(([profileRes, servicesRes]) => {
-        setUsername(profileRes.user.username)
-        setEmail(profileRes.user.email)
-        setPhone(profileRes.user.phone ?? '')
-        setAddress(profileRes.user.address ?? '')
-        setBio(profileRes.user.bio ?? '')
+    Promise.all([fetchAccountProfile(), fetchProfileCompletion().catch(() => null)])
+      .then(([profileRes, completionRes]) => {
+        const profile = profileRes.data.profile
+        setFirstName(profile.first_name)
+        setLastName(profile.last_name)
+        setEmail(profile.email)
+        setPhone(profile.phone ?? '')
+        setAddress(profile.address ?? '')
+        setBio(profile.bio ?? '')
         setExperienceYears(
-          profileRes.user.experience_years != null ? String(profileRes.user.experience_years) : '',
+          profile.experience_years != null ? String(profile.experience_years) : '',
         )
-        setPreviewUrl(profileRes.user.profile_picture ?? null)
-        if (isProviderRole(profileRes.user.role)) {
-          setServiceType(profileRes.user.role)
-        }
-        if (servicesRes?.services?.length) {
-          setServiceOptions(servicesRes.services)
-        }
-        setUser(profileRes.user)
+        setPreviewUrl(profile.profile_picture_url ?? profile.profile_picture)
+        setCompletion(profileRes.data.profile_completion)
+        if (completionRes) setCompletion(completionRes.data.percentage)
+        setUser(accountProfileToUser(profile))
       })
       .catch((err) =>
         setError(err instanceof ApiRequestError ? err.message : 'Failed to load profile'),
@@ -63,38 +62,56 @@ export function ProfilePage() {
     setSuccess('')
     setSaving(true)
     try {
-      let profilePictureKey: string | undefined
       if (profilePicture) {
-        profilePictureKey = (await uploadImageFile(profilePicture, 'profile_pictures')) ?? undefined
+        const imageRes = await uploadProfileImage(profilePicture)
+        setPreviewUrl(imageRes.data.profile_picture)
+        setCompletion(imageRes.data.profile_completion)
+        setProfilePicture(null)
       }
 
-      const res = await updateProfile({
-        username,
-        email,
+      const res = await updateAccountProfile({
+        first_name: firstName,
+        last_name: lastName,
         phone,
         address,
-        bio,
-        experience_years: experienceYears ? Number(experienceYears) : undefined,
-        ...(isProvider ? { service_type: serviceType } : {}),
-        ...(profilePictureKey
-          ? { profile_picture_key: profilePictureKey }
-          : { profile_picture: profilePicture }),
+        bio: isProvider ? bio : undefined,
+        experience_years:
+          isProvider && experienceYears ? Number(experienceYears) : isProvider ? null : undefined,
       })
-      setUser(res.user)
-      setPreviewUrl(res.user.profile_picture ?? previewUrl)
-      setProfilePicture(null)
+      setUser(accountProfileToUser(res.data.profile))
+      setCompletion(res.data.profile_completion)
       setSuccess(res.message)
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : 'Update failed')
+      if (err instanceof ApiRequestError) {
+        const data = err.data as { errors?: Record<string, string[]> }
+        if (data?.errors) {
+          setError(
+            Object.entries(data.errors)
+              .map(([key, value]) => `${key}: ${value.join(', ')}`)
+              .join('; '),
+          )
+        } else setError(err.message)
+      } else setError('Update failed')
     } finally {
       setSaving(false)
     }
   }
 
-  const serviceSelectOptions =
-    serviceOptions.length > 0
-      ? serviceOptions
-      : [{ id: 0, key: serviceType, name: serviceType, description: '', status: 'active' as const, service_image: null }]
+  const handleDeleteImage = async () => {
+    setError('')
+    setSaving(true)
+    try {
+      const res = await deleteProfileImage()
+      setPreviewUrl(null)
+      setCompletion(res.data.profile_completion)
+      setSuccess(res.message)
+      if (user) setUser({ ...user, profile_picture: null })
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Delete failed')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div>
@@ -117,6 +134,9 @@ export function ProfilePage() {
           <p className="text-slate-400">Loading profile…</p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
+            {completion != null && (
+              <p className="text-sm text-zinc-600">Profile completion: {completion}%</p>
+            )}
             <div className="flex items-center gap-4">
               {previewUrl ? (
                 <img src={previewUrl} alt="" className="h-16 w-16 rounded-full object-cover" />
@@ -125,27 +145,32 @@ export function ProfilePage() {
                   ?
                 </div>
               )}
-              <Field label="Profile picture">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setProfilePicture(e.target.files?.[0] ?? null)}
-                />
-              </Field>
+              <div className="flex-1 space-y-2">
+                <Field label="Profile picture">
+                  <Input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(e) => setProfilePicture(e.target.files?.[0] ?? null)}
+                  />
+                </Field>
+                {previewUrl && (
+                  <Button type="button" onClick={handleDeleteImage} disabled={saving}>
+                    Remove photo
+                  </Button>
+                )}
+              </div>
             </div>
             {user?.is_verified && isProvider && (
-              <p className="text-sm font-semibold text-emerald-700">✅ Verified provider</p>
+              <p className="text-sm font-semibold text-emerald-700">Verified provider</p>
             )}
-            <Field label="Username">
-              <Input value={username} onChange={(e) => setUsername(e.target.value)} required />
+            <Field label="First name">
+              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+            </Field>
+            <Field label="Last name">
+              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
             </Field>
             <Field label="Email">
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Input type="email" value={email} disabled />
             </Field>
             <Field label="Phone">
               <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
@@ -162,21 +187,10 @@ export function ProfilePage() {
                   <Input
                     type="number"
                     min={0}
+                    max={60}
                     value={experienceYears}
                     onChange={(e) => setExperienceYears(e.target.value)}
                   />
-                </Field>
-                <Field label="Service type">
-                  <Select
-                    value={serviceType}
-                    onChange={(e) => setServiceType(e.target.value)}
-                  >
-                    {serviceSelectOptions.map((service) => (
-                      <option key={service.key} value={service.key}>
-                        {service.name}
-                      </option>
-                    ))}
-                  </Select>
                 </Field>
               </>
             )}

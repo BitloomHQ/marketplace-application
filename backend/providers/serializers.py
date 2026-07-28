@@ -15,7 +15,7 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
     )
 
     category_slug = serializers.CharField(
-        source="category.slug",
+        source="category.key",
         read_only=True,
     )
 
@@ -43,11 +43,10 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
         ]
 
     def validate_category(self, category):
-        if not category.is_active:
+        if category.status != 'active':
             raise serializers.ValidationError(
-                "The selected service category is inactive."
+                'The selected service category is inactive.',
             )
-
         return category
 
     def validate(self, attrs):
@@ -212,9 +211,12 @@ class ProviderServiceAreaSerializer(
         ]
 
     def validate_service_radius_km(self, value):
+        if value <= 0:
+            raise serializers.ValidationError(
+                'Service radius must be greater than zero.',
+            )
         if value > 200:
             raise serializers.ValidationError(
-                "Service radius cannot exceed 200 km."
+                'Service radius cannot exceed 200 km.',
             )
-
         return value

@@ -19,6 +19,7 @@ export interface User {
   bio?: string | null
   experience_years?: number | null
   is_verified?: boolean
+  is_email_verified?: boolean
   is_approved?: boolean
   is_active?: boolean
   status_note?: string
@@ -75,6 +76,43 @@ export interface LoginResponse {
   token: string
   user: User
   redirect_url: string
+}
+
+export interface AccountProfile {
+  id: number
+  username: string
+  email: string
+  first_name: string
+  last_name: string
+  full_name: string
+  role: UserRole
+  phone: string
+  address: string
+  profile_picture: string | null
+  profile_picture_url: string | null
+  bio: string
+  experience_years: number | null
+  is_provider: boolean
+  is_email_verified: boolean
+  is_verified: boolean
+  is_approved: boolean
+  is_active: boolean
+  status_note: string
+  date_joined: string
+}
+
+export interface RegisterResponse {
+  success: boolean
+  message: string
+  data: {
+    user_id: number
+    name: string
+    email: string
+    role: string
+    is_email_verified: boolean
+    is_approved: boolean
+    next_step: string
+  }
 }
 
 export interface PortfolioImage {
