@@ -13,6 +13,8 @@ type SignedUploadResponse = {
   file_url: string
   method: string
   field_name: string
+  storage?: 's3' | 'local'
+  fields?: Record<string, string>
 }
 
 export function generateSignedUploadUrl(data: {
@@ -31,14 +33,25 @@ export async function uploadToSignedUrl(
   fileKey: string,
   file: File,
   fieldName = 'file',
+  s3Fields?: Record<string, string>,
 ) {
   const formData = new FormData()
-  formData.append(fieldName, file)
-  formData.append('file_key', fileKey)
 
-  const token = getToken()
+  if (s3Fields) {
+    Object.entries(s3Fields).forEach(([key, value]) => {
+      formData.append(key, value)
+    })
+  } else {
+    formData.append('file_key', fileKey)
+  }
+
+  formData.append(fieldName, file)
+
   const headers: Record<string, string> = {}
-  if (token) headers.Authorization = `Token ${token}`
+  if (!s3Fields) {
+    const token = getToken()
+    if (token) headers.Authorization = `Token ${token}`
+  }
 
   const response = await fetch(uploadUrl, {
     method: 'POST',
@@ -48,6 +61,14 @@ export async function uploadToSignedUrl(
 
   if (!response.ok) {
     throw new Error('Image upload failed')
+  }
+
+  if (s3Fields) {
+    return {
+      success: true,
+      file_key: fileKey,
+      file_url: '',
+    }
   }
 
   return response.json() as Promise<{
@@ -64,7 +85,13 @@ export async function uploadImageFile(file: File, folder: UploadFolder): Promise
       file_type: file.type || 'image/jpeg',
       folder,
     })
-    await uploadToSignedUrl(signed.upload_url, signed.file_key, file, signed.field_name)
+    await uploadToSignedUrl(
+      signed.upload_url,
+      signed.file_key,
+      file,
+      signed.field_name,
+      signed.storage === 's3' ? signed.fields : undefined,
+    )
     return signed.file_key
   } catch {
     return null

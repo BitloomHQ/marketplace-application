@@ -33,7 +33,12 @@ def effective_role(user):
 
 def media_url(request, field):
     if field and hasattr(field, 'url'):
-        return request.build_absolute_uri(field.url)
+        url = field.url
+        if url.startswith('http://') or url.startswith('https://'):
+            return url
+        if request:
+            return request.build_absolute_uri(url)
+        return url
     return None
 
 

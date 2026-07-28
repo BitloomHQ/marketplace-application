@@ -13,9 +13,7 @@ def profile_payload(user, request=None):
         'role': user.role,
         'phone': user.phone or '',
         'address': user.address or '',
-        'profile_picture': (
-            user.profile_picture.url if user.profile_picture else None
-        ),
+        'profile_picture': media_url(request, user.profile_picture) if user.profile_picture else None,
         'profile_picture_url': media_url(request, user.profile_picture) if request else None,
         'bio': user.bio or '',
         'experience_years': user.experience_years,

@@ -12,9 +12,37 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _strip_url_scheme(value: str) -> str:
+    return value.replace('https://', '').replace('http://', '').strip('/')
+
+
+def _database_from_url(database_url: str) -> dict:
+    parsed = urlparse(database_url)
+    query = dict(
+        part.split('=', 1)
+        for part in parsed.query.split('&')
+        if '=' in part
+    )
+    options = {}
+    sslmode = query.get('sslmode')
+    if sslmode:
+        options['sslmode'] = sslmode
+
+    return {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': parsed.path.lstrip('/'),
+        'USER': parsed.username or '',
+        'PASSWORD': parsed.password or '',
+        'HOST': parsed.hostname or '',
+        'PORT': parsed.port or 5432,
+        'OPTIONS': options,
+    }
 
 
 def _load_env_file(path: Path) -> None:
@@ -71,6 +99,7 @@ INSTALLED_APPS = [
 
     "corsheaders",
     "anymail",
+    "storages",
 
     "accounts",
     "services",
@@ -114,16 +143,22 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ["DB_NAME"],
-        "USER": os.environ["DB_USER"],
-        "PASSWORD": os.environ["DB_PASSWORD"],
-        "HOST": os.environ["DB_HOST"],
-        "PORT": os.environ["DB_PORT"],
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    DATABASES = {
+        'default': _database_from_url(DATABASE_URL),
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ['DB_NAME'],
+            'USER': os.environ['DB_USER'],
+            'PASSWORD': os.environ['DB_PASSWORD'],
+            'HOST': os.environ['DB_HOST'],
+            'PORT': os.environ['DB_PORT'],
+        },
+    }
 
 REDIS_HOST = os.environ["REDIS_HOST"]
 REDIS_PORT = int(os.environ["REDIS_PORT"])
@@ -184,9 +219,46 @@ REST_FRAMEWORK = {
 
 AUTH_USER_MODEL = 'accounts.User'
 
-MEDIA_URL = "/media/"
+USE_S3 = bool(os.environ.get('AWS_STORAGE_BUCKET_NAME'))
 
-MEDIA_ROOT = BASE_DIR / "media"
+if USE_S3:
+    AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
+    AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
+    AWS_STORAGE_BUCKET_NAME = os.environ['AWS_STORAGE_BUCKET_NAME']
+    AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
+    AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', '')
+    AWS_S3_PUBLIC_BASE_URL = os.environ.get('AWS_S3_PUBLIC_BASE_URL', '')
+    AWS_S3_CUSTOM_DOMAIN = _strip_url_scheme(os.environ.get('AWS_S3_CUSTOM_DOMAIN', ''))
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = False
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3.S3Storage',
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+
+    if AWS_S3_PUBLIC_BASE_URL:
+        MEDIA_URL = AWS_S3_PUBLIC_BASE_URL.rstrip('/') + '/'
+    elif AWS_S3_CUSTOM_DOMAIN:
+        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+    elif AWS_S3_ENDPOINT_URL:
+        MEDIA_URL = AWS_S3_ENDPOINT_URL.rstrip('/') + '/'
+    else:
+        MEDIA_URL = (
+            f'https://{AWS_STORAGE_BUCKET_NAME}.s3.'
+            f'{AWS_S3_REGION_NAME}.amazonaws.com/'
+        )
+else:
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
 
 # Server-side only — used to proxy Places / Geocoding (never expose to the browser)
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
