@@ -29,6 +29,7 @@ from adminpanel.models import ServiceCategory
 # =====================================
 # DASHBOARD & ADDRESSES
 # =====================================
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def dashboard_api(request):
     user = request.user

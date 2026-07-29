@@ -30,8 +30,27 @@ type NotificationContextValue = {
 const NotificationContext = createContext<NotificationContextValue | null>(null)
 
 function wsUrl(token: string): string {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.host}/ws/notifications/?token=${encodeURIComponent(token)}`
+  // In production, derive WebSocket URL from VITE_API_BASE_URL (e.g. https://zepserve.onrender.com).
+  // In development with Vite proxy, fall back to window.location.host.
+  const apiBase = import.meta.env.VITE_API_BASE_URL as string | undefined
+  let host: string
+  let protocol: string
+
+  if (apiBase) {
+    try {
+      const parsed = new URL(apiBase)
+      protocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:'
+      host = parsed.host
+    } catch {
+      protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      host = window.location.host
+    }
+  } else {
+    protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    host = window.location.host
+  }
+
+  return `${protocol}//${host}/ws/notifications/?token=${encodeURIComponent(token)}`
 }
 
 export function NotificationProvider({ children }: { children: ReactNode }) {

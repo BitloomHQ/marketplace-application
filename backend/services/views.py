@@ -1136,9 +1136,10 @@ from django.db.models import Avg, Count
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def popular_providers(request):
+    valid_services = active_service_keys()
 
     providers = User.objects.filter(
-        role__in=VALID_SERVICES,
+        role__in=valid_services,
         is_active=True,
         is_approved=True,
     )
