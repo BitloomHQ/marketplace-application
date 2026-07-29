@@ -271,12 +271,35 @@ DEFAULT_FROM_EMAIL = os.environ.get(
 )
 
 if RESEND_API_KEY:
-    EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+    EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
     ANYMAIL = {
-        "RESEND_API_KEY": RESEND_API_KEY,
+        'RESEND_API_KEY': RESEND_API_KEY,
     }
 else:
     # Local dev: print emails to the console when Resend is not configured
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-ASGI_APPLICATION = "backend.asgi.application"
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'accounts.email_service': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+ASGI_APPLICATION = 'backend.asgi.application'

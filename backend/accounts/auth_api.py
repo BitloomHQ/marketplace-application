@@ -1,9 +1,11 @@
 import re
+import logging
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
@@ -12,6 +14,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from django.conf import settings
+
 from accounts.helpers import (
     active_service_keys,
     effective_role,
@@ -19,7 +23,7 @@ from accounts.helpers import (
     is_provider_role,
     user_base_payload,
 )
-from .email_service import send_verification_otp_email
+from .email_service import EmailNotConfiguredError, send_verification_otp_email
 from .models import User
 from .otp_utils import (
     OTP_EXPIRY_MINUTES,
@@ -27,6 +31,32 @@ from .otp_utils import (
     create_or_replace_email_otp,
     verify_email_otp,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _email_send_failure_response(exc):
+    if isinstance(exc, EmailNotConfiguredError):
+        message = str(exc)
+        code = 'EMAIL_NOT_CONFIGURED'
+    else:
+        message = (
+            'We could not send the verification email. '
+            'Please try again in a few minutes.'
+        )
+        code = 'EMAIL_SEND_FAILED'
+
+    if settings.DEBUG:
+        message = f'{message} ({exc})'
+
+    return Response(
+        {
+            'success': False,
+            'message': message,
+            'code': code,
+        },
+        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
 
 
 def _split_name(name):
@@ -87,25 +117,27 @@ def register(request):
         )
 
     first_name, last_name = _split_name(name)
-    user = User(
-        username=email,
-        email=email,
-        first_name=first_name,
-        last_name=last_name,
-        role=role,
-        is_email_verified=False,
-        is_verified=False,
-        is_active=True,
-        is_approved=role == 'customer',
-    )
-    user.set_password(password)
-    user.save()
 
-    otp, _ = create_or_replace_email_otp(user)
     try:
-        send_verification_otp_email(user, otp)
-    except Exception:
-        pass
+        with transaction.atomic():
+            user = User(
+                username=email,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                role=role,
+                is_email_verified=False,
+                is_verified=False,
+                is_active=True,
+                is_approved=role == 'customer',
+            )
+            user.set_password(password)
+            user.save()
+
+            otp, _ = create_or_replace_email_otp(user)
+            send_verification_otp_email(user, otp)
+    except (EmailNotConfiguredError, Exception) as exc:
+        return _email_send_failure_response(exc)
 
     return Response(
         {
@@ -242,8 +274,8 @@ def resend_email_otp(request):
     otp, _ = create_or_replace_email_otp(user)
     try:
         send_verification_otp_email(user, otp)
-    except Exception:
-        pass
+    except (EmailNotConfiguredError, Exception) as exc:
+        return _email_send_failure_response(exc)
 
     return Response(
         {
