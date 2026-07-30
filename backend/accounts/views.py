@@ -10,6 +10,7 @@ from .helpers import (
     effective_role,
     is_active_service_key,
     is_provider_role,
+    media_url,
     provider_list_payload,
     provider_rating,
     serialize_address,
@@ -426,12 +427,7 @@ def active_services(request):
                 "description": service.description,
                 "status": service.status,
 
-                "service_image": (
-                    request.build_absolute_uri(
-                        service.service_image.url
-                    )
-                    if service.service_image else None
-                )
+                "service_image": media_url(request, service.service_image),
             }
             for service in services
         ]

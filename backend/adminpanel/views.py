@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from accounts.models import User
-from accounts.helpers import is_provider_role, provider_role_keys
+from accounts.helpers import is_provider_role, media_url, provider_role_keys
 from services.models import ServiceRequest, Quote, Booking, Review
 from .models import ServiceCategory
 
@@ -168,10 +168,7 @@ def service_categories(request):
                 "name": service.name,
                 "key": service.key,
                 "description": service.description,
-                "service_image": (
-                    request.build_absolute_uri(service.service_image.url)
-                    if service.service_image else None
-                ),
+                "service_image": media_url(request, service.service_image),
                 "status": service.status,
                 "start_date": service.start_date,
                 "display_order": service.display_order,
@@ -222,10 +219,7 @@ def create_service_category(request):
         "success": True,
         "message": "Service category created successfully",
         "service_id": service.id,
-        "service_image": (
-            request.build_absolute_uri(service.service_image.url)
-            if service.service_image else None
-        )
+        "service_image": media_url(request, service.service_image),
     }, status=status.HTTP_201_CREATED)
 
 
@@ -270,10 +264,7 @@ def update_service_category(request, service_id):
             "name": service.name,
             "key": service.key,
             "description": service.description,
-            "service_image": (
-                request.build_absolute_uri(service.service_image.url)
-                if service.service_image else None
-            ),
+            "service_image": media_url(request, service.service_image),
             "status": service.status,
             "start_date": service.start_date,
             "display_order": service.display_order,

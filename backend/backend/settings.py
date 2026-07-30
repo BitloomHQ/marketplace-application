@@ -229,6 +229,10 @@ if USE_S3:
     AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', '')
     AWS_S3_PUBLIC_BASE_URL = os.environ.get('AWS_S3_PUBLIC_BASE_URL', '')
     AWS_S3_CUSTOM_DOMAIN = _strip_url_scheme(os.environ.get('AWS_S3_CUSTOM_DOMAIN', ''))
+    if AWS_S3_PUBLIC_BASE_URL and not AWS_S3_CUSTOM_DOMAIN:
+        AWS_S3_CUSTOM_DOMAIN = _strip_url_scheme(AWS_S3_PUBLIC_BASE_URL)
+    AWS_S3_ADDRESSING_STYLE = 'path'
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
     AWS_S3_FILE_OVERWRITE = False
     AWS_DEFAULT_ACL = None
     AWS_QUERYSTRING_AUTH = False

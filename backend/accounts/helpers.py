@@ -1,9 +1,9 @@
-from services.models import Review
-from services.models import ServiceCategory
-
-
+from django.conf import settings
 from django.db import ProgrammingError
 from django.db.utils import OperationalError
+
+from adminpanel.models import ServiceCategory
+from services.models import Review
 
 def provider_role_keys():
     try:
@@ -31,9 +31,22 @@ def effective_role(user):
     return 'admin' if user.is_superuser else user.role
 
 
+def normalize_media_url(url: str) -> str:
+    """Rewrite Supabase S3 API URLs to browser-loadable public object URLs."""
+    public_base = getattr(settings, 'AWS_S3_PUBLIC_BASE_URL', '').rstrip('/')
+    if not public_base or '/storage/v1/s3/' not in url:
+        return url
+    marker = '/storage/v1/s3/'
+    tail = url.split(marker, 1)[1]
+    parts = tail.split('/', 1)
+    if len(parts) == 2:
+        return f'{public_base}/{parts[1]}'
+    return url
+
+
 def media_url(request, field):
     if field and hasattr(field, 'url'):
-        url = field.url
+        url = normalize_media_url(field.url)
         if url.startswith('http://') or url.startswith('https://'):
             return url
         if request:
