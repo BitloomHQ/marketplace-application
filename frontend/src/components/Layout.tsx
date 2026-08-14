@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
-import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { homePathForRole, isProviderRole } from '../lib/format'
 import { NotificationBell } from './NotificationBell'
 import { NotificationToasts } from './NotificationToasts'
 import { UserMenuDropdown } from './UserMenuDropdown'
-import logo from '/logo.png'
+import { UserMobileMenu } from './UserMobileMenu'
+import { AppBrand } from './AppBrand'
 import backgroundImage from '/background.png'
 import provider_bg from '/provider_bg.png'
 
@@ -60,7 +61,7 @@ function headerNavClass(isActive: boolean) {
 }
 
 function bottomNavClass(isActive: boolean) {
-  return `flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-semibold transition ${
+  return `flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[10px] font-semibold transition min-[400px]:px-2 min-[400px]:text-[11px] ${
     isActive ? 'bg-violet-50 text-violet-700' : 'text-zinc-500 active:bg-zinc-100'
   }`
 }
@@ -156,33 +157,34 @@ export function Layout() {
       <RoleRouteGuard />
       <NotificationToasts />
       <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 sm:py-3">
-          <Link to={nav[0]?.to ?? '/'} className="flex shrink-0 items-center gap-2">
-          <img src={logo} alt="HomeServices" className="h-10 w-10" />
-            <span className="text-base font-bold tracking-tight text-zinc-900 sm:text-lg">
-              Home<span className="text-violet-600">Services</span>
-            </span>
-          </Link>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 lg:gap-3">
+            <AppBrand to={nav[0]?.to ?? '/'} />
 
-          {/* Desktop: tabs beside logo, not centered */}
-          {nav.length > 0 && (
-            <nav className="ml-1 hidden items-center gap-0.5 lg:flex" aria-label="Main navigation">
-              {nav.map((item) => (
-                <NavLink key={item.to} to={item.to} className={({ isActive }) => headerNavClass(isActive)}>
-                  {({ isActive }) => (
-                    <>
-                      <NavIcon name={item.icon} active={isActive} />
-                      {item.label}
-                    </>
-                  )}
-                </NavLink>
-              ))}
-            </nav>
-          )}
+            {nav.length > 0 && (
+              <nav className="hidden min-w-0 items-center gap-0.5 lg:flex" aria-label="Main navigation">
+                {nav.map((item) => (
+                  <NavLink key={item.to} to={item.to} className={({ isActive }) => headerNavClass(isActive)}>
+                    {({ isActive }) => (
+                      <>
+                        <NavIcon name={item.icon} active={isActive} />
+                        {item.label}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </nav>
+            )}
+          </div>
 
-          <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          <div className="flex shrink-0 items-center gap-0 sm:gap-0.5">
             <NotificationBell />
-            <UserMenuDropdown />
+            <div className="hidden lg:block">
+              <UserMenuDropdown />
+            </div>
+            <div className="lg:hidden">
+              <UserMobileMenu />
+            </div>
           </div>
         </div>
       </header>
@@ -198,7 +200,7 @@ export function Layout() {
           style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           aria-label="Main navigation"
         >
-          <div className="mx-auto flex max-w-7xl gap-1 px-2 pt-1.5 pb-1.5">
+          <div className="mx-auto flex max-w-7xl gap-0.5 px-1.5 pt-1.5 pb-1.5 min-[400px]:gap-1 min-[400px]:px-2">
             {nav.map((item) => (
               <NavLink
                 key={item.to}
@@ -209,7 +211,7 @@ export function Layout() {
                 {({ isActive }) => (
                   <>
                     <NavIcon name={item.icon} active={isActive} />
-                    {item.label}
+                    <span className="max-w-full truncate">{item.label}</span>
                   </>
                 )}
               </NavLink>

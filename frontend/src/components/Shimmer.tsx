@@ -16,11 +16,11 @@ export function ShimmerCircle({ className = '' }: ShimmerProps) {
 
 export function ServiceCirclesSkeleton({ count = 5 }: { count?: number }) {
   return (
-    <div className="flex w-full gap-3 sm:gap-4">
+    <div className="scrollbar-none flex w-full gap-3 overflow-x-auto pb-2 sm:gap-4 sm:overflow-visible sm:pb-0">
       {Array.from({ length: count }, (_, i) => (
         <div
           key={i}
-          className="flex w-[calc((100%-4*0.75rem)/5)] shrink-0 flex-col items-center sm:w-[calc((100%-4*1rem)/5)]"
+          className="flex w-[calc((100%-2*0.75rem)/3)] shrink-0 snap-start flex-col items-center sm:w-[calc((100%-4*1rem)/5)]"
         >
           <ShimmerCircle className="aspect-square w-[78%] rounded-full sm:w-[80%]" />
           <ShimmerText className="mt-3 w-16" />
@@ -43,9 +43,12 @@ export function SpotlightRowSkeleton({ count = 3 }: { count?: number }) {
 
 export function NoteworthyGridSkeleton({ count = 5 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+    <div className="scrollbar-none flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible sm:pb-0 md:grid-cols-5">
       {Array.from({ length: count }, (_, i) => (
-        <Shimmer key={i} className="aspect-[4/5] rounded-2xl" />
+        <Shimmer
+          key={i}
+          className="aspect-[3/4] w-[min(72vw,14rem)] shrink-0 snap-start rounded-2xl sm:aspect-[4/5] sm:w-auto"
+        />
       ))}
     </div>
   )

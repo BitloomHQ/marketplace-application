@@ -54,7 +54,7 @@ function NoteworthyCard({
       onClick={onClick}
       className="group overflow-hidden rounded-2xl border border-zinc-200 bg-white text-left shadow-sm transition hover:shadow-md"
     >
-      <div className="relative aspect-[4/5] overflow-hidden">
+      <div className="relative aspect-[3/4] overflow-hidden sm:aspect-[4/5]">
         <img
           src={serviceImage(category)}
           alt={category.name}
@@ -262,13 +262,17 @@ export function CustomerHomeContent({
           <SectionTitle subtitle="Exciting new categories launching soon">
             New and noteworthy
           </SectionTitle>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+          <div className="scrollbar-none flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible sm:pb-0 md:grid-cols-5">
             {comingSoonServices.map((category) => (
-              <NoteworthyCard
+              <div
                 key={category.id ?? category.key}
-                category={category}
-                onClick={() => onComingSoonChange(category)}
-              />
+                className="w-[min(72vw,14rem)] shrink-0 snap-start sm:w-auto"
+              >
+                <NoteworthyCard
+                  category={category}
+                  onClick={() => onComingSoonChange(category)}
+                />
+              </div>
             ))}
           </div>
         </section>

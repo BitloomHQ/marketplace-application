@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
+import { AppBrand } from './AppBrand'
+import { GuestMobileMenu } from './GuestMobileMenu'
 import { Button } from './ui'
-import logo from '/logo.png'
 
 type Props = {
   onLoginClick?: () => void
@@ -9,15 +10,12 @@ type Props = {
 export function GuestHeader({ onLoginClick }: Props) {
   return (
     <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 sm:py-3">
-        <Link to="/" className="flex shrink-0 items-center gap-2">
-          <img src={logo} alt="HomeServices" className="h-10 w-10" />
-          <span className="text-base font-bold tracking-tight text-zinc-900 sm:text-lg">
-            Home<span className="text-violet-600">Services</span>
-          </span>
-        </Link>
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
+        <div className="min-w-0 flex-1">
+          <AppBrand />
+        </div>
 
-        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <div className="hidden shrink-0 items-center gap-3 lg:flex">
           <Link
             to="/partner"
             className="rounded-full px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900"
@@ -39,6 +37,10 @@ export function GuestHeader({ onLoginClick }: Props) {
               </Button>
             </Link>
           )}
+        </div>
+
+        <div className="shrink-0 lg:hidden">
+          <GuestMobileMenu onLoginClick={onLoginClick} />
         </div>
       </div>
     </header>

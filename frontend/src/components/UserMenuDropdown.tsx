@@ -29,10 +29,10 @@ export function UserMenuDropdown() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white py-1 pl-1 pr-3 shadow-sm transition hover:border-zinc-300"
+        className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white py-1 pl-1 pr-2 shadow-sm transition hover:border-zinc-300 sm:gap-2 sm:pr-3"
         aria-label="Account menu"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-violet-100 text-sm font-bold text-violet-700">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-violet-100 text-sm font-bold text-violet-700 sm:h-9 sm:w-9">
           {user.profile_picture ? (
             <img src={user.profile_picture} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -45,10 +45,10 @@ export function UserMenuDropdown() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-xl">
+        <div className="absolute right-0 z-50 mt-2 w-[min(calc(100vw-1.5rem),14rem)] overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-xl sm:w-56">
           <div className="border-b border-zinc-100 px-4 py-3">
-            <p className="font-semibold text-zinc-900">{user.username}</p>
-            <p className="truncate text-xs text-zinc-500">{user.email}</p>
+            <p className="truncate font-semibold text-zinc-900">{user.username}</p>
+            <p className="mt-0.5 break-all text-xs text-zinc-500">{user.email}</p>
           </div>
           <button
             type="button"

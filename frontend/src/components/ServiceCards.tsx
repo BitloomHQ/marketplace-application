@@ -6,19 +6,22 @@ import { resolveMediaUrl } from '../lib/media'
 import type { ServiceCategory, ServiceType } from '../types'
 
 const DEFAULT_SERVICES: ServiceType[] = ['plumber', 'electrician', 'gardener']
+const MOBILE_VISIBLE = 3
+const DESKTOP_VISIBLE = 5
 const CIRCLE_IMAGE_SIZE = 'aspect-square w-[78%] rounded-full sm:w-[80%]'
-const CIRCLE_SLOT_WIDTH = 'w-[calc((100%-4*0.75rem)/5)] sm:w-[calc((100%-4*1rem)/5)]'
-const CIRCLE_ITEM_BASE = `flex shrink-0 flex-col items-center ${CIRCLE_SLOT_WIDTH}`
+const MOBILE_CIRCLE_SLOT_WIDTH = `w-[calc((100%-${MOBILE_VISIBLE - 1}*0.75rem)/${MOBILE_VISIBLE})]`
+const DESKTOP_CIRCLE_SLOT_WIDTH = `sm:w-[calc((100%-${DESKTOP_VISIBLE - 1}*1rem)/${DESKTOP_VISIBLE})]`
+const CIRCLE_ITEM_BASE = `flex shrink-0 snap-start flex-col items-center ${MOBILE_CIRCLE_SLOT_WIDTH} ${DESKTOP_CIRCLE_SLOT_WIDTH}`
 
 function circleLayoutClasses(count: number) {
-  const useSlider = count > 5
+  const useDesktopSlider = count > DESKTOP_VISIBLE
 
   return {
-    useSlider,
-    container: useSlider
+    useDesktopSlider,
+    container: useDesktopSlider
       ? 'scrollbar-none flex w-full gap-3 overflow-x-auto snap-x snap-mandatory pb-2 sm:gap-4'
-      : 'flex w-full justify-start gap-3 sm:gap-4',
-    item: useSlider ? `${CIRCLE_ITEM_BASE} snap-start` : CIRCLE_ITEM_BASE,
+      : 'scrollbar-none flex w-full gap-3 overflow-x-auto snap-x snap-mandatory pb-2 sm:gap-4 sm:overflow-visible sm:snap-none sm:pb-0',
+    item: CIRCLE_ITEM_BASE,
   }
 }
 
@@ -186,7 +189,7 @@ function CircleScrollRow({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(count > 5)
+  const [canScrollRight, setCanScrollRight] = useState(count > MOBILE_VISIBLE)
 
   const updateScrollHints = useCallback(() => {
     const el = scrollRef.current
@@ -214,17 +217,11 @@ function CircleScrollRow({
     el.scrollBy({ left: direction === 'right' ? amount : -amount, behavior: 'smooth' })
   }
 
-  const layout = circleLayoutClasses(count)
-  const arrowColumnClass =
-    'absolute top-0 z-20 flex w-[calc((100%-4*0.75rem)/5)] sm:w-[calc((100%-4*1rem)/5)]'
+  const arrowColumnClass = `absolute top-0 z-20 flex ${MOBILE_CIRCLE_SLOT_WIDTH} ${DESKTOP_CIRCLE_SLOT_WIDTH}`
   const arrowCircleClass =
     'flex aspect-square w-[78%] items-center sm:w-[80%]'
   const arrowButtonClass =
     'flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-600 shadow-md transition hover:bg-white hover:text-zinc-900 sm:h-10 sm:w-10'
-
-  if (!layout.useSlider) {
-    return <div className={className}>{children}</div>
-  }
 
   return (
     <div>
@@ -279,12 +276,6 @@ function CircleScrollRow({
           {children}
         </div>
       </div>
-
-      {canScrollRight && (
-        <p className="mt-3 text-center text-xs font-medium text-zinc-400 sm:text-sm">
-          Swipe or use arrows to see more services
-        </p>
-      )}
     </div>
   )
 }
