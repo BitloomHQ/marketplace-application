@@ -8,6 +8,7 @@ from .views import (
     service_categories,
     create_service_category,
     update_service_category,
+    reorder_service_categories,
     delete_service_category,
     
     activate_provider,
@@ -33,6 +34,7 @@ urlpatterns = [
 
     path("services/", service_categories, name="service_categories"),
     path("services/create/", create_service_category, name="create_service_category"),
+    path("services/reorder/", reorder_service_categories, name="reorder_service_categories"),
     path("services/<int:service_id>/update/", update_service_category, name="update_service_category"),
     path("services/<int:service_id>/delete/", delete_service_category, name="delete_service_category"),
     

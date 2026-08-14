@@ -164,6 +164,13 @@ export function updateAdminService(
   )
 }
 
+export function reorderAdminServices(order: number[]) {
+  return apiRequest<{ success: boolean; message: string }>(
+    '/api/admin-panel/services/reorder/',
+    { method: 'POST', body: { order } },
+  )
+}
+
 export function deleteAdminService(serviceId: number, reason: string) {
   return apiRequest<{ success: boolean; message: string }>(
     `/api/admin-panel/services/${serviceId}/delete/`,

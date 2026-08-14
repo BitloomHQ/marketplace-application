@@ -1,27 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { deleteAdminService, fetchAdminServices } from '../../api/admin'
+import { deleteAdminService, fetchAdminServices, reorderAdminServices } from '../../api/admin'
 import { ApiRequestError } from '../../api/client'
+import { SortableServiceList } from '../../components/admin/SortableServiceList'
 import { CreateServiceModal } from '../../components/CreateServiceModal'
 import { EditServiceModal } from '../../components/EditServiceModal'
-import {
-  EditIcon,
-  IconActionButton,
-  TrashIcon,
-} from '../../components/IconActionButton'
 import { ReasonActionModal } from '../../components/ReasonActionModal'
-import { Alert, Badge, Button, Card, PageHeader } from '../../components/ui'
+import { Alert, Button, Card, PageHeader } from '../../components/ui'
 import { AdminListRowSkeleton } from '../../components/Shimmer'
-import { DEFAULT_SERVICE_IMAGE } from '../../lib/defaultServiceImage'
-import { formatStatus } from '../../lib/format'
-import { resolveMediaUrl } from '../../lib/media'
 import type { ServiceCategory } from '../../types'
-
-function serviceStatusTone(status: string): 'success' | 'warning' | 'neutral' {
-  if (status === 'active') return 'success'
-  if (status === 'coming_soon') return 'warning'
-  return 'neutral'
-}
 
 export function AdminServicesPage() {
   const [services, setServices] = useState<ServiceCategory[]>([])
@@ -58,6 +45,21 @@ export function AdminServicesPage() {
     }
   }
 
+  const handleReorder = async (next: ServiceCategory[]) => {
+    const order = next.map((service) => service.id).filter((id): id is number => id != null)
+    if (order.length === 0) return
+
+    setError('')
+    try {
+      await reorderAdminServices(order)
+      setServices(next.map((service, index) => ({ ...service, display_order: index + 1 })))
+    } catch (err) {
+      const message = err instanceof ApiRequestError ? err.message : 'Failed to update order'
+      setError(message)
+      throw new Error(message)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -79,45 +81,12 @@ export function AdminServicesPage() {
           No services yet. Create your first service category.
         </Card>
       ) : (
-        <div className="space-y-3">
-          {services.map((service) => (
-            <Card key={service.id} className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 flex-1 items-start gap-3">
-                <img
-                  src={
-                    service.service_image
-                      ? resolveMediaUrl(service.service_image) ?? DEFAULT_SERVICE_IMAGE
-                      : DEFAULT_SERVICE_IMAGE
-                  }
-                  alt=""
-                  className="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-zinc-200"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-bold text-zinc-900">{service.name}</p>
-                    <Badge tone={serviceStatusTone(service.status)}>
-                      {formatStatus(service.status)}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-zinc-500">{service.key}</p>
-                  <p className="mt-1 text-sm text-zinc-600">{service.description}</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <IconActionButton label="Edit service" onClick={() => setEditService(service)}>
-                  <EditIcon />
-                </IconActionButton>
-                <IconActionButton
-                  label="Delete"
-                  variant="dangerSolid"
-                  onClick={() => setDeleteTarget(service)}
-                >
-                  <TrashIcon />
-                </IconActionButton>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <SortableServiceList
+          services={services}
+          onEdit={setEditService}
+          onDelete={setDeleteTarget}
+          onReorder={handleReorder}
+        />
       )}
 
       <CreateServiceModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={load} />

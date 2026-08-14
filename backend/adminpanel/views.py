@@ -1,3 +1,4 @@
+from django.db.models import Max
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
@@ -205,6 +206,10 @@ def create_service_category(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+    max_order = (
+        ServiceCategory.objects.aggregate(max_order=Max("display_order"))["max_order"] or 0
+    )
+
     service = ServiceCategory.objects.create(
         name=name,
         key=key,
@@ -212,7 +217,7 @@ def create_service_category(request):
         service_image=service_image,
         status=request.data.get("status", "coming_soon"),
         start_date=request.data.get("start_date", "Yet to start"),
-        display_order=request.data.get("display_order", 0),
+        display_order=max_order + 1,
     )
 
     return Response({
@@ -244,10 +249,6 @@ def update_service_category(request, service_id):
     service.description = request.data.get("description", service.description)
     service.status = request.data.get("status", service.status)
     service.start_date = request.data.get("start_date", service.start_date)
-    service.display_order = request.data.get(
-        "display_order",
-        service.display_order
-    )
 
     service_image = request.FILES.get("service_image")
 
@@ -269,6 +270,57 @@ def update_service_category(request, service_id):
             "start_date": service.start_date,
             "display_order": service.display_order,
         }
+    })
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def reorder_service_categories(request):
+    order = request.data.get("order")
+
+    if not isinstance(order, list) or not order:
+        return Response(
+            {
+                "success": False,
+                "message": "order must be a non-empty list of service ids",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        service_ids = [int(service_id) for service_id in order]
+    except (TypeError, ValueError):
+        return Response(
+            {
+                "success": False,
+                "message": "order must contain valid service ids",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    services = ServiceCategory.objects.filter(id__in=service_ids)
+    services_by_id = {service.id: service for service in services}
+
+    if len(services_by_id) != len(set(service_ids)):
+        return Response(
+            {
+                "success": False,
+                "message": "One or more service ids are invalid",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    updated = []
+    for index, service_id in enumerate(service_ids):
+        service = services_by_id[service_id]
+        service.display_order = index + 1
+        updated.append(service)
+
+    ServiceCategory.objects.bulk_update(updated, ["display_order"])
+
+    return Response({
+        "success": True,
+        "message": "Service order updated successfully",
     })
 
 
