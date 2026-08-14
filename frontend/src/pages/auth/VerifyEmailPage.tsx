@@ -18,7 +18,7 @@ export function VerifyEmailPage() {
   const [retryAfter, setRetryAfter] = useState(0)
 
   const portal = state?.portal ?? 'customer'
-  const loginPath = portal === 'provider' ? '/provider/login' : '/customer/login'
+  const loginPath = portal === 'provider' ? '/partner?login=1' : '/?login=1'
 
   useEffect(() => {
     if (retryAfter <= 0) return

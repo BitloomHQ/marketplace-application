@@ -7,6 +7,7 @@ import {
   ServiceListCard,
 } from '../../components/ServiceListCard'
 import { Alert, EmptyState, PageHeader, Select } from '../../components/ui'
+import { ListCardSkeleton } from '../../components/Shimmer'
 import { canEditBookingStatus, providerStatusOptions } from '../../lib/bookingStatus'
 import { formatStatus } from '../../lib/format'
 import { mapsUrlForLocation } from '../../lib/maps'
@@ -61,11 +62,7 @@ export function ProviderBookingsPage() {
       )}
 
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-40 animate-pulse rounded-2xl bg-zinc-200" />
-          ))}
-        </div>
+        <ListCardSkeleton count={2} />
       ) : bookings.length === 0 ? (
         <EmptyState icon="📅" message="No confirmed jobs yet. Send quotes on new jobs to get booked." />
       ) : (

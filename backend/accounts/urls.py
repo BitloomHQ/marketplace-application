@@ -22,6 +22,7 @@ from .views import (
     maps_geocode_address,
     maps_reverse_geocode,
     active_services,
+    public_services,
 )
 
 urlpatterns = [
@@ -50,4 +51,5 @@ urlpatterns = [
     path('maps/geocode-address/', maps_geocode_address, name='maps_geocode_address'),
     path('maps/reverse-geocode/', maps_reverse_geocode, name='maps_reverse_geocode'),
     path('active-services/', active_services, name='active_services'),
+    path('public-services/', public_services, name='public_services'),
 ]

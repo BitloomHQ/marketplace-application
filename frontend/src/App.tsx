@@ -4,7 +4,6 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { isProviderRole, providerDashboardPath } from './lib/format'
-import { AuthLandingPage } from './pages/auth/AuthLandingPage'
 import { CustomerLoginPage } from './pages/auth/CustomerLoginPage'
 import { CustomerRegisterPage } from './pages/auth/CustomerRegisterPage'
 import { ProviderLoginPage } from './pages/auth/ProviderLoginPage'
@@ -27,6 +26,8 @@ import { AdminProvidersPage } from './pages/admin/AdminProvidersPage'
 import { AdminServicesPage } from './pages/admin/AdminServicesPage'
 import { AdminMarketplacePage } from './pages/admin/AdminMarketplacePage'
 import { AdminPendingProvidersPage } from './pages/admin/AdminPendingProvidersPage'
+import { PublicHomePage } from './pages/PublicHomePage'
+import { PartnerLandingPage } from './pages/PartnerLandingPage'
 
 function HomeRedirect() {
   const { isAuthenticated, user } = useAuth()
@@ -40,8 +41,11 @@ function HomeRedirect() {
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/" element={<PublicHomePage />} />
+      <Route path="/partner" element={<PartnerLandingPage />} />
+      <Route path="/prtner" element={<Navigate to="/partner" replace />} />
+
       <Route element={<AuthLayout />}>
-        <Route path="/" element={<AuthLandingPage />} />
         <Route path="/customer/login" element={<CustomerLoginPage />} />
         <Route path="/customer/register" element={<CustomerRegisterPage />} />
         <Route path="/provider/login" element={<ProviderLoginPage />} />
@@ -50,7 +54,7 @@ function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
-        <Route path="/login" element={<Navigate to="/customer/login" replace />} />
+        <Route path="/login" element={<Navigate to="/?login=1" replace />} />
         <Route path="/register" element={<Navigate to="/customer/register" replace />} />
       </Route>
 

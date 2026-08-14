@@ -17,6 +17,7 @@ import {
 } from '../../components/ServiceListCard'
 import { mapsUrlForLocation } from '../../lib/maps'
 import { Alert, Button, EmptyState, Pagination } from '../../components/ui'
+import { ListCardSkeleton } from '../../components/Shimmer'
 import type { ProviderProfile } from '../../types'
 import { canCustomerCancelBooking } from '../../lib/bookingStatus'
 
@@ -193,11 +194,7 @@ export function MyRequestsPage() {
       )}
 
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-40 animate-pulse rounded-2xl bg-zinc-200" />
-          ))}
-        </div>
+        <ListCardSkeleton count={2} />
       ) : requests.length === 0 ? (
         <EmptyState
           icon="🏠"

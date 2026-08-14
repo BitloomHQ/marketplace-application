@@ -7,6 +7,7 @@ import { LeadDetailModal } from '../../components/LeadDetailModal'
 import { SendQuoteModal } from '../../components/SendQuoteModal'
 import { ListCardButton, ServiceListCard } from '../../components/ServiceListCard'
 import { Alert, Button, EmptyState, PageHeader } from '../../components/ui'
+import { ListCardSkeleton } from '../../components/Shimmer'
 import { providerDeactivationReason } from '../../lib/providerStatus'
 import { isProviderRole } from '../../lib/format'
 import { mapsUrlForLocation } from '../../lib/maps'
@@ -50,18 +51,7 @@ function LeadCard({
 }
 
 function LeadSkeleton() {
-  return (
-    <div className="animate-pulse rounded-2xl border border-zinc-200 bg-white p-5">
-      <div className="flex gap-4">
-        <div className="h-16 w-16 rounded-xl bg-zinc-200" />
-        <div className="flex-1 space-y-3">
-          <div className="h-5 w-40 rounded bg-zinc-200" />
-          <div className="h-4 w-full rounded bg-zinc-200" />
-          <div className="h-4 w-3/4 rounded bg-zinc-200" />
-        </div>
-      </div>
-    </div>
-  )
+  return <ListCardSkeleton count={1} />
 }
 
 export function ProviderLeadsPage() {

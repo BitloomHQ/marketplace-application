@@ -10,6 +10,7 @@ import {
 import { ApiRequestError } from '../../api/client'
 import { AddAddressModal } from '../../components/AddAddressModal'
 import { Alert, Button } from '../../components/ui'
+import { ListCardSkeleton } from '../../components/Shimmer'
 import { addressLatLon } from '../../lib/address'
 import type { CustomerAddress } from '../../types'
 
@@ -239,11 +240,7 @@ export function CustomerAddressesPage() {
       )}
 
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-28 animate-pulse rounded-2xl bg-zinc-200" />
-          ))}
-        </div>
+        <ListCardSkeleton count={2} />
       ) : addresses.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-6 py-12 text-center">
           <p className="text-sm text-zinc-500">No saved addresses yet.</p>

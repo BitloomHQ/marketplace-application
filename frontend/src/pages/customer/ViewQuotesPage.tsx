@@ -6,6 +6,7 @@ import { ProviderAvatar } from '../../components/ProviderAvatar'
 import { ProviderProfileModal } from '../../components/ProviderProfileModal'
 import { StarRating } from '../../components/StarRating'
 import { Alert, Badge, Button, EmptyState } from '../../components/ui'
+import { ListCardSkeleton } from '../../components/Shimmer'
 import type { ProviderProfile, Quote } from '../../types'
 
 function quoteStatusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger' {
@@ -118,10 +119,8 @@ export function ViewQuotesPage() {
       )}
 
       {loading ? (
-        <div className="mt-6 space-y-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-28 animate-pulse rounded-2xl bg-zinc-200" />
-          ))}
+        <div className="mt-6">
+          <ListCardSkeleton count={2} />
         </div>
       ) : quotes.length === 0 ? (
         <div className="mt-6">

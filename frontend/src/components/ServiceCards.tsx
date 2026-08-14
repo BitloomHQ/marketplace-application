@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { formatService } from '../lib/format'
 import { SERVICE_META } from '../lib/serviceMeta'
 import { DEFAULT_SERVICE_IMAGE } from '../lib/defaultServiceImage'
@@ -171,11 +172,110 @@ function circleLayoutClasses(count: number) {
   const useSlider = count > 5
 
   return {
+    useSlider,
     container: useSlider
       ? 'scrollbar-none flex w-full gap-4 overflow-x-auto snap-x snap-mandatory pb-2 sm:gap-6 md:gap-8'
       : 'flex w-full gap-4 justify-start items-start sm:gap-6 md:gap-8',
     item: useSlider ? `${CIRCLE_ITEM_BASE} snap-start` : CIRCLE_ITEM_BASE,
   }
+}
+
+function CircleScrollRow({
+  count,
+  className,
+  children,
+}: {
+  count: number
+  className: string
+  children: ReactNode
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(count > 5)
+
+  const updateScrollHints = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 8)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 8)
+  }, [])
+
+  useEffect(() => {
+    updateScrollHints()
+    const el = scrollRef.current
+    if (!el) return
+    el.addEventListener('scroll', updateScrollHints, { passive: true })
+    window.addEventListener('resize', updateScrollHints)
+    return () => {
+      el.removeEventListener('scroll', updateScrollHints)
+      window.removeEventListener('resize', updateScrollHints)
+    }
+  }, [updateScrollHints, count])
+
+  const scrollByPage = (direction: 'left' | 'right') => {
+    const el = scrollRef.current
+    if (!el) return
+    const amount = Math.max(el.clientWidth * 0.75, 160)
+    el.scrollBy({ left: direction === 'right' ? amount : -amount, behavior: 'smooth' })
+  }
+
+  const layout = circleLayoutClasses(count)
+
+  if (!layout.useSlider) {
+    return <div className={className}>{children}</div>
+  }
+
+  return (
+    <div className="relative">
+      {canScrollLeft && (
+        <>
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-zinc-100 via-zinc-100/80 to-transparent sm:w-14"
+            aria-hidden
+          />
+          <button
+            type="button"
+            onClick={() => scrollByPage('left')}
+            className="absolute left-0 top-[2.75rem] z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-600 shadow-md transition hover:bg-white hover:text-zinc-900 sm:top-[3.5rem] sm:h-10 sm:w-10 md:top-16 lg:top-20"
+            aria-label="Scroll to previous services"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </>
+      )}
+
+      {canScrollRight && (
+        <>
+          <div
+            className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-zinc-100 via-zinc-100/80 to-transparent sm:w-14"
+            aria-hidden
+          />
+          <button
+            type="button"
+            onClick={() => scrollByPage('right')}
+            className="absolute right-0 top-[2.75rem] z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-600 shadow-md transition hover:bg-white hover:text-zinc-900 sm:top-[3.5rem] sm:h-10 sm:w-10 md:top-16 lg:top-20"
+            aria-label="Scroll to more services"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </>
+      )}
+
+      <div ref={scrollRef} className={className}>
+        {children}
+      </div>
+
+      {canScrollRight && (
+        <p className="mt-3 text-center text-xs font-medium text-zinc-400 sm:text-sm">
+          Swipe or use arrows to see more services
+        </p>
+      )}
+    </div>
+  )
 }
 
 export function ServiceCards({
@@ -204,7 +304,7 @@ export function ServiceCards({
     }
 
     return (
-      <div className={`${containerClass} ${className}`.trim()}>
+      <CircleScrollRow count={count} className={`${containerClass} ${className}`.trim()}>
         {categories.map((category) => (
           <div key={category.id ?? category.key} className={circleLayout?.item}>
             <CategoryCircleCard
@@ -214,12 +314,12 @@ export function ServiceCards({
             />
           </div>
         ))}
-      </div>
+      </CircleScrollRow>
     )
   }
 
   return (
-    <div className={`${containerClass} ${className}`.trim()}>
+    <CircleScrollRow count={count} className={`${containerClass} ${className}`.trim()}>
       {services.map((service) => (
         <div key={service} className={circleLayout?.item}>
           <ServiceCard
@@ -231,6 +331,6 @@ export function ServiceCards({
           />
         </div>
       ))}
-    </div>
+    </CircleScrollRow>
   )
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { fetchAdminDashboard } from '../../api/admin'
 import { ApiRequestError } from '../../api/client'
 import { Alert, Button, Card, PageHeader } from '../../components/ui'
+import { AdminStatsSkeleton } from '../../components/Shimmer'
 import type { AdminDashboardData } from '../../api/admin'
 
 export function AdminDashboardPage() {
@@ -42,7 +43,7 @@ export function AdminDashboardPage() {
       {error && <Alert variant="error">{error}</Alert>}
 
       {loading ? (
-        <p className="text-zinc-400">Loading dashboard…</p>
+        <AdminStatsSkeleton />
       ) : stats ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link to="/admin/pending-providers" className="block transition hover:opacity-90">

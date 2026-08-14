@@ -11,6 +11,7 @@ import {
 } from '../../components/IconActionButton'
 import { ReasonActionModal } from '../../components/ReasonActionModal'
 import { Alert, Badge, Button, Card, PageHeader } from '../../components/ui'
+import { AdminListRowSkeleton } from '../../components/Shimmer'
 import { DEFAULT_SERVICE_IMAGE } from '../../lib/defaultServiceImage'
 import { formatStatus } from '../../lib/format'
 import { resolveMediaUrl } from '../../lib/media'
@@ -72,7 +73,7 @@ export function AdminServicesPage() {
       {error && <Alert variant="error">{error}</Alert>}
 
       {loading ? (
-        <p className="text-zinc-400">Loading services…</p>
+        <AdminListRowSkeleton count={4} />
       ) : services.length === 0 ? (
         <Card className="text-center text-sm text-zinc-500">
           No services yet. Create your first service category.

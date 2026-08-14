@@ -39,3 +39,25 @@ body {
     display: none;
   }
 }
+
+@keyframes shimmer-slide {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@utility shimmer {
+  background: linear-gradient(
+    90deg,
+    #e4e4e7 0%,
+    #f4f4f5 35%,
+    #fafafa 50%,
+    #f4f4f5 65%,
+    #e4e4e7 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-slide 1.5s ease-in-out infinite;
+}

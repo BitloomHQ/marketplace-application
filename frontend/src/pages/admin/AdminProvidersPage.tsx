@@ -15,6 +15,7 @@ import {
 } from '../../components/IconActionButton'
 import { ReasonActionModal } from '../../components/ReasonActionModal'
 import { Alert, Button, Card, PageHeader } from '../../components/ui'
+import { AdminListRowSkeleton } from '../../components/Shimmer'
 import { providerDeactivationReason } from '../../lib/providerStatus'
 import type { AdminProvider } from '../../api/admin'
 
@@ -89,7 +90,7 @@ export function AdminProvidersPage() {
       </div>
       {error && <Alert variant="error">{error}</Alert>}
       {loading ? (
-        <p className="text-zinc-400">Loading providers…</p>
+        <AdminListRowSkeleton count={5} />
       ) : (
         <div className="space-y-3">
           {providers.map((p) => {

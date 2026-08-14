@@ -8,6 +8,7 @@ import {
 } from '../../api/admin'
 import { ApiRequestError } from '../../api/client'
 import { Alert, Badge, Button, Card, PageHeader } from '../../components/ui'
+import { ListCardSkeleton } from '../../components/Shimmer'
 import { formatStatus } from '../../lib/format'
 
 type MonitorTab = 'requests' | 'bookings' | 'quotes' | 'performance'
@@ -101,7 +102,7 @@ export function AdminMarketplacePage() {
       </div>
 
       {loading ? (
-        <p className="text-zinc-400">Loading marketplace data…</p>
+        <ListCardSkeleton count={4} />
       ) : (
         <div className="space-y-2">
           {tab === 'requests' &&

@@ -1,4 +1,4 @@
-import logo from '../../assets/logo.png'
+import logo from '/logo.png'
 export function AuthLogo() {
   return (
     <div className="mx-auto mb-6 flex items-center justify-center">

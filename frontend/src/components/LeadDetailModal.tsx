@@ -4,6 +4,7 @@ import { ApiRequestError } from '../api/client'
 import { formatListDate } from './ServiceListCard'
 import { LawnPolygonPreview } from './LawnPolygonPreview'
 import { Alert, Badge, Button, Modal } from './ui'
+import { Shimmer, ShimmerText } from './Shimmer'
 import { formatService, formatStatus } from '../lib/format'
 import { mapsUrlForLocation } from '../lib/maps'
 import { resolveMediaUrl } from '../lib/media'
@@ -108,11 +109,11 @@ export function LeadDetailModal({
       }
     >
       {loading && (
-        <div className="space-y-4 animate-pulse">
-          <div className="h-5 w-32 rounded bg-zinc-200" />
-          <div className="h-4 w-full rounded bg-zinc-200" />
-          <div className="h-4 w-5/6 rounded bg-zinc-200" />
-          <div className="h-28 w-full rounded-xl bg-zinc-200" />
+        <div className="space-y-4">
+          <ShimmerText className="w-32" />
+          <ShimmerText className="w-full" />
+          <ShimmerText className="w-5/6" />
+          <Shimmer className="h-28 w-full rounded-xl" />
         </div>
       )}
 

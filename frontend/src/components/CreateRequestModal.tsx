@@ -6,6 +6,7 @@ import { ApiRequestError } from '../api/client'
 import { FileUploadZone } from './FileUploadZone'
 import { LawnPolygonDrawer } from './LawnPolygonDrawer'
 import { Alert, Field, Modal, ModalActions, Select, Textarea } from './ui'
+import { ListCardSkeleton } from './Shimmer'
 import { polygonAreaSqMeters } from '../lib/polygon'
 import { addressLatLon } from '../lib/address'
 import { addStoredRequestId } from '../lib/storage'
@@ -147,7 +148,7 @@ export function CreateRequestModal({
       )}
 
       {loadingAddresses ? (
-        <p className="text-center text-sm text-zinc-400">Loading your addresses…</p>
+        <ListCardSkeleton count={2} />
       ) : addresses.length === 0 ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-900">
           <p>You need at least one saved address before booking.</p>

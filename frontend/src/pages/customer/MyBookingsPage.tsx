@@ -9,6 +9,7 @@ import {
   ServiceListCard,
 } from '../../components/ServiceListCard'
 import { Alert, EmptyState, PageHeader } from '../../components/ui'
+import { ListCardSkeleton } from '../../components/Shimmer'
 import { canCustomerCancelBooking } from '../../lib/bookingStatus'
 import { mapsUrlForLocation } from '../../lib/maps'
 import type { Booking } from '../../types'
@@ -60,11 +61,7 @@ export function MyBookingsPage() {
       )}
 
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-40 animate-pulse rounded-2xl bg-zinc-200" />
-          ))}
-        </div>
+        <ListCardSkeleton count={2} />
       ) : bookings.length === 0 ? (
         <EmptyState icon="📅" message="No bookings yet. Pick a quote from your requests to confirm a pro." />
       ) : (

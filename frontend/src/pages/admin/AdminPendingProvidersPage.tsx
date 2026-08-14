@@ -5,6 +5,7 @@ import { ApiRequestError } from '../../api/client'
 import { AdminActionButton, CheckIcon, XIcon } from '../../components/IconActionButton'
 import { ReasonActionModal } from '../../components/ReasonActionModal'
 import { Alert, Button, Card, EmptyState, PageHeader } from '../../components/ui'
+import { AdminListRowSkeleton } from '../../components/Shimmer'
 import { formatService } from '../../lib/format'
 import type { AdminProvider } from '../../api/admin'
 
@@ -83,7 +84,7 @@ export function AdminPendingProvidersPage() {
       {error && <Alert variant="error">{error}</Alert>}
 
       {loading ? (
-        <p className="text-zinc-400">Loading pending providers…</p>
+        <AdminListRowSkeleton count={3} />
       ) : pending.length === 0 ? (
         <EmptyState
           icon="✓"

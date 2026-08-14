@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import backgroundImage from '../../assets/bg.png'
+import backgroundImage from '/providerHero.png'
 import { fetchDashboard } from '../../api/accounts'
 import { fetchMyBookings, fetchProfile, fetchProviderLeads } from '../../api/services'
 import { StarRating } from '../../components/StarRating'

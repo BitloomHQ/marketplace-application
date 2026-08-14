@@ -5,8 +5,9 @@ import { homePathForRole, isProviderRole } from '../lib/format'
 import { NotificationBell } from './NotificationBell'
 import { NotificationToasts } from './NotificationToasts'
 import { UserMenuDropdown } from './UserMenuDropdown'
-import logo from '../assets/logo.png'
-import backgroundImage from '../assets/background.png'
+import logo from '/logo.png'
+import backgroundImage from '/background.png'
+import provider_bg from '/provider_bg.png'
 
 type NavItem = { to: string; label: string; icon: 'home' | 'list' | 'calendar' | 'briefcase' | 'clock' }
 
@@ -117,6 +118,7 @@ function RoleRouteGuard() {
 
 export function Layout() {
   const { user } = useAuth()
+  const { pathname } = useLocation()
 
   if (!user) return null
 
@@ -129,8 +131,28 @@ export function Layout() {
           ? providerNav()
           : []
 
+  const isProviderDashboard =
+    isProviderRole(user.role) &&
+    (pathname === '/provider-dashboard' ||
+      pathname === '/gardener-dashboard' ||
+      pathname === '/electrician-dashboard' ||
+      pathname === '/plumber-dashboard')
+
   return (
-    <div className="min-h-screen bg-zinc-100">
+    <div
+      className="min-h-screen bg-zinc-100"
+      style={
+        isProviderDashboard
+          ? {
+              backgroundImage: `url(${provider_bg})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              backgroundBlendMode: 'overlay',
+            }
+          : undefined
+      }
+    >
       <RoleRouteGuard />
       <NotificationToasts />
       <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md">

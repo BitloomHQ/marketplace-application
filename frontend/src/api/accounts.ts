@@ -293,3 +293,12 @@ export function fetchActiveServices() {
     { auth: false },
   )
 }
+
+export function fetchPublicServices() {
+  return apiRequest<{
+    success: boolean
+    services: ServiceCategory[]
+    popular_services: ServiceCategory[]
+    coming_soon_services: ServiceCategory[]
+  }>('/api/accounts/public-services/', { auth: false })
+}

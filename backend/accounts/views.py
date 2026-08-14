@@ -432,3 +432,22 @@ def active_services(request):
             for service in services
         ]
     })
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def public_services(request):
+    categories = list(dashboard_services())
+    active = [c for c in categories if c.status == "active"]
+    coming_soon = [c for c in categories if c.status == "coming_soon"]
+
+    return Response({
+        "success": True,
+        "services": [serialize_service_category(c, request) for c in categories],
+        "popular_services": [
+            serialize_service_category(c, request) for c in active[:5]
+        ],
+        "coming_soon_services": [
+            serialize_service_category(c, request) for c in coming_soon
+        ],
+    })

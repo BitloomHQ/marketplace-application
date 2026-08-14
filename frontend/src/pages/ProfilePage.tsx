@@ -9,6 +9,7 @@ import {
 import { ApiRequestError } from '../api/client'
 import { accountProfileToUser } from '../lib/profile'
 import { Alert, Button, Card, Field, Input, PageHeader, Textarea } from '../components/ui'
+import { ProfileFormSkeleton } from '../components/Shimmer'
 import { useAuth } from '../context/AuthContext'
 import { isProviderRole } from '../lib/format'
 
@@ -131,7 +132,7 @@ export function ProfilePage() {
       )}
       <Card className="max-w-xl">
         {loading ? (
-          <p className="text-slate-400">Loading profile…</p>
+          <ProfileFormSkeleton />
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             {completion != null && (
