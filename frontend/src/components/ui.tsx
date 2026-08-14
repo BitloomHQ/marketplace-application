@@ -171,30 +171,21 @@ export function Modal({
       <div
         role="dialog"
         aria-modal="true"
-        className={`relative z-10 flex max-h-[min(92dvh,100%)] w-full flex-col overflow-visible rounded-t-[1.75rem] border border-zinc-100 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-[1.75rem] ${maxWidth}`}
+        className={`relative z-10 flex max-h-[min(92dvh,100%)] w-full flex-col overflow-hidden rounded-t-[1.75rem] border border-zinc-100 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-[1.75rem] ${maxWidth}`}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute -right-2 -top-2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-sm font-bold text-white shadow-lg hover:bg-rose-600 sm:-right-3 sm:-top-3"
-          aria-label="Close"
-        >
-          ✕
-        </button>
-
-        <div className="shrink-0 px-6 pb-2 pt-8 text-center sm:px-8 sm:pt-10">
+        <div className="shrink-0 px-6 pb-2 pt-6 text-center sm:px-8 sm:pt-8">
           <h2 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl">{title}</h2>
           {subtitle && (
             <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-zinc-500">{subtitle}</p>
           )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4 sm:px-8 pb-tab-bar lg:pb-4">
+        <div className="max-h-[calc(92dvh-12rem)] overflow-y-auto overscroll-contain px-6 py-4 sm:max-h-[calc(90vh-12rem)] sm:px-8">
           {children}
         </div>
 
         {footer && (
-          <div className="shrink-0 border-t border-zinc-100 px-6 py-4 pb-tab-bar sm:px-8 lg:pb-5">
+          <div className="shrink-0 border-t border-zinc-100 px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-8">
             {footer}
           </div>
         )}
@@ -217,7 +208,7 @@ export function ModalActions({
   formId?: string
 }) {
   return (
-    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+    <div className="flex flex-row gap-3 sm:justify-end">
       <Button
         type="button"
         variant="secondary"
