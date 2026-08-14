@@ -14,21 +14,15 @@ export function ShimmerCircle({ className = '' }: ShimmerProps) {
   return <Shimmer className={`rounded-full ${className}`} />
 }
 
-const CIRCLE_SLOT_WIDTH = [
-  'w-[calc((100%-4*1rem)/5)]',
-  'sm:w-[calc((100%-4*1.5rem)/5)]',
-  'md:w-[calc((100%-4*2rem)/5)]',
-].join(' ')
-
 export function ServiceCirclesSkeleton({ count = 5 }: { count?: number }) {
   return (
-    <div className="flex w-full gap-4 sm:gap-6 md:gap-8">
+    <div className="flex w-full gap-3 sm:gap-4">
       {Array.from({ length: count }, (_, i) => (
         <div
           key={i}
-          className={`flex shrink-0 flex-col items-center ${CIRCLE_SLOT_WIDTH}`}
+          className="flex w-[calc((100%-4*0.75rem)/5)] shrink-0 flex-col items-center sm:w-[calc((100%-4*1rem)/5)]"
         >
-          <ShimmerCircle className="h-[5.5rem] w-[5.5rem] sm:h-28 sm:w-28 md:h-32 md:w-32 lg:h-40 lg:w-40" />
+          <ShimmerCircle className="aspect-square w-[78%] rounded-full sm:w-[80%]" />
           <ShimmerText className="mt-3 w-16" />
           <ShimmerText className="mt-2 w-24" />
         </div>

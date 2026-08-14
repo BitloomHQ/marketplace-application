@@ -6,6 +6,21 @@ import { resolveMediaUrl } from '../lib/media'
 import type { ServiceCategory, ServiceType } from '../types'
 
 const DEFAULT_SERVICES: ServiceType[] = ['plumber', 'electrician', 'gardener']
+const CIRCLE_IMAGE_SIZE = 'aspect-square w-[78%] rounded-full sm:w-[80%]'
+const CIRCLE_SLOT_WIDTH = 'w-[calc((100%-4*0.75rem)/5)] sm:w-[calc((100%-4*1rem)/5)]'
+const CIRCLE_ITEM_BASE = `flex shrink-0 flex-col items-center ${CIRCLE_SLOT_WIDTH}`
+
+function circleLayoutClasses(count: number) {
+  const useSlider = count > 5
+
+  return {
+    useSlider,
+    container: useSlider
+      ? 'scrollbar-none flex w-full gap-3 overflow-x-auto snap-x snap-mandatory pb-2 sm:gap-4'
+      : 'flex w-full justify-start gap-3 sm:gap-4',
+    item: useSlider ? `${CIRCLE_ITEM_BASE} snap-start` : CIRCLE_ITEM_BASE,
+  }
+}
 
 function categoryImage(category: ServiceCategory): string {
   const fromApi = category.service_image ? resolveMediaUrl(category.service_image) : null
@@ -38,9 +53,9 @@ function ServiceCard({
       <button
         type="button"
         onClick={onClick}
-        className="group flex flex-col items-center text-center transition active:scale-[0.97]"
+        className="group flex w-full flex-col items-center text-center transition active:scale-[0.97]"
       >
-        <div className="relative h-[5.5rem] w-[5.5rem] overflow-hidden rounded-full bg-sky-100 ring-[3px] ring-sky-100 shadow-md transition group-hover:ring-sky-300 sm:h-28 sm:w-28 md:h-32 md:w-32 lg:h-40 lg:w-40">
+        <div className={`relative overflow-hidden rounded-full bg-sky-100 ring-[3px] ring-sky-100 shadow-md transition group-hover:ring-sky-300 ${CIRCLE_IMAGE_SIZE}`}>
           <img
             src={DEFAULT_SERVICE_IMAGE}
             alt={formatService(service)}
@@ -128,11 +143,11 @@ function CategoryCircleCard({
     <button
       type="button"
       onClick={handleClick}
-      className={`group flex flex-col items-center text-center transition ${
+      className={`group flex w-full flex-col items-center text-center transition ${
         isActive || isComingSoon ? 'cursor-pointer active:scale-[0.97]' : 'cursor-default'
       }`}
     >
-      <div className="relative h-[5.5rem] w-[5.5rem] overflow-hidden rounded-full bg-sky-100 ring-[3px] ring-sky-100 shadow-md sm:h-28 sm:w-28 md:h-32 md:w-32 lg:h-40 lg:w-40">
+      <div className={`relative overflow-hidden rounded-full bg-sky-100 ring-[3px] ring-sky-100 shadow-md ${CIRCLE_IMAGE_SIZE}`}>
         <img
           src={imageSrc}
           alt={category.name}
@@ -158,26 +173,6 @@ function CategoryCircleCard({
       )}
     </button>
   )
-}
-
-const CIRCLE_SLOT_WIDTH = [
-  'w-[calc((100%-4*1rem)/5)]',
-  'sm:w-[calc((100%-4*1.5rem)/5)]',
-  'md:w-[calc((100%-4*2rem)/5)]',
-].join(' ')
-
-const CIRCLE_ITEM_BASE = `flex shrink-0 flex-col items-center ${CIRCLE_SLOT_WIDTH}`
-
-function circleLayoutClasses(count: number) {
-  const useSlider = count > 5
-
-  return {
-    useSlider,
-    container: useSlider
-      ? 'scrollbar-none flex w-full gap-4 overflow-x-auto snap-x snap-mandatory pb-2 sm:gap-6 md:gap-8'
-      : 'flex w-full gap-4 justify-start items-start sm:gap-6 md:gap-8',
-    item: useSlider ? `${CIRCLE_ITEM_BASE} snap-start` : CIRCLE_ITEM_BASE,
-  }
 }
 
 function CircleScrollRow({
@@ -220,53 +215,69 @@ function CircleScrollRow({
   }
 
   const layout = circleLayoutClasses(count)
+  const arrowColumnClass =
+    'absolute top-0 z-20 flex w-[calc((100%-4*0.75rem)/5)] sm:w-[calc((100%-4*1rem)/5)]'
+  const arrowCircleClass =
+    'flex aspect-square w-[78%] items-center sm:w-[80%]'
+  const arrowButtonClass =
+    'flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-600 shadow-md transition hover:bg-white hover:text-zinc-900 sm:h-10 sm:w-10'
 
   if (!layout.useSlider) {
     return <div className={className}>{children}</div>
   }
 
   return (
-    <div className="relative">
-      {canScrollLeft && (
-        <>
-          <div
-            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-zinc-100 via-zinc-100/80 to-transparent sm:w-14"
-            aria-hidden
-          />
-          <button
-            type="button"
-            onClick={() => scrollByPage('left')}
-            className="absolute left-0 top-[2.75rem] z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-600 shadow-md transition hover:bg-white hover:text-zinc-900 sm:top-[3.5rem] sm:h-10 sm:w-10 md:top-16 lg:top-20"
-            aria-label="Scroll to previous services"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-        </>
-      )}
+    <div>
+      <div className="relative">
+        {canScrollLeft && (
+          <>
+            <div
+              className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-zinc-100 via-zinc-100/80 to-transparent sm:w-14"
+              aria-hidden
+            />
+            <div className={`${arrowColumnClass} left-0 justify-center`}>
+              <div className={`${arrowCircleClass} justify-start`}>
+                <button
+                  type="button"
+                  onClick={() => scrollByPage('left')}
+                  className={arrowButtonClass}
+                  aria-label="Scroll to previous services"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
-      {canScrollRight && (
-        <>
-          <div
-            className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-zinc-100 via-zinc-100/80 to-transparent sm:w-14"
-            aria-hidden
-          />
-          <button
-            type="button"
-            onClick={() => scrollByPage('right')}
-            className="absolute right-0 top-[2.75rem] z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-600 shadow-md transition hover:bg-white hover:text-zinc-900 sm:top-[3.5rem] sm:h-10 sm:w-10 md:top-16 lg:top-20"
-            aria-label="Scroll to more services"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </>
-      )}
+        {canScrollRight && (
+          <>
+            <div
+              className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-zinc-100 via-zinc-100/80 to-transparent sm:w-14"
+              aria-hidden
+            />
+            <div className={`${arrowColumnClass} right-0 justify-center`}>
+              <div className={`${arrowCircleClass} justify-end`}>
+                <button
+                  type="button"
+                  onClick={() => scrollByPage('right')}
+                  className={arrowButtonClass}
+                  aria-label="Scroll to more services"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
-      <div ref={scrollRef} className={className}>
-        {children}
+        <div ref={scrollRef} className={className}>
+          {children}
+        </div>
       </div>
 
       {canScrollRight && (
