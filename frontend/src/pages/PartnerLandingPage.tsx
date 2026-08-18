@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { fetchActiveServices, register } from '../api/accounts'
 import { ApiRequestError } from '../api/client'
 import { GuestHeader } from '../components/GuestHeader'
+import { SiteFooter } from '../components/SiteFooter'
 import { AuthRegisterShell } from '../components/auth/AuthRegisterShell'
 import { Alert, Button, Field, Input, Modal, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
@@ -325,6 +326,7 @@ export function PartnerLandingPage() {
       </main>
 
       <ProviderLoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
+      <SiteFooter />
     </div>
   )
 }

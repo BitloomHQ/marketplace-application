@@ -7,6 +7,7 @@ import { NotificationToasts } from './NotificationToasts'
 import { UserMenuDropdown } from './UserMenuDropdown'
 import { UserMobileMenu } from './UserMobileMenu'
 import { AppBrand } from './AppBrand'
+import { SiteFooter } from './SiteFooter'
 import backgroundImage from '/background.png'
 import provider_bg from '/provider_bg.png'
 
@@ -189,9 +190,15 @@ export function Layout() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-4 pb-tab-bar lg:py-5 lg:pb-8">
+      <main className={`mx-auto max-w-7xl px-4 py-4 lg:py-5 lg:pb-8 ${user.role === 'customer' ? '' : 'pb-tab-bar'}`}>
         <Outlet />
       </main>
+
+      {user.role === 'customer' && (
+        <div className="pb-tab-bar lg:pb-0">
+          <SiteFooter />
+        </div>
+      )}
 
       {/* Phones & tablets: thumb-friendly bottom tabs */}
       {nav.length > 0 && (

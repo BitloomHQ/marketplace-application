@@ -36,7 +36,7 @@ export function CustomerRegisterPage() {
   return (
     <AuthRegisterShell
       title="Create your account"
-      subtitle="Sign up to book trusted home services at your doorstep."
+      subtitle="Sign up to book trusted professionals at your doorstep."
       footer={
         <p className="mt-6 text-center text-sm text-zinc-500">
           Already have an account?{' '}

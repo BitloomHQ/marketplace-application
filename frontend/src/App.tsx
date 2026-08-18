@@ -28,6 +28,7 @@ import { AdminMarketplacePage } from './pages/admin/AdminMarketplacePage'
 import { AdminPendingProvidersPage } from './pages/admin/AdminPendingProvidersPage'
 import { PublicHomePage } from './pages/PublicHomePage'
 import { PartnerLandingPage } from './pages/PartnerLandingPage'
+import { SiteInfoPage } from './pages/SiteInfoPage'
 
 function HomeRedirect() {
   const { isAuthenticated, user } = useAuth()
@@ -44,6 +45,13 @@ function AppRoutes() {
       <Route path="/" element={<PublicHomePage />} />
       <Route path="/partner" element={<PartnerLandingPage />} />
       <Route path="/prtner" element={<Navigate to="/partner" replace />} />
+      <Route path="/about" element={<SiteInfoPage slug="about" />} />
+      <Route path="/investors" element={<SiteInfoPage slug="investors" />} />
+      <Route path="/privacy" element={<SiteInfoPage slug="privacy" />} />
+      <Route path="/careers" element={<SiteInfoPage slug="careers" />} />
+      <Route path="/reviews" element={<SiteInfoPage slug="reviews" />} />
+      <Route path="/categories" element={<SiteInfoPage slug="categories" />} />
+      <Route path="/contact" element={<SiteInfoPage slug="contact" />} />
 
       <Route element={<AuthLayout />}>
         <Route path="/customer/login" element={<CustomerLoginPage />} />

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fetchPublicServices } from '../api/accounts'
 import { CustomerHomeContent } from '../components/CustomerHomeContent'
 import { GuestHeader } from '../components/GuestHeader'
+import { SiteFooter } from '../components/SiteFooter'
 import { LoginModal } from '../components/auth/LoginModal'
 import { useAuth } from '../context/AuthContext'
 import { isProviderRole } from '../lib/format'
@@ -96,14 +97,7 @@ export function PublicHomePage() {
         subtitle={loginMessage}
       />
 
-      <footer className="border-t border-zinc-200 bg-white py-6 text-center text-xs text-zinc-400">
-        <p>
-          Are you a professional?{' '}
-          <Link to="/partner" className="font-semibold text-sky-600 hover:text-sky-700">
-            Become a partner
-          </Link>
-        </p>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }
