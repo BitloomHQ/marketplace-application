@@ -28,7 +28,18 @@ def is_active_service_key(key):
 
 
 def effective_role(user):
-    return 'admin' if user.is_superuser else user.role
+    """
+    Return the effective application role.
+
+    Superuser / Staff Admin -> admin
+    Provider               -> provider role
+    Customer               -> customer
+    """
+
+    if user.is_superuser or user.is_staff:
+        return "admin"
+
+    return user.role
 
 
 def normalize_media_url(url: str) -> str:

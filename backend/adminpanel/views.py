@@ -1,56 +1,319 @@
 from django.db.models import Max
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-
-from .permissions import IsAdminUser
-from rest_framework.response import Response
+from django.db import transaction
 from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
 
 from accounts.models import User
 from accounts.helpers import is_provider_role, media_url, provider_role_keys
 from services.models import ServiceRequest, Quote, Booking, Review
 from .models import ServiceCategory
 
+from .permissions import (
+    IsAdminUser,
+    CanManageAdminUsers,
+    CanManageProviders,
+    CanManageCustomers,
+    CanManageServices,
+    CanManageBookings,
+    CanManageQuotes,
+    CanViewReports,
+    CanManageSpotlights,
+    get_admin_permissions,
+)
 
+from .serializers import (
+    AdminUserSerializer,
+    CreateAdminUserSerializer,
+    UpdateAdminUserSerializer,
+)
+
+def parse_boolean(value, default=False):
+    """
+    Convert form-data/string boolean values safely.
+    """
+
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    return str(value).strip().lower() in (
+        "true",
+        "1",
+        "yes",
+        "on",
+    )
 
 
 @api_view(["GET"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    IsAdminUser,
+])
 def admin_dashboard(request):
+    """
+    Return admin profile, permissions,
+    and marketplace dashboard statistics.
+    """
 
-    return Response({
-        "success": True,
-        "data": {
-            "users": {
-                "total_customers": User.objects.filter(role="customer").count(),
-                "active_customers": User.objects.filter(role="customer", is_active=True).count(),
-                "inactive_customers": User.objects.filter(role="customer", is_active=False).count(),
+    user = request.user
 
-                "total_providers": User.objects.filter(role__in=provider_role_keys()).count(),
-                "active_providers": User.objects.filter(role__in=provider_role_keys(), is_active=True).count(),
-                "inactive_providers": User.objects.filter(role__in=provider_role_keys(), is_active=False).count(),
-                "pending_providers": User.objects.filter(role__in=provider_role_keys(), is_approved=False).count(),
-                "approved_providers": User.objects.filter(role__in=provider_role_keys(), is_approved=True).count(),
-                "verified_providers": User.objects.filter(role__in=provider_role_keys(), is_verified=True).count(),
+    # =========================================================
+    # ADMIN PERMISSIONS
+    # =========================================================
+
+    permissions = get_admin_permissions(user)
+
+    # =========================================================
+    # USER STATISTICS
+    # =========================================================
+
+    total_customers = User.objects.filter(
+        role="customer"
+    ).count()
+
+    active_customers = User.objects.filter(
+        role="customer",
+        is_active=True,
+    ).count()
+
+    inactive_customers = User.objects.filter(
+        role="customer",
+        is_active=False,
+    ).count()
+
+    provider_roles = provider_role_keys()
+
+    total_providers = User.objects.filter(
+        role__in=provider_roles
+    ).count()
+
+    active_providers = User.objects.filter(
+        role__in=provider_roles,
+        is_active=True,
+    ).count()
+
+    inactive_providers = User.objects.filter(
+        role__in=provider_roles,
+        is_active=False,
+    ).count()
+
+    pending_providers = User.objects.filter(
+        role__in=provider_roles,
+        is_approved=False,
+    ).count()
+
+    approved_providers = User.objects.filter(
+        role__in=provider_roles,
+        is_approved=True,
+    ).count()
+
+    verified_providers = User.objects.filter(
+        role__in=provider_roles,
+        is_verified=True,
+    ).count()
+
+    # =========================================================
+    # SERVICE STATISTICS
+    # =========================================================
+
+    total_services = (
+        ServiceCategory.objects.count()
+    )
+
+    active_services = (
+        ServiceCategory.objects
+        .filter(
+            status="active"
+        )
+        .count()
+    )
+
+    coming_soon_services = (
+        ServiceCategory.objects
+        .filter(
+            status="coming_soon"
+        )
+        .count()
+    )
+
+    inactive_services = (
+        ServiceCategory.objects
+        .filter(
+            status="inactive"
+        )
+        .count()
+    )
+
+    # =========================================================
+    # MARKETPLACE STATISTICS
+    # =========================================================
+
+    total_requests = (
+        ServiceRequest.objects.count()
+    )
+
+    total_quotes = (
+        Quote.objects.count()
+    )
+
+    total_bookings = (
+        Booking.objects.count()
+    )
+
+    completed_bookings = (
+        Booking.objects
+        .filter(
+            status="completed"
+        )
+        .count()
+    )
+
+    cancelled_bookings = (
+        Booking.objects
+        .filter(
+            status="cancelled"
+        )
+        .count()
+    )
+
+    total_reviews = (
+        Review.objects.count()
+    )
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
+
+    return Response(
+        {
+            "success": True,
+
+            # ---------------------------------------------
+            # LOGGED-IN ADMIN
+            # ---------------------------------------------
+
+            "admin": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+
+                "full_name": (
+                    user.get_full_name()
+                    or user.username
+                ),
+
+                "is_staff": user.is_staff,
+                "is_superuser": user.is_superuser,
+                "is_active": user.is_active,
+
+                "admin_type": (
+                    "super_admin"
+                    if user.is_superuser
+                    else "admin"
+                ),
+
+                "permissions": permissions,
             },
 
-            "services": {
-                "total_services": ServiceCategory.objects.count(),
-                "active_services": ServiceCategory.objects.filter(status="active").count(),
-                "coming_soon_services": ServiceCategory.objects.filter(status="coming_soon").count(),
-                "inactive_services": ServiceCategory.objects.filter(status="inactive").count(),
-            },
+            # ---------------------------------------------
+            # DASHBOARD DATA
+            # ---------------------------------------------
 
-            "marketplace": {
-                "total_requests": ServiceRequest.objects.count(),
-                "total_quotes": Quote.objects.count(),
-                "total_bookings": Booking.objects.count(),
-                "completed_bookings": Booking.objects.filter(status="completed").count(),
-                "cancelled_bookings": Booking.objects.filter(status="cancelled").count(),
-                "total_reviews": Review.objects.count(),
-            }
-        }
-    })
+            "data": {
+
+                "users": {
+                    "total_customers": (
+                        total_customers
+                    ),
+
+                    "active_customers": (
+                        active_customers
+                    ),
+
+                    "inactive_customers": (
+                        inactive_customers
+                    ),
+
+                    "total_providers": (
+                        total_providers
+                    ),
+
+                    "active_providers": (
+                        active_providers
+                    ),
+
+                    "inactive_providers": (
+                        inactive_providers
+                    ),
+
+                    "pending_providers": (
+                        pending_providers
+                    ),
+
+                    "approved_providers": (
+                        approved_providers
+                    ),
+
+                    "verified_providers": (
+                        verified_providers
+                    ),
+                },
+
+                "services": {
+                    "total_services": (
+                        total_services
+                    ),
+
+                    "active_services": (
+                        active_services
+                    ),
+
+                    "coming_soon_services": (
+                        coming_soon_services
+                    ),
+
+                    "inactive_services": (
+                        inactive_services
+                    ),
+                },
+
+                "marketplace": {
+                    "total_requests": (
+                        total_requests
+                    ),
+
+                    "total_quotes": (
+                        total_quotes
+                    ),
+
+                    "total_bookings": (
+                        total_bookings
+                    ),
+
+                    "completed_bookings": (
+                        completed_bookings
+                    ),
+
+                    "cancelled_bookings": (
+                        cancelled_bookings
+                    ),
+
+                    "total_reviews": (
+                        total_reviews
+                    ),
+                },
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["GET"])
@@ -153,57 +416,98 @@ def reject_provider(request, provider_id):
     })
 
 @api_view(["GET"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageServices,
+])
 def service_categories(request):
 
-    services = ServiceCategory.objects.all().order_by(
-        "display_order",
-        "id"
+    services = (
+        ServiceCategory.objects
+        .all()
+        .order_by(
+            "display_order",
+            "id",
+        )
     )
 
     return Response({
         "success": True,
+
         "services": [
             {
                 "id": service.id,
+
                 "name": service.name,
+
                 "key": service.key,
+
                 "description": service.description,
                 "service_image": media_url(request, service.service_image),
                 "status": service.status,
+
                 "start_date": service.start_date,
-                "display_order": service.display_order,
+
+                "display_order": (
+                    service.display_order
+                ),
+
+                "is_popular": (
+                    service.is_popular
+                ),
             }
+
             for service in services
-        ]
+        ],
     })
 
 
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageServices,
+])
 def create_service_category(request):
 
     name = request.data.get("name")
     key = request.data.get("key")
-    description = request.data.get("description")
-    service_image = request.FILES.get("service_image")
+    description = request.data.get(
+        "description"
+    )
+
+    service_image = request.FILES.get(
+        "service_image"
+    )
+
+    # -----------------------------------------
+    # VALIDATION
+    # -----------------------------------------
 
     if not name or not key or not description:
+
         return Response(
             {
                 "success": False,
-                "message": "name, key and description are required"
+                "message": (
+                    "name, key and description "
+                    "are required"
+                ),
             },
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
-    if ServiceCategory.objects.filter(key=key).exists():
+    if ServiceCategory.objects.filter(
+        key=key
+    ).exists():
+
         return Response(
             {
                 "success": False,
-                "message": "Service key already exists"
+                "message": (
+                    "Service key already exists"
+                ),
             },
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     max_order = (
@@ -214,6 +518,7 @@ def create_service_category(request):
         name=name,
         key=key,
         description=description,
+
         service_image=service_image,
         status=request.data.get("status", "coming_soon"),
         start_date=request.data.get("start_date", "Yet to start"),
@@ -229,20 +534,33 @@ def create_service_category(request):
 
 
 @api_view(["PATCH"])
-@permission_classes([IsAdminUser])
-def update_service_category(request, service_id):
+@permission_classes([
+    IsAuthenticated,
+    CanManageServices,
+])
+def update_service_category(
+    request,
+    service_id,
+):
 
-    service = ServiceCategory.objects.filter(
-        id=service_id
-    ).first()
+    service = (
+        ServiceCategory.objects
+        .filter(
+            id=service_id
+        )
+        .first()
+    )
 
     if not service:
+
         return Response(
             {
                 "success": False,
-                "message": "Service not found"
+                "message": (
+                    "Service not found"
+                ),
             },
-            status=status.HTTP_404_NOT_FOUND
+            status=status.HTTP_404_NOT_FOUND,
         )
 
     service.name = request.data.get("name", service.name)
@@ -250,26 +568,87 @@ def update_service_category(request, service_id):
     service.status = request.data.get("status", service.status)
     service.start_date = request.data.get("start_date", service.start_date)
 
-    service_image = request.FILES.get("service_image")
+    service.description = request.data.get(
+        "description",
+        service.description,
+    )
+
+    service.status = request.data.get(
+        "status",
+        service.status,
+    )
+
+    service.start_date = request.data.get(
+        "start_date",
+        service.start_date,
+    )
+
+    service.display_order = request.data.get(
+        "display_order",
+        service.display_order,
+    )
+
+    # -----------------------------------------
+    # POPULAR SERVICE
+    # -----------------------------------------
+
+    if "is_popular" in request.data:
+
+        service.is_popular = parse_boolean(
+            request.data.get(
+                "is_popular"
+            )
+        )
+
+    # -----------------------------------------
+    # IMAGE
+    # -----------------------------------------
+
+    service_image = request.FILES.get(
+        "service_image"
+    )
 
     if service_image:
-        service.service_image = service_image
+        service.service_image = (
+            service_image
+        )
 
     service.save()
 
+    # -----------------------------------------
+    # RESPONSE
+    # -----------------------------------------
+
     return Response({
         "success": True,
-        "message": "Service category updated successfully",
+
+        "message": (
+            "Service category updated "
+            "successfully"
+        ),
+
         "service": {
             "id": service.id,
+
             "name": service.name,
+
             "key": service.key,
             "description": service.description,
             "service_image": media_url(request, service.service_image),
             "status": service.status,
-            "start_date": service.start_date,
-            "display_order": service.display_order,
-        }
+
+            "start_date": (
+                service.start_date
+            ),
+
+            "display_order": (
+                service.display_order
+            ),
+
+            "is_popular": (
+                service.is_popular
+            ),
+        },
     })
 
 
@@ -325,7 +704,10 @@ def reorder_service_categories(request):
 
 
 @api_view(["DELETE"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageServices,
+])
 def delete_service_category(request, service_id):
 
     reason = request.data.get("reason")
@@ -658,7 +1040,10 @@ def all_service_requests(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageBookings,
+])
 def all_bookings(request):
 
     bookings = Booking.objects.all().order_by("-created_at")
@@ -685,7 +1070,10 @@ def all_bookings(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageQuotes,
+])
 def all_quotes(request):
 
     quotes = Quote.objects.all().order_by("-created_at")
@@ -710,7 +1098,10 @@ def all_quotes(request):
     })
 
 @api_view(["GET"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanViewReports,
+])
 def provider_performance(request):
 
     providers = User.objects.filter(
@@ -824,3 +1215,729 @@ def all_providers(request):
             for provider in providers
         ]
     })    
+
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from .models import SpotlightImage
+from .serializers import AdminUserSerializer, CreateAdminUserSerializer, SpotlightImageSerializer, UpdateAdminUserSerializer
+from .permissions import IsAdminUser
+
+# ==========================================================
+# SPOTLIGHT IMAGES
+# ==========================================================
+
+
+@api_view(["GET"])
+@permission_classes([
+    IsAuthenticated,
+    IsAdminUser,
+])
+def spotlight_list_api(request):
+
+    spotlights = SpotlightImage.objects.all()
+
+    serializer = SpotlightImageSerializer(
+        spotlights,
+        many=True,
+        context={"request": request},
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Spotlight images fetched successfully.",
+            "count": spotlights.count(),
+            "data": serializer.data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageSpotlights,
+])
+def spotlight_create_api(request):
+
+    serializer = SpotlightImageSerializer(
+        data=request.data,
+        context={"request": request},
+    )
+
+    if not serializer.is_valid():
+        return Response(
+            {
+                "success": False,
+                "message": "Spotlight image creation failed.",
+                "errors": serializer.errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    spotlight = serializer.save()
+
+    return Response(
+        {
+            "success": True,
+            "message": "Spotlight image created successfully.",
+            "data": SpotlightImageSerializer(
+                spotlight,
+                context={"request": request},
+            ).data,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["PATCH", "PUT"])
+@permission_classes([
+    IsAuthenticated,
+    IsAdminUser,
+])
+def spotlight_update_api(request, spotlight_id):
+
+    try:
+        spotlight = SpotlightImage.objects.get(
+            id=spotlight_id
+        )
+
+    except SpotlightImage.DoesNotExist:
+        return Response(
+            {
+                "success": False,
+                "message": "Spotlight image not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    serializer = SpotlightImageSerializer(
+        spotlight,
+        data=request.data,
+        partial=request.method == "PATCH",
+        context={"request": request},
+    )
+
+    if not serializer.is_valid():
+        return Response(
+            {
+                "success": False,
+                "message": "Spotlight image update failed.",
+                "errors": serializer.errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    spotlight = serializer.save()
+
+    return Response(
+        {
+            "success": True,
+            "message": "Spotlight image updated successfully.",
+            "data": SpotlightImageSerializer(
+                spotlight,
+                context={"request": request},
+            ).data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["DELETE"])
+@permission_classes([
+    IsAuthenticated,
+    IsAdminUser,
+])
+def spotlight_delete_api(request, spotlight_id):
+
+    try:
+        spotlight = SpotlightImage.objects.get(
+            id=spotlight_id
+        )
+
+    except SpotlightImage.DoesNotExist:
+        return Response(
+            {
+                "success": False,
+                "message": "Spotlight image not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Delete actual image file from storage
+    if spotlight.image:
+        spotlight.image.delete(
+            save=False
+        )
+
+    spotlight.delete()
+
+    return Response(
+        {
+            "success": True,
+            "message": "Spotlight image deleted successfully.",
+        },
+        status=status.HTTP_200_OK,
+    )
+
+# =========================================
+# PUBLIC SPOTLIGHT IMAGES
+# =========================================
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def public_spotlights_api(request):
+
+    spotlights = (
+        SpotlightImage.objects
+        .filter(is_active=True)
+        .order_by("display_order", "-created_at")
+    )
+
+    serializer = SpotlightImageSerializer(
+        spotlights,
+        many=True,
+        context={"request": request},
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Active spotlight images fetched successfully.",
+            "count": spotlights.count(),
+            "data": serializer.data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def popular_services_api(request):
+    """
+    Return active service categories marked as popular.
+    """
+
+    services = (
+        ServiceCategory.objects
+        .filter(
+            status="active",
+            is_popular=True,
+        )
+        .order_by(
+            "display_order",
+            "name",
+        )
+    )
+
+    data = []
+
+    for service in services:
+
+        service_image = None
+
+        if service.service_image:
+            service_image = request.build_absolute_uri(
+                service.service_image.url
+            )
+
+        data.append(
+            {
+                "id": service.id,
+                "name": service.name,
+                "key": service.key,
+                "description": service.description,
+                "service_image": service_image,
+                "status": service.status,
+                "start_date": service.start_date,
+                "display_order": service.display_order,
+                "is_popular": service.is_popular,
+            }
+        )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Popular services fetched successfully.",
+            "count": len(data),
+            "data": data,
+        },
+        status=status.HTTP_200_OK,
+    )
+from django.db.models import Q
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def public_services_api(request):
+    """
+    Return customer-visible service categories.
+
+    Filters:
+    - search
+    - status
+    - popular
+    """
+
+    services = ServiceCategory.objects.filter(
+        status__in=[
+            "active",
+            "coming_soon",
+        ]
+    )
+
+    # ---------------------------------------------------------
+    # SEARCH
+    # ---------------------------------------------------------
+
+    search = request.query_params.get(
+        "search",
+        ""
+    ).strip()
+
+    if search:
+        services = services.filter(
+            Q(name__icontains=search)
+            | Q(key__icontains=search)
+            | Q(description__icontains=search)
+        )
+
+    # ---------------------------------------------------------
+    # STATUS FILTER
+    # ---------------------------------------------------------
+
+    service_status = request.query_params.get(
+        "status"
+    )
+
+    if service_status in [
+        "active",
+        "coming_soon",
+    ]:
+        services = services.filter(
+            status=service_status
+        )
+
+    # ---------------------------------------------------------
+    # POPULAR FILTER
+    # ---------------------------------------------------------
+
+    popular = request.query_params.get(
+        "popular"
+    )
+
+    if popular is not None:
+
+        popular_value = (
+            popular.strip().lower()
+            in [
+                "true",
+                "1",
+                "yes",
+            ]
+        )
+
+        services = services.filter(
+            is_popular=popular_value
+        )
+
+    # ---------------------------------------------------------
+    # ORDERING
+    # ---------------------------------------------------------
+
+    services = services.order_by(
+        "display_order",
+        "name",
+    )
+
+    # ---------------------------------------------------------
+    # RESPONSE DATA
+    # ---------------------------------------------------------
+
+    data = []
+
+    for service in services:
+
+        service_image = None
+
+        if service.service_image:
+            service_image = (
+                request.build_absolute_uri(
+                    service.service_image.url
+                )
+            )
+
+        data.append({
+            "id": service.id,
+            "name": service.name,
+            "key": service.key,
+            "description": service.description,
+            "service_image": service_image,
+            "status": service.status,
+            "start_date": service.start_date,
+            "display_order": service.display_order,
+            "is_popular": service.is_popular,
+            "is_available": (
+                service.status == "active"
+            ),
+        })
+
+    return Response(
+        {
+            "success": True,
+            "message": (
+                "Public services fetched successfully."
+            ),
+            "filters": {
+                "search": search or None,
+                "status": service_status,
+                "popular": popular,
+            },
+            "count": len(data),
+            "data": data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+
+@api_view(["GET"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageAdminUsers,
+])
+def admin_users_api(request):
+    """
+    Return all staff admin users except superusers.
+    """
+
+    admin_users = (
+        User.objects
+        .filter(
+            is_staff=True,
+            is_superuser=False,
+        )
+        .select_related(
+            "admin_permission_profile"
+        )
+        .order_by(
+            "-date_joined"
+        )
+    )
+
+    serializer = AdminUserSerializer(
+        admin_users,
+        many=True,
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Admin users fetched successfully.",
+            "count": admin_users.count(),
+            "data": serializer.data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageAdminUsers,
+])
+@transaction.atomic
+def create_admin_user_api(request):
+    """
+    Create a new permission-based admin user.
+    """
+
+    serializer = CreateAdminUserSerializer(
+        data=request.data
+    )
+
+    if not serializer.is_valid():
+        return Response(
+            {
+                "success": False,
+                "message": "Admin user creation failed.",
+                "errors": serializer.errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    admin_user = serializer.save()
+
+    return Response(
+        {
+            "success": True,
+            "message": "Admin user created successfully.",
+            "data": AdminUserSerializer(
+                admin_user
+            ).data,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+@api_view(["GET"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageAdminUsers,
+])
+def admin_user_detail_api(
+    request,
+    admin_id,
+):
+    """
+    Return one admin user's details and permissions.
+    """
+
+    try:
+        admin_user = (
+            User.objects
+            .select_related(
+                "admin_permission_profile"
+            )
+            .get(
+                id=admin_id,
+                is_staff=True,
+                is_superuser=False,
+            )
+        )
+
+    except User.DoesNotExist:
+        return Response(
+            {
+                "success": False,
+                "message": "Admin user not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Admin user fetched successfully.",
+            "data": AdminUserSerializer(
+                admin_user
+            ).data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["PATCH"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageAdminUsers,
+])
+@transaction.atomic
+def update_admin_user_api(
+    request,
+    admin_id,
+):
+    """
+    Update admin details and permissions.
+    """
+
+    try:
+        admin_user = (
+            User.objects
+            .select_for_update()
+            .get(
+                id=admin_id,
+                is_staff=True,
+                is_superuser=False,
+            )
+        )
+
+    except User.DoesNotExist:
+        return Response(
+            {
+                "success": False,
+                "message": "Admin user not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    serializer = UpdateAdminUserSerializer(
+        admin_user,
+        data=request.data,
+        partial=True,
+        context={
+            "user": admin_user,
+        },
+    )
+
+    if not serializer.is_valid():
+        return Response(
+            {
+                "success": False,
+                "message": "Admin user update failed.",
+                "errors": serializer.errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    admin_user = serializer.save()
+
+    return Response(
+        {
+            "success": True,
+            "message": "Admin user updated successfully.",
+            "data": AdminUserSerializer(
+                admin_user
+            ).data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["POST"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageAdminUsers,
+])
+def activate_admin_user_api(
+    request,
+    admin_id,
+):
+
+    try:
+        admin_user = User.objects.get(
+            id=admin_id,
+            is_staff=True,
+            is_superuser=False,
+        )
+
+    except User.DoesNotExist:
+        return Response(
+            {
+                "success": False,
+                "message": "Admin user not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    admin_user.is_active = True
+
+    admin_user.save(
+        update_fields=[
+            "is_active",
+        ]
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Admin user activated successfully.",
+            "data": AdminUserSerializer(
+                admin_user
+            ).data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageAdminUsers,
+])
+def deactivate_admin_user_api(
+    request,
+    admin_id,
+):
+
+    try:
+        admin_user = User.objects.get(
+            id=admin_id,
+            is_staff=True,
+            is_superuser=False,
+        )
+
+    except User.DoesNotExist:
+        return Response(
+            {
+                "success": False,
+                "message": "Admin user not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Prevent admin from disabling themselves.
+    if admin_user.id == request.user.id:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "You cannot deactivate your own account."
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    admin_user.is_active = False
+
+    admin_user.save(
+        update_fields=[
+            "is_active",
+        ]
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Admin user deactivated successfully.",
+            "data": AdminUserSerializer(
+                admin_user
+            ).data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["DELETE"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageAdminUsers,
+])
+@transaction.atomic
+def delete_admin_user_api(
+    request,
+    admin_id,
+):
+
+    try:
+        admin_user = User.objects.get(
+            id=admin_id,
+            is_staff=True,
+            is_superuser=False,
+        )
+
+    except User.DoesNotExist:
+        return Response(
+            {
+                "success": False,
+                "message": "Admin user not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if admin_user.id == request.user.id:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "You cannot delete your own account."
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    admin_user.delete()
+
+    return Response(
+        {
+            "success": True,
+            "message": "Admin user deleted successfully.",
+        },
+        status=status.HTTP_200_OK,
+    )

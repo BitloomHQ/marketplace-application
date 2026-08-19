@@ -4,6 +4,9 @@ from .views import (
     admin_dashboard,
     pending_providers,
     approve_provider,
+    popular_services_api,
+    public_services_api,
+    public_spotlights_api,
     reject_provider,
     service_categories,
     create_service_category,
@@ -23,6 +26,20 @@ from .views import (
     all_quotes,
     provider_performance,
     all_providers,
+    spotlight_list_api,
+    spotlight_create_api,
+    spotlight_update_api,
+    spotlight_delete_api,
+    public_spotlights_api,
+    admin_users_api,
+    create_admin_user_api,
+    admin_user_detail_api,
+    update_admin_user_api,
+    activate_admin_user_api,
+    deactivate_admin_user_api,
+    delete_admin_user_api,
+    
+
 )
 
 urlpatterns = [
@@ -50,4 +67,95 @@ urlpatterns = [
     path("quotes/", all_quotes, name="all_quotes"),
     path("provider-performance/", provider_performance, name="provider_performance"),
     path("providers/", all_providers, name="all_providers"),
+    # =========================================
+# SPOTLIGHT IMAGES
+# =========================================
+
+path(
+    "spotlights/",
+    spotlight_list_api,
+    name="spotlight-list",
+),
+
+path(
+    "spotlights/create/",
+    spotlight_create_api,
+    name="spotlight-create",
+),
+
+path(
+    "spotlights/<int:spotlight_id>/update/",
+    spotlight_update_api,
+    name="spotlight-update",
+),
+
+path(
+    "spotlights/<int:spotlight_id>/delete/",
+    spotlight_delete_api,
+    name="spotlight-delete",
+),
+# =========================================
+# PUBLIC SPOTLIGHT IMAGES
+# =========================================
+
+path(
+    "spotlights/",
+    public_spotlights_api,
+    name="public-spotlights",
+),
+path(
+    "services/popular/",
+    popular_services_api,
+    name="popular-services",
+),
+path(
+    "services/public/",
+    public_services_api,
+    name="public-services",
+),
+# ============================================================
+# ADMIN USER MANAGEMENT
+# ============================================================
+
+path(
+    "admin-users/",
+    admin_users_api,
+    name="admin-users",
+),
+
+path(
+    "admin-users/create/",
+    create_admin_user_api,
+    name="create-admin-user",
+),
+
+path(
+    "admin-users/<int:admin_id>/",
+    admin_user_detail_api,
+    name="admin-user-detail",
+),
+
+path(
+    "admin-users/<int:admin_id>/update/",
+    update_admin_user_api,
+    name="update-admin-user",
+),
+
+path(
+    "admin-users/<int:admin_id>/activate/",
+    activate_admin_user_api,
+    name="activate-admin-user",
+),
+
+path(
+    "admin-users/<int:admin_id>/deactivate/",
+    deactivate_admin_user_api,
+    name="deactivate-admin-user",
+),
+
+path(
+    "admin-users/<int:admin_id>/delete/",
+    delete_admin_user_api,
+    name="delete-admin-user",
+),
 ]

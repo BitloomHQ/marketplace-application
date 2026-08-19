@@ -30,11 +30,29 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             )
 
     async def send_notification(self, event):
-        # group_send puts title/message on the event (not under "data")
+
         payload = event.get("data") or event
+
         await self.send(
-            text_data=json.dumps({
-                "title": payload["title"],
-                "message": payload["message"],
-            })
-        )
+        text_data=json.dumps({
+            "id": payload.get("id"),
+            "notification_type": payload.get(
+                "notification_type"
+            ),
+            "title": payload.get("title"),
+            "message": payload.get("message"),
+            "service_request_id": payload.get(
+                "service_request_id"
+            ),
+            "booking_id": payload.get(
+                "booking_id"
+            ),
+            "is_read": payload.get(
+                "is_read",
+                False,
+            ),
+            "created_at": payload.get(
+                "created_at"
+            ),
+        })
+    )

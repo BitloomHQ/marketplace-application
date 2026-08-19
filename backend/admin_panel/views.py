@@ -5,6 +5,7 @@ from rest_framework import status
 
 from accounts.models import User, ProviderPortfolioImage
 from accounts.helpers import media_url, provider_rating, serialize_service_category
+from backend.adminpanel.permissions import CanManageCustomers, CanManageProviders
 from services.models import (
     ServiceCategory,
     ServiceRequest,
@@ -14,6 +15,10 @@ from services.models import (
 )
 
 from .permissions import IsAdminUser
+from rest_framework.permissions import (
+    IsAuthenticated,
+    AllowAny,
+)
 
 PROVIDER_ROLES = ('gardener', 'electrician', 'plumber')
 
@@ -37,7 +42,10 @@ def admin_provider_payload(user, request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    IsAdminUser,
+])
 def admin_dashboard(request):
     customers = User.objects.filter(role='customer')
     providers = User.objects.filter(role__in=PROVIDER_ROLES)
@@ -75,8 +83,10 @@ def admin_dashboard(request):
     })
 
 
-@api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def pending_providers(request):
     providers = User.objects.filter(
         role__in=PROVIDER_ROLES,
@@ -89,8 +99,11 @@ def pending_providers(request):
     })
 
 
-@api_view(['POST'])
-@permission_classes([IsAdminUser])
+@api_view(["POST"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def approve_provider(request, provider_id):
     provider = User.objects.filter(id=provider_id, role__in=PROVIDER_ROLES).first()
     if not provider:
@@ -111,7 +124,10 @@ def approve_provider(request, provider_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def reject_provider(request, provider_id):
     provider = User.objects.filter(id=provider_id, role__in=PROVIDER_ROLES).first()
     if not provider:
@@ -232,7 +248,10 @@ def delete_service(request, service_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def all_providers(request):
     providers = User.objects.filter(role__in=PROVIDER_ROLES).order_by('-date_joined')
     return Response({
@@ -242,7 +261,10 @@ def all_providers(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def activate_provider(request, provider_id):
     provider = User.objects.filter(id=provider_id, role__in=PROVIDER_ROLES).first()
     if not provider:
@@ -256,7 +278,10 @@ def activate_provider(request, provider_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def deactivate_provider(request, provider_id):
     provider = User.objects.filter(id=provider_id, role__in=PROVIDER_ROLES).first()
     if not provider:
@@ -270,7 +295,10 @@ def deactivate_provider(request, provider_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def verify_provider(request, provider_id):
     provider = User.objects.filter(id=provider_id, role__in=PROVIDER_ROLES).first()
     if not provider:
@@ -284,7 +312,10 @@ def verify_provider(request, provider_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def unverify_provider(request, provider_id):
     provider = User.objects.filter(id=provider_id, role__in=PROVIDER_ROLES).first()
     if not provider:
@@ -298,7 +329,10 @@ def unverify_provider(request, provider_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageCustomers,
+])
 def all_customers(request):
     customers = User.objects.filter(role='customer').order_by('-date_joined')
     return Response({
@@ -320,7 +354,10 @@ def all_customers(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageCustomers,
+])
 def activate_customer(request, customer_id):
     customer = User.objects.filter(id=customer_id, role='customer').first()
     if not customer:
@@ -335,7 +372,10 @@ def activate_customer(request, customer_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageCustomers,
+])
 def deactivate_customer(request, customer_id):
     customer = User.objects.filter(id=customer_id, role='customer').first()
     if not customer:

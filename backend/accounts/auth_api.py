@@ -24,6 +24,8 @@ from accounts.helpers import (
     user_base_payload,
 )
 from .email_service import EmailNotConfiguredError, send_verification_otp_email
+from adminpanel.permissions import get_admin_permissions
+from .email_service import send_verification_otp_email
 from .models import User
 from .otp_utils import (
     OTP_EXPIRY_MINUTES,
@@ -299,6 +301,10 @@ def login_api(request):
     email = (request.data.get('email') or '').strip().lower()
     password = request.data.get('password')
 
+    # =========================================================
+    # VALIDATE INPUT
+    # =========================================================
+
     if not email or not password:
         return Response(
             {
@@ -309,8 +315,15 @@ def login_api(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    # =========================================================
+    # FIND USER
+    # =========================================================
+
     try:
-        user_obj = User.objects.get(email=email)
+        user_obj = User.objects.get(
+            email__iexact=email
+        )
+
     except User.DoesNotExist:
         return Response(
             {
@@ -321,7 +334,15 @@ def login_api(request):
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
-    user = authenticate(username=user_obj.username, password=password)
+    # =========================================================
+    # AUTHENTICATE
+    # =========================================================
+
+    user = authenticate(
+        username=user_obj.username,
+        password=password,
+    )
+
     if user is None:
         return Response(
             {
@@ -332,49 +353,177 @@ def login_api(request):
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
-    if not user.is_superuser and not user.is_email_verified:
+    # =========================================================
+    # ACTIVE ACCOUNT CHECK
+    # =========================================================
+
+    if not user.is_active:
         return Response(
             {
                 'success': False,
-                'message': 'Please verify your email before logging in.',
-                'code': 'EMAIL_NOT_VERIFIED',
-                'data': {'email': user.email, 'next_step': 'verify_email'},
+                'message': 'Your account is inactive.',
+                'code': 'ACCOUNT_INACTIVE',
             },
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    role = effective_role(user)
-    if is_provider_role(role) and not user.is_approved:
+    # =========================================================
+    # DETERMINE ADMIN TYPE
+    # =========================================================
+
+    is_super_admin = user.is_superuser
+
+    is_staff_admin = (
+        user.is_staff
+        and not user.is_superuser
+    )
+
+    is_admin = (
+        is_super_admin
+        or is_staff_admin
+    )
+
+    # =========================================================
+    # EMAIL VERIFICATION
+    # =========================================================
+    # Admin users are allowed through based on
+    # staff/superuser status.
+    #
+    # Normal customers/providers must verify email.
+
+    if (
+        not is_admin
+        and not user.is_email_verified
+    ):
         return Response(
             {
                 'success': False,
-                'message': 'Your provider account is waiting for admin approval.',
-                'code': 'PROVIDER_APPROVAL_PENDING',
+                'message': (
+                    'Please verify your email '
+                    'before logging in.'
+                ),
+                'code': 'EMAIL_NOT_VERIFIED',
                 'data': {
                     'email': user.email,
-                    'role': role,
-                    'is_email_verified': user.is_email_verified,
-                    'is_approved': False,
-                    'next_step': 'wait_for_admin_approval',
+                    'next_step': 'verify_email',
                 },
             },
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    token, _ = Token.objects.get_or_create(user=user)
-    django_login(request, user)
+    # =========================================================
+    # DETERMINE USER TYPE / ROLE
+    # =========================================================
 
-    redirect_map = {
-        'customer': '/customer-dashboard',
-        'admin': '/admin-dashboard',
-    }
-    if is_provider_role(role):
-        redirect_url = '/provider-dashboard'
+    if is_super_admin:
+        user_type = 'super_admin'
+        role = 'admin'
+
+    elif is_staff_admin:
+        user_type = 'admin'
+        role = 'admin'
+
     else:
-        redirect_url = redirect_map.get(role, '/dashboard')
+        role = effective_role(user)
 
-    payload = user_base_payload(user, request)
-    payload['is_email_verified'] = user.is_email_verified
+        if is_provider_role(role):
+            user_type = 'provider'
+        else:
+            user_type = 'customer'
+
+    # =========================================================
+    # PROVIDER APPROVAL
+    # =========================================================
+
+    if (
+        not is_admin
+        and is_provider_role(role)
+        and not user.is_approved
+    ):
+        return Response(
+            {
+                'success': False,
+                'message': (
+                    'Your provider account is '
+                    'waiting for admin approval.'
+                ),
+                'code': 'PROVIDER_APPROVAL_PENDING',
+                'data': {
+                    'email': user.email,
+                    'role': role,
+                    'is_email_verified': (
+                        user.is_email_verified
+                    ),
+                    'is_approved': False,
+                    'next_step': (
+                        'wait_for_admin_approval'
+                    ),
+                },
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # =========================================================
+    # TOKEN + SESSION LOGIN
+    # =========================================================
+
+    token, _ = Token.objects.get_or_create(
+        user=user
+    )
+
+    django_login(
+        request,
+        user,
+    )
+
+    # =========================================================
+    # REDIRECT URL
+    # =========================================================
+
+    if is_admin:
+        redirect_url = '/admin-dashboard'
+
+    elif is_provider_role(role):
+        redirect_url = '/provider-dashboard'
+
+    else:
+        redirect_url = '/customer-dashboard'
+
+    # =========================================================
+    # BASE USER PAYLOAD
+    # =========================================================
+
+    payload = user_base_payload(
+        user,
+        request,
+    )
+
+    payload['is_email_verified'] = (
+        user.is_email_verified
+    )
+
+    payload['user_type'] = user_type
+    payload['is_staff'] = user.is_staff
+    payload['is_superuser'] = user.is_superuser
+
+    # =========================================================
+    # ADMIN PERMISSIONS
+    # =========================================================
+
+    if is_admin:
+        payload['permissions'] = (
+            get_admin_permissions(user)
+        )
+
+        payload['admin_type'] = (
+            'super_admin'
+            if user.is_superuser
+            else 'admin'
+        )
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
 
     return Response(
         {
