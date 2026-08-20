@@ -351,69 +351,150 @@ def pending_providers(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def approve_provider(request, provider_id):
+    """
+    Approve a provider account.
 
-    provider = User.objects.filter(
-        id=provider_id,
-        role__in=provider_role_keys()
-    ).first()
+    Approval also:
+    - verifies the provider
+    - activates the provider
+    - clears previous status/rejection note
+    """
+
+    provider = (
+        User.objects
+        .filter(
+            id=provider_id,
+            role__in=provider_role_keys(),
+        )
+        .first()
+    )
 
     if not provider:
         return Response(
-            {"success": False, "message": "Provider not found"},
-            status=status.HTTP_404_NOT_FOUND
+            {
+                "success": False,
+                "message": "Provider not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
         )
 
     provider.is_approved = True
     provider.is_verified = True
     provider.is_active = True
-    provider.status_note = ''
-    provider.save()
+    provider.status_note = ""
 
-    return Response({
-        "success": True,
-        "message": "Provider approved successfully"
-    })
+    provider.save(
+        update_fields=[
+            "is_approved",
+            "is_verified",
+            "is_active",
+            "status_note",
+        ]
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Provider approved successfully.",
+            "data": {
+                "id": provider.id,
+                "username": provider.username,
+                "email": provider.email,
+                "role": provider.role,
+                "is_approved": provider.is_approved,
+                "is_verified": provider.is_verified,
+                "is_active": provider.is_active,
+                "status_note": provider.status_note,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def reject_provider(request, provider_id):
+    """
+    Reject a provider account.
 
-    reason = request.data.get("reason")
+    Rejection:
+    - removes approval
+    - removes verification
+    - deactivates the account
+    - stores rejection reason
+    """
+
+    reason = (
+        request.data.get("reason")
+        or ""
+    ).strip()
 
     if not reason:
         return Response(
             {
                 "success": False,
-                "message": "Reason is required",
+                "message": "Reason is required.",
             },
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    provider = User.objects.filter(
-        id=provider_id,
-        role__in=provider_role_keys()
-    ).first()
+    provider = (
+        User.objects
+        .filter(
+            id=provider_id,
+            role__in=provider_role_keys(),
+        )
+        .first()
+    )
 
     if not provider:
         return Response(
-            {"success": False, "message": "Provider not found"},
-            status=status.HTTP_404_NOT_FOUND
+            {
+                "success": False,
+                "message": "Provider not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
         )
 
     provider.is_approved = False
     provider.is_verified = False
     provider.is_active = False
     provider.status_note = reason
-    provider.save()
 
-    return Response({
-        "success": True,
-        "message": "Provider rejected successfully",
-        "reason": reason,
-    })
+    provider.save(
+        update_fields=[
+            "is_approved",
+            "is_verified",
+            "is_active",
+            "status_note",
+        ]
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Provider rejected successfully.",
+            "data": {
+                "id": provider.id,
+                "username": provider.username,
+                "email": provider.email,
+                "role": provider.role,
+                "is_approved": provider.is_approved,
+                "is_verified": provider.is_verified,
+                "is_active": provider.is_active,
+                "status_note": provider.status_note,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
 
 @api_view(["GET"])
 @permission_classes([
@@ -751,293 +832,552 @@ def delete_service_category(request, service_id):
 
 
 @api_view(["GET"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def all_providers(request):
+    """
+    Return all providers for admin management.
+    """
 
-    providers = User.objects.filter(
-        role__in=provider_role_keys()
-    ).order_by("-date_joined")
+    providers = (
+        User.objects
+        .filter(
+            role__in=provider_role_keys()
+        )
+        .order_by("-date_joined")
+    )
 
-    return Response({
-        "success": True,
-        "providers": [
+    providers_data = []
+
+    for provider in providers:
+
+        providers_data.append(
             {
                 "id": provider.id,
                 "username": provider.username,
                 "email": provider.email,
+
+                "first_name": provider.first_name,
+                "last_name": provider.last_name,
+
+                "full_name": (
+                    provider.get_full_name()
+                    or provider.username
+                ),
+
                 "phone": provider.phone,
                 "address": provider.address,
+
                 "role": provider.role,
+
                 "bio": provider.bio,
-                "experience_years": provider.experience_years,
+                "experience_years": (
+                    provider.experience_years
+                ),
+
+                "is_email_verified": (
+                    provider.is_email_verified
+                ),
+
                 "is_approved": provider.is_approved,
                 "is_verified": provider.is_verified,
                 "is_active": provider.is_active,
-                "status_note": provider.status_note or "",
-                "profile_picture": (
-                    request.build_absolute_uri(provider.profile_picture.url)
-                    if provider.profile_picture else None
+
+                "status_note": (
+                    provider.status_note or ""
                 ),
+
+                "profile_picture": (
+                    request.build_absolute_uri(
+                        provider.profile_picture.url
+                    )
+                    if provider.profile_picture
+                    else None
+                ),
+
                 "date_joined": provider.date_joined,
+                "last_login": provider.last_login,
             }
-            for provider in providers
-        ]
-    })
-
-
-@api_view(["POST"])
-@permission_classes([IsAdminUser])
-def activate_provider(request, provider_id):
-
-    reason = request.data.get("reason")
-
-    if not reason:
-        return Response(
-            {
-                "success": False,
-                "message": "Reason is required"
-            },
-            status=status.HTTP_400_BAD_REQUEST
         )
 
-    provider = User.objects.filter(
-        id=provider_id,
-        role__in=provider_role_keys()
-    ).first()
+    return Response(
+        {
+            "success": True,
+            "message": (
+                "Providers fetched successfully."
+            ),
+            "count": providers.count(),
+            "providers": providers_data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["POST"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
+def activate_provider(request, provider_id):
+    """
+    Reactivate an existing provider account.
+
+    This does NOT approve a rejected/pending provider.
+    It only activates an already approved provider.
+    """
+
+    provider = (
+        User.objects
+        .filter(
+            id=provider_id,
+            role__in=provider_role_keys(),
+        )
+        .first()
+    )
 
     if not provider:
         return Response(
-            {"success": False, "message": "Provider not found"},
-            status=status.HTTP_404_NOT_FOUND
+            {
+                "success": False,
+                "message": "Provider not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # A provider must be approved before activation.
+    if not provider.is_approved:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Provider must be approved before "
+                    "the account can be activated."
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     provider.is_active = True
     provider.deactivate_reason = None
-    provider.status_note = ''
-    provider.save()
+    provider.status_note = ""
 
-    return Response({
-        "success": True,
-        "message": "Provider activated successfully",
-        "reason": reason
-    })
+    provider.save(
+        update_fields=[
+            "is_active",
+            "deactivate_reason",
+            "status_note",
+        ]
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": (
+                "Provider activated successfully."
+            ),
+            "data": {
+                "id": provider.id,
+                "username": provider.username,
+                "email": provider.email,
+                "role": provider.role,
+                "is_approved": provider.is_approved,
+                "is_verified": provider.is_verified,
+                "is_active": provider.is_active,
+                "deactivate_reason": None,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def deactivate_provider(request, provider_id):
+    """
+    Deactivate an existing provider account.
 
-    reason = request.data.get("reason")
+    A reason is required for audit/admin visibility.
+    """
+
+    reason = (
+        request.data.get("reason")
+        or ""
+    ).strip()
 
     if not reason:
         return Response(
             {
                 "success": False,
-                "message": "Reason is required"
+                "message": (
+                    "Deactivation reason is required."
+                ),
             },
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
-    provider = User.objects.filter(
-        id=provider_id,
-        role__in=provider_role_keys()
-    ).first()
+    provider = (
+        User.objects
+        .filter(
+            id=provider_id,
+            role__in=provider_role_keys(),
+        )
+        .first()
+    )
 
     if not provider:
         return Response(
-            {"success": False, "message": "Provider not found"},
-            status=status.HTTP_404_NOT_FOUND
+            {
+                "success": False,
+                "message": "Provider not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
         )
 
     provider.is_active = False
     provider.deactivate_reason = reason
-    provider.save()
 
-    return Response({
-        "success": True,
-        "message": "Provider deactivated successfully",
-        "reason": reason
-    })
+    provider.save(
+        update_fields=[
+            "is_active",
+            "deactivate_reason",
+        ]
+    )
 
-
-@api_view(["POST"])
-@permission_classes([IsAdminUser])
-def verify_provider(request, provider_id):
-
-    reason = request.data.get("reason")
-
-    if not reason:
-        return Response(
-            {
-                "success": False,
-                "message": "Reason is required"
+    return Response(
+        {
+            "success": True,
+            "message": (
+                "Provider deactivated successfully."
+            ),
+            "data": {
+                "id": provider.id,
+                "username": provider.username,
+                "email": provider.email,
+                "role": provider.role,
+                "is_approved": provider.is_approved,
+                "is_verified": provider.is_verified,
+                "is_active": provider.is_active,
+                "deactivate_reason": (
+                    provider.deactivate_reason
+                ),
             },
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        },
+        status=status.HTTP_200_OK,
+    )
+@api_view(["POST"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
+def verify_provider(request, provider_id):
+    """
+    Mark an approved provider as verified.
+    """
 
-    provider = User.objects.filter(
-        id=provider_id,
-        role__in=provider_role_keys()
-    ).first()
+    reason = (
+        request.data.get("reason")
+        or ""
+    ).strip()
+
+    provider = (
+        User.objects
+        .filter(
+            id=provider_id,
+            role__in=provider_role_keys(),
+        )
+        .first()
+    )
 
     if not provider:
         return Response(
-            {"success": False, "message": "Provider not found"},
-            status=status.HTTP_404_NOT_FOUND
+            {
+                "success": False,
+                "message": "Provider not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if not provider.is_approved:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Provider must be approved before "
+                    "verification."
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     provider.is_verified = True
-    provider.is_approved = True
-    provider.is_active = True
-    provider.status_note = ''
-    provider.save()
+    provider.status_note = ""
 
-    return Response({
-        "success": True,
-        "message": "Provider verified successfully",
-        "reason": reason
-    })
+    provider.save(
+        update_fields=[
+            "is_verified",
+            "status_note",
+        ]
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Provider verified successfully.",
+            "data": {
+                "id": provider.id,
+                "username": provider.username,
+                "email": provider.email,
+                "role": provider.role,
+                "is_approved": provider.is_approved,
+                "is_verified": provider.is_verified,
+                "is_active": provider.is_active,
+                "reason": reason or None,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
 def unverify_provider(request, provider_id):
+    """
+    Remove provider verification.
 
-    reason = request.data.get("reason")
+    This does not automatically reject or deactivate
+    the provider.
+    """
+
+    reason = (
+        request.data.get("reason")
+        or ""
+    ).strip()
 
     if not reason:
         return Response(
             {
                 "success": False,
-                "message": "Reason is required"
+                "message": (
+                    "Unverify reason is required."
+                ),
             },
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
-    provider = User.objects.filter(
-        id=provider_id,
-        role__in=provider_role_keys()
-    ).first()
+    provider = (
+        User.objects
+        .filter(
+            id=provider_id,
+            role__in=provider_role_keys(),
+        )
+        .first()
+    )
 
     if not provider:
         return Response(
-            {"success": False, "message": "Provider not found"},
-            status=status.HTTP_404_NOT_FOUND
+            {
+                "success": False,
+                "message": "Provider not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
         )
 
     provider.is_verified = False
-    provider.save()
+    provider.status_note = reason
 
-    return Response({
-        "success": True,
-        "message": "Provider unverified successfully",
-        "reason": reason
-    })
+    provider.save(
+        update_fields=[
+            "is_verified",
+            "status_note",
+        ]
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Provider unverified successfully.",
+            "data": {
+                "id": provider.id,
+                "username": provider.username,
+                "email": provider.email,
+                "role": provider.role,
+                "is_approved": provider.is_approved,
+                "is_verified": provider.is_verified,
+                "is_active": provider.is_active,
+                "reason": reason,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
 
 @api_view(["GET"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageCustomers,
+])
 def all_customers(request):
+    """
+    Return all customer accounts for admin management.
+    """
 
-    customers = User.objects.filter(
-        role="customer"
-    ).order_by("-date_joined")
+    customers = (
+        User.objects
+        .filter(role="customer")
+        .order_by("-date_joined")
+    )
 
-    return Response({
-        "success": True,
-        "customers": [
+    customers_data = []
+
+    for customer in customers:
+
+        customers_data.append(
             {
                 "id": customer.id,
                 "username": customer.username,
                 "email": customer.email,
+
+                "first_name": customer.first_name,
+                "last_name": customer.last_name,
+
+                "full_name": (
+                    customer.get_full_name()
+                    or customer.username
+                ),
+
                 "phone": customer.phone,
                 "address": customer.address,
-                "is_active": customer.is_active,
-                "date_joined": customer.date_joined,
-                "profile_picture": (
-                    request.build_absolute_uri(customer.profile_picture.url)
-                    if customer.profile_picture else None
-                ),
-            }
-            for customer in customers
-        ]
-    })
 
+                "is_active": customer.is_active,
+                "is_email_verified": (
+                    customer.is_email_verified
+                ),
+
+                "profile_picture": (
+                    request.build_absolute_uri(
+                        customer.profile_picture.url
+                    )
+                    if customer.profile_picture
+                    else None
+                ),
+
+                "date_joined": customer.date_joined,
+                "last_login": customer.last_login,
+            }
+        )
+
+    return Response(
+        {
+            "success": True,
+            "message": (
+                "Customers fetched successfully."
+            ),
+            "count": customers.count(),
+            "customers": customers_data,
+        },
+        status=status.HTTP_200_OK,
+    )
 
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageCustomers,
+])
 def activate_customer(request, customer_id):
 
-    customer = User.objects.filter(
-        id=customer_id,
-        role="customer"
-    ).first()
+    customer = (
+        User.objects
+        .filter(
+            id=customer_id,
+            role="customer",
+        )
+        .first()
+    )
 
     if not customer:
         return Response(
-            {"success": False, "message": "Customer not found"},
-            status=status.HTTP_404_NOT_FOUND
+            {
+                "success": False,
+                "message": "Customer not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
         )
 
     customer.is_active = True
-    customer.is_approved = True
-    customer.save()
 
-    return Response({
-        "success": True,
-        "message": "Customer activated successfully"
-    })
+    customer.save(
+        update_fields=[
+            "is_active",
+        ]
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Customer activated successfully.",
+            "data": {
+                "id": customer.id,
+                "username": customer.username,
+                "email": customer.email,
+                "is_active": customer.is_active,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([
+    IsAuthenticated,
+    CanManageCustomers,
+])
 def deactivate_customer(request, customer_id):
 
-    customer = User.objects.filter(
-        id=customer_id,
-        role="customer"
-    ).first()
+    customer = (
+        User.objects
+        .filter(
+            id=customer_id,
+            role="customer",
+        )
+        .first()
+    )
 
     if not customer:
         return Response(
-            {"success": False, "message": "Customer not found"},
-            status=status.HTTP_404_NOT_FOUND
+            {
+                "success": False,
+                "message": "Customer not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
         )
 
     customer.is_active = False
-    customer.save()
 
-    return Response({
-        "success": True,
-        "message": "Customer deactivated successfully"
-    })
-
-@api_view(["GET"])
-@permission_classes([IsAdminUser])
-def all_service_requests(request):
-
-    requests = ServiceRequest.objects.all().order_by("-created_at")
-
-    return Response({
-        "success": True,
-        "requests": [
-            {
-                "id": item.id,
-                "customer_id": item.customer.id,
-                "customer": item.customer.username,
-                "service_type": item.service_type,
-                "address": item.customer_address.address if item.customer_address else item.address,
-                "lat": item.lat,
-                "lon": item.lon,
-                "description": item.description,
-                "status": item.status,
-                "is_booked": item.is_booked,
-                "selected_provider": item.selected_provider.username if item.selected_provider else None,
-                "created_at": item.created_at,
-            }
-            for item in requests
+    customer.save(
+        update_fields=[
+            "is_active",
         ]
-    })
+    )
 
+    return Response(
+        {
+            "success": True,
+            "message": "Customer deactivated successfully.",
+            "data": {
+                "id": customer.id,
+                "username": customer.username,
+                "email": customer.email,
+                "is_active": customer.is_active,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
 
 @api_view(["GET"])
 @permission_classes([
@@ -1471,88 +1811,86 @@ from django.db.models import Q
 @permission_classes([AllowAny])
 def public_services_api(request):
     """
-    Return customer-visible service categories.
+    Public customer-facing service list.
 
-    Filters:
-    - search
-    - status
-    - popular
+    Query params:
+
+    status=active
+        -> only active services
+
+    status=all
+        -> active + coming soon services
+
+    popular=true
+        -> only active popular services
+
+    Default:
+        -> active + coming soon services
     """
 
-    services = ServiceCategory.objects.filter(
-        status__in=[
-            "active",
-            "coming_soon",
-        ]
-    )
+    status_filter = (
+        request.query_params.get("status")
+        or "all"
+    ).strip().lower()
 
-    # ---------------------------------------------------------
-    # SEARCH
-    # ---------------------------------------------------------
+    popular_filter = (
+        request.query_params.get("popular")
+        or ""
+    ).strip().lower()
 
-    search = request.query_params.get(
-        "search",
-        ""
-    ).strip()
+    # =========================================================
+    # BASE QUERYSET
+    # =========================================================
 
-    if search:
-        services = services.filter(
-            Q(name__icontains=search)
-            | Q(key__icontains=search)
-            | Q(description__icontains=search)
-        )
+    services = ServiceCategory.objects.all()
 
-    # ---------------------------------------------------------
-    # STATUS FILTER
-    # ---------------------------------------------------------
+    # =========================================================
+    # POPULAR SERVICES
+    # =========================================================
 
-    service_status = request.query_params.get(
-        "status"
-    )
-
-    if service_status in [
-        "active",
-        "coming_soon",
+    if popular_filter in [
+        "true",
+        "1",
+        "yes",
     ]:
         services = services.filter(
-            status=service_status
+            status="active",
+            is_popular=True,
         )
 
-    # ---------------------------------------------------------
-    # POPULAR FILTER
-    # ---------------------------------------------------------
+    # =========================================================
+    # ACTIVE ONLY
+    # =========================================================
 
-    popular = request.query_params.get(
-        "popular"
-    )
+    elif status_filter == "active":
+        services = services.filter(
+            status="active",
+        )
 
-    if popular is not None:
+    # =========================================================
+    # ACTIVE + COMING SOON
+    # =========================================================
 
-        popular_value = (
-            popular.strip().lower()
-            in [
-                "true",
-                "1",
-                "yes",
+    else:
+        services = services.filter(
+            status__in=[
+                "active",
+                "coming_soon",
             ]
         )
 
-        services = services.filter(
-            is_popular=popular_value
-        )
-
-    # ---------------------------------------------------------
+    # =========================================================
     # ORDERING
-    # ---------------------------------------------------------
+    # =========================================================
 
     services = services.order_by(
         "display_order",
         "name",
     )
 
-    # ---------------------------------------------------------
+    # =========================================================
     # RESPONSE DATA
-    # ---------------------------------------------------------
+    # =========================================================
 
     data = []
 
@@ -1567,38 +1905,43 @@ def public_services_api(request):
                 )
             )
 
-        data.append({
-            "id": service.id,
-            "name": service.name,
-            "key": service.key,
-            "description": service.description,
-            "service_image": service_image,
-            "status": service.status,
-            "start_date": service.start_date,
-            "display_order": service.display_order,
-            "is_popular": service.is_popular,
-            "is_available": (
-                service.status == "active"
-            ),
-        })
+        data.append(
+            {
+                "id": service.id,
+                "name": service.name,
+                "key": service.key,
+                "description": service.description,
+                "service_image": service_image,
+                "status": service.status,
+                "start_date": service.start_date,
+                "display_order": service.display_order,
+                "is_popular": service.is_popular,
+                "is_available": (
+                    service.status == "active"
+                ),
+            }
+        )
 
     return Response(
         {
             "success": True,
-            "message": (
-                "Public services fetched successfully."
-            ),
+            "message": "Services fetched successfully.",
             "filters": {
-                "search": search or None,
-                "status": service_status,
-                "popular": popular,
+                "status": status_filter,
+                "popular": (
+                    popular_filter
+                    in [
+                        "true",
+                        "1",
+                        "yes",
+                    ]
+                ),
             },
             "count": len(data),
             "data": data,
         },
         status=status.HTTP_200_OK,
     )
-
 
 
 @api_view(["GET"])
@@ -1938,6 +2281,635 @@ def delete_admin_user_api(
         {
             "success": True,
             "message": "Admin user deleted successfully.",
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["GET"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageCustomers,
+])
+def customer_detail_api(request, customer_id):
+    """
+    Return one customer's complete admin-editable details.
+    """
+
+    customer = (
+        User.objects
+        .filter(
+            id=customer_id,
+            role="customer",
+        )
+        .first()
+    )
+
+    if not customer:
+        return Response(
+            {
+                "success": False,
+                "message": "Customer not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Customer fetched successfully.",
+            "data": {
+                "id": customer.id,
+                "username": customer.username,
+                "email": customer.email,
+                "first_name": customer.first_name,
+                "last_name": customer.last_name,
+                "full_name": (
+                    customer.get_full_name()
+                    or customer.username
+                ),
+                "phone": customer.phone,
+                "address": customer.address,
+                "profile_picture": (
+                    request.build_absolute_uri(
+                        customer.profile_picture.url
+                    )
+                    if customer.profile_picture
+                    else None
+                ),
+                "is_active": customer.is_active,
+                "is_email_verified": (
+                    customer.is_email_verified
+                ),
+                "date_joined": customer.date_joined,
+                "last_login": customer.last_login,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["PATCH"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageCustomers,
+])
+def update_customer_api(request, customer_id):
+    """
+    Update editable customer information.
+    """
+
+    customer = (
+        User.objects
+        .filter(
+            id=customer_id,
+            role="customer",
+        )
+        .first()
+    )
+
+    if not customer:
+        return Response(
+            {
+                "success": False,
+                "message": "Customer not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # ---------------------------------------------------------
+    # USERNAME
+    # ---------------------------------------------------------
+
+    if "username" in request.data:
+
+        username = (
+            request.data.get("username")
+            or ""
+        ).strip()
+
+        if not username:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Username cannot be empty."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if (
+            User.objects
+            .filter(
+                username__iexact=username
+            )
+            .exclude(
+                id=customer.id
+            )
+            .exists()
+        ):
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Username already exists."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        customer.username = username
+
+    # ---------------------------------------------------------
+    # EMAIL
+    # ---------------------------------------------------------
+
+    if "email" in request.data:
+
+        email = (
+            request.data.get("email")
+            or ""
+        ).strip().lower()
+
+        if not email:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Email cannot be empty."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if (
+            User.objects
+            .filter(
+                email__iexact=email
+            )
+            .exclude(
+                id=customer.id
+            )
+            .exists()
+        ):
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Email already exists."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # If admin changes customer email,
+        # require re-verification.
+        if email != customer.email.lower():
+            customer.email = email
+            customer.is_email_verified = False
+
+    # ---------------------------------------------------------
+    # BASIC PROFILE
+    # ---------------------------------------------------------
+
+    if "first_name" in request.data:
+        customer.first_name = (
+            request.data.get("first_name")
+            or ""
+        ).strip()
+
+    if "last_name" in request.data:
+        customer.last_name = (
+            request.data.get("last_name")
+            or ""
+        ).strip()
+
+    if "phone" in request.data:
+        customer.phone = (
+            request.data.get("phone")
+            or ""
+        ).strip()
+
+    if "address" in request.data:
+        customer.address = (
+            request.data.get("address")
+            or ""
+        ).strip()
+
+    # ---------------------------------------------------------
+    # PROFILE PICTURE
+    # ---------------------------------------------------------
+
+    profile_picture = request.FILES.get(
+        "profile_picture"
+    )
+
+    if profile_picture:
+        customer.profile_picture = (
+            profile_picture
+        )
+
+    # ---------------------------------------------------------
+    # SAVE
+    # ---------------------------------------------------------
+
+    customer.save()
+
+    # ---------------------------------------------------------
+    # RESPONSE
+    # ---------------------------------------------------------
+
+    return Response(
+        {
+            "success": True,
+            "message": (
+                "Customer updated successfully."
+            ),
+            "data": {
+                "id": customer.id,
+                "username": customer.username,
+                "email": customer.email,
+                "first_name": customer.first_name,
+                "last_name": customer.last_name,
+                "full_name": (
+                    customer.get_full_name()
+                    or customer.username
+                ),
+                "phone": customer.phone,
+                "address": customer.address,
+                "profile_picture": (
+                    request.build_absolute_uri(
+                        customer.profile_picture.url
+                    )
+                    if customer.profile_picture
+                    else None
+                ),
+                "is_active": customer.is_active,
+                "is_email_verified": (
+                    customer.is_email_verified
+                ),
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["GET"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
+def provider_detail_api(request, provider_id):
+    """
+    Return one provider's details for admin management.
+    """
+
+    provider = (
+        User.objects
+        .filter(
+            id=provider_id,
+            role__in=provider_role_keys(),
+        )
+        .first()
+    )
+
+    if not provider:
+        return Response(
+            {
+                "success": False,
+                "message": "Provider not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    return Response(
+        {
+            "success": True,
+            "message": (
+                "Provider fetched successfully."
+            ),
+            "data": {
+                "id": provider.id,
+                "username": provider.username,
+                "email": provider.email,
+
+                "first_name": provider.first_name,
+                "last_name": provider.last_name,
+
+                "full_name": (
+                    provider.get_full_name()
+                    or provider.username
+                ),
+
+                "phone": provider.phone,
+                "address": provider.address,
+
+                "role": provider.role,
+
+                "bio": provider.bio,
+
+                "experience_years": (
+                    provider.experience_years
+                ),
+
+                "is_email_verified": (
+                    provider.is_email_verified
+                ),
+
+                "is_approved": provider.is_approved,
+                "is_verified": provider.is_verified,
+                "is_active": provider.is_active,
+
+                "status_note": (
+                    provider.status_note or ""
+                ),
+
+                "deactivate_reason": (
+                    provider.deactivate_reason or ""
+                ),
+
+                "profile_picture": (
+                    request.build_absolute_uri(
+                        provider.profile_picture.url
+                    )
+                    if provider.profile_picture
+                    else None
+                ),
+
+                "date_joined": provider.date_joined,
+                "last_login": provider.last_login,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["PATCH"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
+def update_provider_api(request, provider_id):
+    """
+    Allow an authorized admin to edit provider data.
+    """
+
+    provider = (
+        User.objects
+        .filter(
+            id=provider_id,
+            role__in=provider_role_keys(),
+        )
+        .first()
+    )
+
+    if not provider:
+        return Response(
+            {
+                "success": False,
+                "message": "Provider not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # =========================================================
+    # USERNAME
+    # =========================================================
+
+    if "username" in request.data:
+
+        username = (
+            request.data.get("username")
+            or ""
+        ).strip()
+
+        if not username:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Username cannot be empty."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if (
+            User.objects
+            .filter(
+                username__iexact=username
+            )
+            .exclude(id=provider.id)
+            .exists()
+        ):
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Username already exists."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        provider.username = username
+
+    # =========================================================
+    # EMAIL
+    # =========================================================
+
+    if "email" in request.data:
+
+        email = (
+            request.data.get("email")
+            or ""
+        ).strip().lower()
+
+        if not email:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Email cannot be empty."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if (
+            User.objects
+            .filter(
+                email__iexact=email
+            )
+            .exclude(id=provider.id)
+            .exists()
+        ):
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Email already exists."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if email != provider.email.lower():
+
+            provider.email = email
+
+            # New email must be verified again.
+            provider.is_email_verified = False
+
+    # =========================================================
+    # BASIC PROFILE
+    # =========================================================
+
+    if "first_name" in request.data:
+        provider.first_name = (
+            request.data.get("first_name")
+            or ""
+        ).strip()
+
+    if "last_name" in request.data:
+        provider.last_name = (
+            request.data.get("last_name")
+            or ""
+        ).strip()
+
+    if "phone" in request.data:
+        provider.phone = (
+            request.data.get("phone")
+            or ""
+        ).strip()
+
+    if "address" in request.data:
+        provider.address = (
+            request.data.get("address")
+            or ""
+        ).strip()
+
+    if "bio" in request.data:
+        provider.bio = (
+            request.data.get("bio")
+            or ""
+        ).strip()
+
+    # =========================================================
+    # EXPERIENCE
+    # =========================================================
+
+    if "experience_years" in request.data:
+
+        experience_years = request.data.get(
+            "experience_years"
+        )
+
+        if experience_years in [
+            "",
+            None,
+        ]:
+            provider.experience_years = None
+
+        else:
+            try:
+                experience_years = int(
+                    experience_years
+                )
+            except (TypeError, ValueError):
+                return Response(
+                    {
+                        "success": False,
+                        "message": (
+                            "Experience years must "
+                            "be a valid number."
+                        ),
+                    },
+                    status=(
+                        status.HTTP_400_BAD_REQUEST
+                    ),
+                )
+
+            if experience_years < 0:
+                return Response(
+                    {
+                        "success": False,
+                        "message": (
+                            "Experience years cannot "
+                            "be negative."
+                        ),
+                    },
+                    status=(
+                        status.HTTP_400_BAD_REQUEST
+                    ),
+                )
+
+            provider.experience_years = (
+                experience_years
+            )
+
+    # =========================================================
+    # PROFILE PICTURE
+    # =========================================================
+
+    profile_picture = request.FILES.get(
+        "profile_picture"
+    )
+
+    if profile_picture:
+        provider.profile_picture = (
+            profile_picture
+        )
+
+    # =========================================================
+    # SAVE
+    # =========================================================
+
+    provider.save()
+
+    return Response(
+        {
+            "success": True,
+            "message": (
+                "Provider updated successfully."
+            ),
+            "data": {
+                "id": provider.id,
+                "username": provider.username,
+                "email": provider.email,
+
+                "first_name": provider.first_name,
+                "last_name": provider.last_name,
+
+                "full_name": (
+                    provider.get_full_name()
+                    or provider.username
+                ),
+
+                "phone": provider.phone,
+                "address": provider.address,
+
+                "role": provider.role,
+
+                "bio": provider.bio,
+
+                "experience_years": (
+                    provider.experience_years
+                ),
+
+                "profile_picture": (
+                    request.build_absolute_uri(
+                        provider.profile_picture.url
+                    )
+                    if provider.profile_picture
+                    else None
+                ),
+
+                "is_email_verified": (
+                    provider.is_email_verified
+                ),
+
+                "is_approved": provider.is_approved,
+                "is_verified": provider.is_verified,
+                "is_active": provider.is_active,
+            },
         },
         status=status.HTTP_200_OK,
     )
