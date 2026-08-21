@@ -78,8 +78,6 @@ CORS_ALLOWED_ORIGINS = _env_list("CORS_ALLOWED_ORIGINS")
 CSRF_TRUSTED_ORIGINS = _env_list("CSRF_TRUSTED_ORIGINS")
 
 
-# Application definition
-
 INSTALLED_APPS = [
 
     "daphne",
@@ -144,9 +142,13 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
+_DB_COMMON = {
+    'CONN_MAX_AGE': 600,
+    'CONN_HEALTH_CHECKS': True,
+}
 if DATABASE_URL:
     DATABASES = {
-        'default': _database_from_url(DATABASE_URL),
+        'default': {**_database_from_url(DATABASE_URL), **_DB_COMMON},
     }
 else:
     DATABASES = {
@@ -157,11 +159,23 @@ else:
             'PASSWORD': os.environ['DB_PASSWORD'],
             'HOST': os.environ['DB_HOST'],
             'PORT': os.environ['DB_PORT'],
+            **_DB_COMMON,
         },
     }
 
 REDIS_HOST = os.environ["REDIS_HOST"]
 REDIS_PORT = int(os.environ["REDIS_PORT"])
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/1",
+        "OPTIONS": {
+            "socket_connect_timeout": 2,
+            "socket_timeout": 2,
+        },
+    }
+}
 
 CHANNEL_LAYERS = {
     "default": {
@@ -213,7 +227,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.TokenAuthentication',
+        'accounts.authentication.CachedTokenAuthentication',
     ),
 }
 

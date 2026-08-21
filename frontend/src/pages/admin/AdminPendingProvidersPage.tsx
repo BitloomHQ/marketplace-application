@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { approveProvider, fetchPendingProviders, rejectProvider } from '../../api/admin'
 import { ApiRequestError } from '../../api/client'
 import { AdminActionButton, CheckIcon, XIcon } from '../../components/IconActionButton'
 import { ReasonActionModal } from '../../components/ReasonActionModal'
-import { Alert, Button, Card, EmptyState, PageHeader } from '../../components/ui'
+import { Alert, Card, EmptyState, PageHeader } from '../../components/ui'
 import { AdminListRowSkeleton } from '../../components/Shimmer'
 import { formatService } from '../../lib/format'
 import type { AdminProvider } from '../../api/admin'
@@ -71,15 +70,9 @@ export function AdminPendingProvidersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <PageHeader
-          title="Pending providers"
-          subtitle={`${pending.length} provider${pending.length !== 1 ? 's' : ''} waiting for approval`}
-        />
-        <Link to="/admin-dashboard">
-          <Button variant="secondary">Back</Button>
-        </Link>
-      </div>
+      <PageHeader
+        subtitle={`${pending.length} provider${pending.length !== 1 ? 's' : ''} waiting for approval`}
+      />
 
       {error && <Alert variant="error">{error}</Alert>}
 

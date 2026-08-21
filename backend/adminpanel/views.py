@@ -1,4 +1,4 @@
-from django.db.models import Max
+from django.db.models import Avg, Count, Max, Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
@@ -10,6 +10,14 @@ from rest_framework.response import Response
 from accounts.models import User
 from accounts.helpers import is_provider_role, media_url, provider_role_keys
 from services.models import ServiceRequest, Quote, Booking, Review
+from adminpanel.catalog_helpers import build_home_catalog_payload
+from adminpanel.admin_perf import (
+    get_dashboard_stats,
+    get_marketplace_monitor_payload,
+    get_pending_providers_payload,
+    invalidate_admin_cache,
+)
+
 from .models import ServiceCategory
 
 from .permissions import (
@@ -68,127 +76,7 @@ def admin_dashboard(request):
     # =========================================================
 
     permissions = get_admin_permissions(user)
-
-    # =========================================================
-    # USER STATISTICS
-    # =========================================================
-
-    total_customers = User.objects.filter(
-        role="customer"
-    ).count()
-
-    active_customers = User.objects.filter(
-        role="customer",
-        is_active=True,
-    ).count()
-
-    inactive_customers = User.objects.filter(
-        role="customer",
-        is_active=False,
-    ).count()
-
-    provider_roles = provider_role_keys()
-
-    total_providers = User.objects.filter(
-        role__in=provider_roles
-    ).count()
-
-    active_providers = User.objects.filter(
-        role__in=provider_roles,
-        is_active=True,
-    ).count()
-
-    inactive_providers = User.objects.filter(
-        role__in=provider_roles,
-        is_active=False,
-    ).count()
-
-    pending_providers = User.objects.filter(
-        role__in=provider_roles,
-        is_approved=False,
-    ).count()
-
-    approved_providers = User.objects.filter(
-        role__in=provider_roles,
-        is_approved=True,
-    ).count()
-
-    verified_providers = User.objects.filter(
-        role__in=provider_roles,
-        is_verified=True,
-    ).count()
-
-    # =========================================================
-    # SERVICE STATISTICS
-    # =========================================================
-
-    total_services = (
-        ServiceCategory.objects.count()
-    )
-
-    active_services = (
-        ServiceCategory.objects
-        .filter(
-            status="active"
-        )
-        .count()
-    )
-
-    coming_soon_services = (
-        ServiceCategory.objects
-        .filter(
-            status="coming_soon"
-        )
-        .count()
-    )
-
-    inactive_services = (
-        ServiceCategory.objects
-        .filter(
-            status="inactive"
-        )
-        .count()
-    )
-
-    # =========================================================
-    # MARKETPLACE STATISTICS
-    # =========================================================
-
-    total_requests = (
-        ServiceRequest.objects.count()
-    )
-
-    total_quotes = (
-        Quote.objects.count()
-    )
-
-    total_bookings = (
-        Booking.objects.count()
-    )
-
-    completed_bookings = (
-        Booking.objects
-        .filter(
-            status="completed"
-        )
-        .count()
-    )
-
-    cancelled_bookings = (
-        Booking.objects
-        .filter(
-            status="cancelled"
-        )
-        .count()
-    )
-
-    total_reviews = (
-        Review.objects.count()
-    )
-
-    # =========================================================
-    # RESPONSE
-    # =========================================================
+    dashboard_data = get_dashboard_stats()
 
     return Response(
         {
@@ -227,90 +115,7 @@ def admin_dashboard(request):
             # DASHBOARD DATA
             # ---------------------------------------------
 
-            "data": {
-
-                "users": {
-                    "total_customers": (
-                        total_customers
-                    ),
-
-                    "active_customers": (
-                        active_customers
-                    ),
-
-                    "inactive_customers": (
-                        inactive_customers
-                    ),
-
-                    "total_providers": (
-                        total_providers
-                    ),
-
-                    "active_providers": (
-                        active_providers
-                    ),
-
-                    "inactive_providers": (
-                        inactive_providers
-                    ),
-
-                    "pending_providers": (
-                        pending_providers
-                    ),
-
-                    "approved_providers": (
-                        approved_providers
-                    ),
-
-                    "verified_providers": (
-                        verified_providers
-                    ),
-                },
-
-                "services": {
-                    "total_services": (
-                        total_services
-                    ),
-
-                    "active_services": (
-                        active_services
-                    ),
-
-                    "coming_soon_services": (
-                        coming_soon_services
-                    ),
-
-                    "inactive_services": (
-                        inactive_services
-                    ),
-                },
-
-                "marketplace": {
-                    "total_requests": (
-                        total_requests
-                    ),
-
-                    "total_quotes": (
-                        total_quotes
-                    ),
-
-                    "total_bookings": (
-                        total_bookings
-                    ),
-
-                    "completed_bookings": (
-                        completed_bookings
-                    ),
-
-                    "cancelled_bookings": (
-                        cancelled_bookings
-                    ),
-
-                    "total_reviews": (
-                        total_reviews
-                    ),
-                },
-            },
+            "data": dashboard_data,
         },
         status=status.HTTP_200_OK,
     )
@@ -320,34 +125,7 @@ def admin_dashboard(request):
 @permission_classes([IsAdminUser])
 def pending_providers(request):
 
-    providers = User.objects.filter(
-        role__in=provider_role_keys(),
-        is_approved=False
-    ).order_by("-date_joined")
-
-    return Response({
-        "success": True,
-        "providers": [
-            {
-                "id": provider.id,
-                "username": provider.username,
-                "email": provider.email,
-                "phone": provider.phone,
-                "address": provider.address,
-                "role": provider.role,
-                "bio": provider.bio,
-                "experience_years": provider.experience_years,
-                "is_approved": provider.is_approved,
-                "is_verified": provider.is_verified,
-                "profile_picture": (
-                    request.build_absolute_uri(provider.profile_picture.url)
-                    if provider.profile_picture else None
-                ),
-                "date_joined": provider.date_joined,
-            }
-            for provider in providers
-        ]
-    })
+    return Response(get_pending_providers_payload(request))
 
 
 @api_view(["POST"])
@@ -841,74 +619,66 @@ def all_providers(request):
     Return all providers for admin management.
     """
 
-    providers = (
+    providers = list(
         User.objects
-        .filter(
-            role__in=provider_role_keys()
-        )
+        .filter(role__in=provider_role_keys())
         .order_by("-date_joined")
+        .only(
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "phone",
+            "address",
+            "role",
+            "bio",
+            "experience_years",
+            "is_email_verified",
+            "is_approved",
+            "is_verified",
+            "is_active",
+            "status_note",
+            "profile_picture",
+            "date_joined",
+            "last_login",
+        )
     )
 
-    providers_data = []
-
-    for provider in providers:
-
-        providers_data.append(
-            {
-                "id": provider.id,
-                "username": provider.username,
-                "email": provider.email,
-
-                "first_name": provider.first_name,
-                "last_name": provider.last_name,
-
-                "full_name": (
-                    provider.get_full_name()
-                    or provider.username
-                ),
-
-                "phone": provider.phone,
-                "address": provider.address,
-
-                "role": provider.role,
-
-                "bio": provider.bio,
-                "experience_years": (
-                    provider.experience_years
-                ),
-
-                "is_email_verified": (
-                    provider.is_email_verified
-                ),
-
-                "is_approved": provider.is_approved,
-                "is_verified": provider.is_verified,
-                "is_active": provider.is_active,
-
-                "status_note": (
-                    provider.status_note or ""
-                ),
-
-                "profile_picture": (
-                    request.build_absolute_uri(
-                        provider.profile_picture.url
-                    )
-                    if provider.profile_picture
-                    else None
-                ),
-
-                "date_joined": provider.date_joined,
-                "last_login": provider.last_login,
-            }
-        )
+    providers_data = [
+        {
+            "id": provider.id,
+            "username": provider.username,
+            "email": provider.email,
+            "first_name": provider.first_name,
+            "last_name": provider.last_name,
+            "full_name": provider.get_full_name() or provider.username,
+            "phone": provider.phone,
+            "address": provider.address,
+            "role": provider.role,
+            "bio": provider.bio,
+            "experience_years": provider.experience_years,
+            "is_email_verified": provider.is_email_verified,
+            "is_approved": provider.is_approved,
+            "is_verified": provider.is_verified,
+            "is_active": provider.is_active,
+            "status_note": provider.status_note or "",
+            "profile_picture": (
+                request.build_absolute_uri(provider.profile_picture.url)
+                if provider.profile_picture
+                else None
+            ),
+            "date_joined": provider.date_joined,
+            "last_login": provider.last_login,
+        }
+        for provider in providers
+    ]
 
     return Response(
         {
             "success": True,
-            "message": (
-                "Providers fetched successfully."
-            ),
-            "count": providers.count(),
+            "message": "Providers fetched successfully.",
+            "count": len(providers_data),
             "providers": providers_data,
         },
         status=status.HTTP_200_OK,
@@ -1227,58 +997,54 @@ def all_customers(request):
     Return all customer accounts for admin management.
     """
 
-    customers = (
+    customers = list(
         User.objects
         .filter(role="customer")
         .order_by("-date_joined")
+        .only(
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "phone",
+            "address",
+            "is_active",
+            "is_email_verified",
+            "profile_picture",
+            "date_joined",
+            "last_login",
+        )
     )
 
-    customers_data = []
-
-    for customer in customers:
-
-        customers_data.append(
-            {
-                "id": customer.id,
-                "username": customer.username,
-                "email": customer.email,
-
-                "first_name": customer.first_name,
-                "last_name": customer.last_name,
-
-                "full_name": (
-                    customer.get_full_name()
-                    or customer.username
-                ),
-
-                "phone": customer.phone,
-                "address": customer.address,
-
-                "is_active": customer.is_active,
-                "is_email_verified": (
-                    customer.is_email_verified
-                ),
-
-                "profile_picture": (
-                    request.build_absolute_uri(
-                        customer.profile_picture.url
-                    )
-                    if customer.profile_picture
-                    else None
-                ),
-
-                "date_joined": customer.date_joined,
-                "last_login": customer.last_login,
-            }
-        )
+    customers_data = [
+        {
+            "id": customer.id,
+            "username": customer.username,
+            "email": customer.email,
+            "first_name": customer.first_name,
+            "last_name": customer.last_name,
+            "full_name": customer.get_full_name() or customer.username,
+            "phone": customer.phone,
+            "address": customer.address,
+            "is_active": customer.is_active,
+            "is_email_verified": customer.is_email_verified,
+            "profile_picture": (
+                request.build_absolute_uri(customer.profile_picture.url)
+                if customer.profile_picture
+                else None
+            ),
+            "date_joined": customer.date_joined,
+            "last_login": customer.last_login,
+        }
+        for customer in customers
+    ]
 
     return Response(
         {
             "success": True,
-            "message": (
-                "Customers fetched successfully."
-            ),
-            "count": customers.count(),
+            "message": "Customers fetched successfully.",
+            "count": len(customers_data),
             "customers": customers_data,
         },
         status=status.HTTP_200_OK,
@@ -1386,18 +1152,22 @@ def deactivate_customer(request, customer_id):
 ])
 def all_bookings(request):
 
-    bookings = Booking.objects.all().order_by("-created_at")
+    bookings = (
+        Booking.objects
+        .select_related("service_request", "customer", "provider")
+        .order_by("-created_at")
+    )
 
     return Response({
         "success": True,
         "bookings": [
             {
                 "id": booking.id,
-                "service_request_id": booking.service_request.id,
+                "service_request_id": booking.service_request_id,
                 "service_type": booking.service_request.service_type,
-                "customer_id": booking.customer.id,
+                "customer_id": booking.customer_id,
                 "customer": booking.customer.username,
-                "provider_id": booking.provider.id,
+                "provider_id": booking.provider_id,
                 "provider": booking.provider.username,
                 "final_price": booking.final_price,
                 "status": booking.status,
@@ -1416,17 +1186,21 @@ def all_bookings(request):
 ])
 def all_quotes(request):
 
-    quotes = Quote.objects.all().order_by("-created_at")
+    quotes = (
+        Quote.objects
+        .select_related("service_request__customer", "provider")
+        .order_by("-created_at")
+    )
 
     return Response({
         "success": True,
         "quotes": [
             {
                 "id": quote.id,
-                "service_request_id": quote.service_request.id,
+                "service_request_id": quote.service_request_id,
                 "service_type": quote.service_request.service_type,
                 "customer": quote.service_request.customer.username,
-                "provider_id": quote.provider.id,
+                "provider_id": quote.provider_id,
                 "provider": quote.provider.username,
                 "price": quote.price,
                 "message": quote.message,
@@ -1444,54 +1218,74 @@ def all_quotes(request):
 ])
 def provider_performance(request):
 
-    providers = User.objects.filter(
-        role__in=provider_role_keys()
-    ).order_by("username")
+    providers = list(
+        User.objects
+        .filter(role__in=provider_role_keys())
+        .order_by("username")
+        .only(
+            "id",
+            "username",
+            "email",
+            "phone",
+            "role",
+            "is_active",
+            "is_approved",
+            "is_verified",
+            "profile_picture",
+        )
+    )
+
+    provider_ids = [provider.id for provider in providers]
+    if not provider_ids:
+        return Response({"success": True, "providers": []})
+
+    quote_stats = {
+        row["provider_id"]: row
+        for row in Quote.objects.filter(provider_id__in=provider_ids)
+        .values("provider_id")
+        .annotate(
+            total_quotes=Count("id"),
+            accepted_quotes=Count("id", filter=Q(status="accepted")),
+        )
+    }
+
+    booking_stats = {
+        row["provider_id"]: row
+        for row in Booking.objects.filter(provider_id__in=provider_ids)
+        .values("provider_id")
+        .annotate(
+            total_bookings=Count("id"),
+            completed_bookings=Count("id", filter=Q(status="completed")),
+            cancelled_bookings=Count("id", filter=Q(status="cancelled")),
+        )
+    }
+
+    review_stats = {
+        row["provider_id"]: row
+        for row in Review.objects.filter(provider_id__in=provider_ids)
+        .values("provider_id")
+        .annotate(
+            total_reviews=Count("id"),
+            average_rating=Avg("rating"),
+        )
+    }
 
     data = []
-
     for provider in providers:
+        quotes = quote_stats.get(provider.id, {})
+        bookings = booking_stats.get(provider.id, {})
+        reviews = review_stats.get(provider.id, {})
 
-        total_quotes = Quote.objects.filter(
-            provider=provider
-        ).count()
+        total_quotes = quotes.get("total_quotes", 0)
+        accepted_quotes = quotes.get("accepted_quotes", 0)
+        total_bookings = bookings.get("total_bookings", 0)
+        completed_bookings = bookings.get("completed_bookings", 0)
+        cancelled_bookings = bookings.get("cancelled_bookings", 0)
+        total_reviews = reviews.get("total_reviews", 0)
+        average_rating = round(reviews.get("average_rating") or 0, 1)
 
-        accepted_quotes = Quote.objects.filter(
-            provider=provider,
-            status="accepted"
-        ).count()
-
-        total_bookings = Booking.objects.filter(
-            provider=provider
-        ).count()
-
-        completed_bookings = Booking.objects.filter(
-            provider=provider,
-            status="completed"
-        ).count()
-
-        cancelled_bookings = Booking.objects.filter(
-            provider=provider,
-            status="cancelled"
-        ).count()
-
-        reviews = Review.objects.filter(
-            provider=provider
-        )
-
-        average_rating = 0
-
-        if reviews.exists():
-            total_rating = sum(review.rating for review in reviews)
-            average_rating = round(total_rating / reviews.count(), 1)
-
-        acceptance_rate = 0
-        if total_quotes > 0:
-            acceptance_rate = round((accepted_quotes / total_quotes) * 100, 2)
-
-        completion_rate = 0
-        if total_bookings > 0:
-            completion_rate = round((completed_bookings / total_bookings) * 100, 2)
+        acceptance_rate = round((accepted_quotes / total_quotes) * 100, 2) if total_quotes else 0
+        completion_rate = round((completed_bookings / total_bookings) * 100, 2) if total_bookings else 0
 
         data.append({
             "provider_id": provider.id,
@@ -1513,7 +1307,7 @@ def provider_performance(request):
             "completed_bookings": completed_bookings,
             "cancelled_bookings": cancelled_bookings,
             "completion_rate": completion_rate,
-            "total_reviews": reviews.count(),
+            "total_reviews": total_reviews,
             "average_rating": average_rating,
         })
 
@@ -1522,39 +1316,161 @@ def provider_performance(request):
         "providers": data
     })
 
+
+def _serialize_admin_bookings(bookings, request):
+    return [
+        {
+            "id": booking.id,
+            "service_request_id": booking.service_request_id,
+            "service_type": booking.service_request.service_type,
+            "customer_id": booking.customer_id,
+            "customer": booking.customer.username,
+            "provider_id": booking.provider_id,
+            "provider": booking.provider.username,
+            "final_price": booking.final_price,
+            "status": booking.status,
+            "created_at": booking.created_at,
+            "updated_at": booking.updated_at,
+        }
+        for booking in bookings
+    ]
+
+
+def _serialize_admin_quotes(quotes):
+    return [
+        {
+            "id": quote.id,
+            "service_request_id": quote.service_request_id,
+            "service_type": quote.service_request.service_type,
+            "customer": quote.service_request.customer.username,
+            "provider_id": quote.provider_id,
+            "provider": quote.provider.username,
+            "price": quote.price,
+            "message": quote.message,
+            "status": quote.status,
+            "created_at": quote.created_at,
+        }
+        for quote in quotes
+    ]
+
+
+def _provider_performance_rows(request):
+    providers = list(
+        User.objects
+        .filter(role__in=provider_role_keys())
+        .order_by("username")
+        .only(
+            "id",
+            "username",
+            "email",
+            "phone",
+            "role",
+            "is_active",
+            "is_approved",
+            "is_verified",
+            "profile_picture",
+        )
+    )
+
+    provider_ids = [provider.id for provider in providers]
+    if not provider_ids:
+        return []
+
+    quote_stats = {
+        row["provider_id"]: row
+        for row in Quote.objects.filter(provider_id__in=provider_ids)
+        .values("provider_id")
+        .annotate(
+            total_quotes=Count("id"),
+            accepted_quotes=Count("id", filter=Q(status="accepted")),
+        )
+    }
+
+    booking_stats = {
+        row["provider_id"]: row
+        for row in Booking.objects.filter(provider_id__in=provider_ids)
+        .values("provider_id")
+        .annotate(
+            total_bookings=Count("id"),
+            completed_bookings=Count("id", filter=Q(status="completed")),
+            cancelled_bookings=Count("id", filter=Q(status="cancelled")),
+        )
+    }
+
+    review_stats = {
+        row["provider_id"]: row
+        for row in Review.objects.filter(provider_id__in=provider_ids)
+        .values("provider_id")
+        .annotate(
+            total_reviews=Count("id"),
+            average_rating=Avg("rating"),
+        )
+    }
+
+    data = []
+    for provider in providers:
+        quotes = quote_stats.get(provider.id, {})
+        bookings = booking_stats.get(provider.id, {})
+        reviews = review_stats.get(provider.id, {})
+
+        total_quotes = quotes.get("total_quotes", 0)
+        accepted_quotes = quotes.get("accepted_quotes", 0)
+        total_bookings = bookings.get("total_bookings", 0)
+        completed_bookings = bookings.get("completed_bookings", 0)
+        cancelled_bookings = bookings.get("cancelled_bookings", 0)
+        total_reviews = reviews.get("total_reviews", 0)
+        average_rating = round(reviews.get("average_rating") or 0, 1)
+
+        acceptance_rate = round((accepted_quotes / total_quotes) * 100, 2) if total_quotes else 0
+        completion_rate = round((completed_bookings / total_bookings) * 100, 2) if total_bookings else 0
+
+        data.append({
+            "provider_id": provider.id,
+            "provider": provider.username,
+            "email": provider.email,
+            "phone": provider.phone,
+            "role": provider.role,
+            "is_active": provider.is_active,
+            "is_approved": provider.is_approved,
+            "is_verified": provider.is_verified,
+            "profile_picture": (
+                request.build_absolute_uri(provider.profile_picture.url)
+                if provider.profile_picture else None
+            ),
+            "total_quotes": total_quotes,
+            "accepted_quotes": accepted_quotes,
+            "acceptance_rate": acceptance_rate,
+            "total_bookings": total_bookings,
+            "completed_bookings": completed_bookings,
+            "cancelled_bookings": cancelled_bookings,
+            "completion_rate": completion_rate,
+            "total_reviews": total_reviews,
+            "average_rating": average_rating,
+        })
+
+    return data
+
+
 @api_view(["GET"])
-@permission_classes([IsAdminUser])
-def all_providers(request):
+@permission_classes([
+    IsAuthenticated,
+    IsAdminUser,
+])
+def marketplace_monitor_api(request):
+    """
+    Bookings, quotes, and provider performance in one round trip.
+    Optional ?sections=bookings,quotes,providers for partial loads.
+    """
+    sections_param = request.query_params.get("sections", "").strip()
+    sections = None
+    if sections_param:
+        sections = {part.strip() for part in sections_param.split(",") if part.strip()}
 
-    providers = User.objects.filter(
-        role__in=provider_role_keys()
-    ).order_by("-date_joined")
+    return Response(
+        get_marketplace_monitor_payload(request, sections),
+        status=status.HTTP_200_OK,
+    )
 
-    return Response({
-        "success": True,
-        "providers": [
-            {
-                "id": provider.id,
-                "username": provider.username,
-                "email": provider.email,
-                "phone": provider.phone,
-                "address": provider.address,
-                "role": provider.role,
-                "bio": provider.bio,
-                "experience_years": provider.experience_years,
-                "is_active": provider.is_active,
-                "is_approved": provider.is_approved,
-                "is_verified": provider.is_verified,
-                "deactivate_reason": provider.deactivate_reason,
-                "profile_picture": (
-                    request.build_absolute_uri(provider.profile_picture.url)
-                    if provider.profile_picture else None
-                ),
-                "date_joined": provider.date_joined,
-            }
-            for provider in providers
-        ]
-    })    
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -1584,13 +1500,14 @@ def spotlight_list_api(request):
         many=True,
         context={"request": request},
     )
+    serialized = serializer.data
 
     return Response(
         {
             "success": True,
             "message": "Spotlight images fetched successfully.",
-            "count": spotlights.count(),
-            "data": serializer.data,
+            "count": len(serialized),
+            "data": serialized,
         },
         status=status.HTTP_200_OK,
     )
@@ -1742,16 +1659,35 @@ def public_spotlights_api(request):
         many=True,
         context={"request": request},
     )
+    serialized = serializer.data
 
     return Response(
         {
             "success": True,
             "message": "Active spotlight images fetched successfully.",
-            "count": spotlights.count(),
-            "data": serializer.data,
+            "count": len(serialized),
+            "data": serialized,
         },
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def home_catalog_api(request):
+    """
+    Single response for public home pages: active, popular, coming soon services + spotlights.
+    """
+    payload = build_home_catalog_payload(request)
+    return Response(
+        {
+            "success": True,
+            "message": "Home catalog fetched successfully.",
+            "data": payload,
+        },
+        status=status.HTTP_200_OK,
+    )
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -1972,13 +1908,14 @@ def admin_users_api(request):
         admin_users,
         many=True,
     )
+    serialized = serializer.data
 
     return Response(
         {
             "success": True,
             "message": "Admin users fetched successfully.",
-            "count": admin_users.count(),
-            "data": serializer.data,
+            "count": len(serialized),
+            "data": serialized,
         },
         status=status.HTTP_200_OK,
     )

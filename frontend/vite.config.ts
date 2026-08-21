@@ -16,6 +16,24 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: ['leaflet', 'react-leaflet'],
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) {
+              if (id.includes('/pages/admin/')) return 'admin'
+              if (id.includes('/pages/provider/')) return 'provider'
+              if (id.includes('/pages/customer/')) return 'customer'
+              return undefined
+            }
+            if (id.includes('leaflet') || id.includes('react-leaflet')) return 'leaflet'
+            if (id.includes('react-router')) return 'router'
+            if (id.includes('react-dom') || id.includes('/react/')) return 'react'
+            return 'vendor'
+          },
+        },
+      },
+    },
     server: {
       proxy: {
         '/api': apiBaseUrl,

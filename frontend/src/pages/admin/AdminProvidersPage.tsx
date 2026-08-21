@@ -4,40 +4,25 @@ import {
   activateProvider,
   deactivateProvider,
   fetchAllProviders,
+  unverifyProvider,
   verifyProvider,
+  type AdminProvider,
 } from '../../api/admin'
 import { ApiRequestError } from '../../api/client'
-import {
-  AdminActionButton,
-  BadgeCheckIcon,
-  BanIcon,
-  CheckIcon,
-} from '../../components/IconActionButton'
-import { ReasonActionModal } from '../../components/ReasonActionModal'
-import { Alert, Button, Card, PageHeader } from '../../components/ui'
+import { AdminProviderEditModal } from '../../components/admin/AdminProviderEditModal'
+import { AdminActiveStatusSelect } from '../../components/admin/AdminStatusSelect'
+import { AdminActionButton, EditIcon } from '../../components/IconActionButton'
 import { AdminListRowSkeleton } from '../../components/Shimmer'
+import { Alert, Badge, Button, Card, PageHeader, Select } from '../../components/ui'
+import { ADMIN_STATUS_REASON } from '../../lib/adminStatus'
 import { providerDeactivationReason } from '../../lib/providerStatus'
-import type { AdminProvider } from '../../api/admin'
-
-type ProviderAction = 'activate' | 'deactivate' | 'verify'
-
-type PendingAction = {
-  provider: AdminProvider
-  action: ProviderAction
-}
-
-const ACTION_COPY: Record<ProviderAction, { title: string; confirmLabel: string }> = {
-  activate: { title: 'Activate provider', confirmLabel: 'Activate' },
-  deactivate: { title: 'Deactivate provider', confirmLabel: 'Deactivate' },
-  verify: { title: 'Verify provider', confirmLabel: 'Verify' },
-}
 
 export function AdminProvidersPage() {
   const [providers, setProviders] = useState<AdminProvider[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState<number | null>(null)
-  const [pending, setPending] = useState<PendingAction | null>(null)
+  const [editing, setEditing] = useState<AdminProvider | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -53,20 +38,31 @@ export function AdminProvidersPage() {
     load()
   }, [])
 
-  const runWithReason = async (reason: string) => {
-    if (!pending) return
-    const { provider, action } = pending
+  const changeActive = async (provider: AdminProvider, active: boolean) => {
+    if (provider.is_active === active) return
     setBusyId(provider.id)
     setError('')
     try {
-      if (action === 'activate') await activateProvider(provider.id, reason)
-      if (action === 'deactivate') await deactivateProvider(provider.id, reason)
-      if (action === 'verify') await verifyProvider(provider.id, reason)
+      if (active) await activateProvider(provider.id, ADMIN_STATUS_REASON)
+      else await deactivateProvider(provider.id, ADMIN_STATUS_REASON)
       load()
     } catch (err) {
-      const message = err instanceof ApiRequestError ? err.message : 'Action failed'
-      setError(message)
-      throw new Error(message)
+      setError(err instanceof ApiRequestError ? err.message : 'Status update failed')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const changeVerified = async (provider: AdminProvider, verified: boolean) => {
+    if (provider.is_verified === verified) return
+    setBusyId(provider.id)
+    setError('')
+    try {
+      if (verified) await verifyProvider(provider.id, ADMIN_STATUS_REASON)
+      else await unverifyProvider(provider.id, ADMIN_STATUS_REASON)
+      load()
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Verification update failed')
     } finally {
       setBusyId(null)
     }
@@ -75,18 +71,10 @@ export function AdminProvidersPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <PageHeader
-          title="Provider management"
-          subtitle="Activate, deactivate, and verify approved providers"
-        />
-        <div className="flex gap-2">
-          <Link to="/admin/pending-providers">
-            <Button variant="secondary">Pending approvals</Button>
-          </Link>
-          <Link to="/admin-dashboard">
-            <Button variant="secondary">Back</Button>
-          </Link>
-        </div>
+        <PageHeader subtitle="Manage provider accounts, status, and verification" />
+        <Link to="/admin/pending-providers">
+          <Button variant="secondary">Pending approvals</Button>
+        </Link>
       </div>
       {error && <Alert variant="error">{error}</Alert>}
       {loading ? (
@@ -103,10 +91,15 @@ export function AdminProvidersPage() {
                     <p className="text-sm text-zinc-500">
                       {p.email} · {p.role}
                     </p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {p.is_approved ? 'Approved' : 'Pending'} · {p.is_active ? 'Active' : 'Inactive'} ·{' '}
-                      {p.is_verified ? 'Verified' : 'Unverified'}
-                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <Badge tone={p.is_approved ? 'success' : 'warning'}>
+                        {p.is_approved ? 'Approved' : 'Pending approval'}
+                      </Badge>
+                      <Badge tone={p.is_active ? 'success' : 'danger'}>
+                        {p.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                      {p.is_verified && <Badge tone="success">Verified</Badge>}
+                    </div>
                     {!p.is_active && deactivationReason && (
                       <p className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
                         <span className="font-semibold">Deactivation reason:</span> {deactivationReason}
@@ -122,40 +115,39 @@ export function AdminProvidersPage() {
                       </p>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {!p.is_approved ? null : (
+                  <div className="flex flex-wrap items-end gap-2">
+                    {p.is_approved && (
                       <>
-                        {!p.is_active ? (
-                          <AdminActionButton
-                            label="Activate"
-                            variant="success"
+                        <div>
+                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-zinc-500">Account</p>
+                          <AdminActiveStatusSelect
+                            value={p.is_active}
                             disabled={busyId === p.id}
-                            onClick={() => setPending({ provider: p, action: 'activate' })}
-                          >
-                            <CheckIcon />
-                          </AdminActionButton>
-                        ) : (
-                          <AdminActionButton
-                            label="Deactivate"
-                            variant="dangerSolid"
+                            onChange={(active) => changeActive(p, active)}
+                          />
+                        </div>
+                        <div>
+                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-zinc-500">Verified</p>
+                          <Select
+                            value={p.is_verified ? 'verified' : 'unverified'}
                             disabled={busyId === p.id}
-                            onClick={() => setPending({ provider: p, action: 'deactivate' })}
+                            onChange={(e) => changeVerified(p, e.target.value === 'verified')}
+                            className="min-w-[7.5rem] text-sm"
                           >
-                            <BanIcon />
-                          </AdminActionButton>
-                        )}
-                        {!p.is_verified && (
-                          <AdminActionButton
-                            label="Verify"
-                            variant="success"
-                            disabled={busyId === p.id}
-                            onClick={() => setPending({ provider: p, action: 'verify' })}
-                          >
-                            <BadgeCheckIcon />
-                          </AdminActionButton>
-                        )}
+                            <option value="verified">Verified</option>
+                            <option value="unverified">Unverified</option>
+                          </Select>
+                        </div>
                       </>
                     )}
+                    <AdminActionButton
+                      label="Edit"
+                      variant="secondary"
+                      disabled={busyId === p.id}
+                      onClick={() => setEditing(p)}
+                    >
+                      <EditIcon />
+                    </AdminActionButton>
                   </div>
                 </div>
               </Card>
@@ -164,13 +156,11 @@ export function AdminProvidersPage() {
         </div>
       )}
 
-      <ReasonActionModal
-        open={pending !== null}
-        title={pending ? ACTION_COPY[pending.action].title : ''}
-        subtitle={pending ? `Provider: ${pending.provider.username}` : undefined}
-        confirmLabel={pending ? ACTION_COPY[pending.action].confirmLabel : 'Confirm'}
-        onClose={() => setPending(null)}
-        onConfirm={runWithReason}
+      <AdminProviderEditModal
+        provider={editing}
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        onUpdated={load}
       />
     </div>
   )

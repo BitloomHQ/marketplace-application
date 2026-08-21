@@ -103,48 +103,18 @@ def providers_by_service(request):
             "message": "Invalid service type",
         }, status=400)
 
-    providers = User.objects.filter(
-        role=service,
-        is_active=True,
-        is_approved=True
+    providers = list(
+        User.objects.filter(
+            role=service,
+            is_active=True,
+            is_approved=True,
+        )
     )
-
-    data = []
-
-    for p in providers:
-
-        data.append({
-
-            "id": p.id,
-
-            "username": p.username,
-
-            "email": p.email,
-
-            "phone": p.phone,
-
-            "address": p.address,
-
-            "role": p.role,
-
-            "bio": p.bio,
-
-            "experience_years": p.experience_years,
-
-            "is_verified": p.is_verified,
-
-            "profile_picture": (
-                request.build_absolute_uri(
-                    p.profile_picture.url
-                )
-                if p.profile_picture else None
-            ),
-        })
 
     return Response({
         "success": True,
         "service": service,
-        "total_providers": providers.count(),
+        "total_providers": len(providers),
         "providers": [
             provider_list_payload(p, request) for p in providers
         ],

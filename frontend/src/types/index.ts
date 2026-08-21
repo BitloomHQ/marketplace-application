@@ -13,6 +13,9 @@ export interface User {
   username: string
   email: string
   role: UserRole
+  first_name?: string
+  last_name?: string
+  full_name?: string
   phone: string
   address?: string
   profile_picture?: string | null

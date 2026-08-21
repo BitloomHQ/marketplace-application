@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from rest_framework.permissions import BasePermission
 
 
@@ -92,6 +93,9 @@ def has_admin_permission(
 # GET ALL ADMIN PERMISSIONS
 # ============================================================
 
+ADMIN_PERMISSIONS_CACHE_TTL = 120
+
+
 def get_admin_permissions(user):
     """
     Return all admin permissions.
@@ -140,24 +144,30 @@ def get_admin_permissions(user):
     # STAFF ADMIN
     # --------------------------------------------------------
 
+    cache_key = f"admin:permissions:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         profile = (
             user.admin_permission_profile
         )
 
     except Exception:
-
-        return {
+        permissions = {
             permission: False
             for permission
             in ADMIN_PERMISSION_NAMES
         }
+        cache.set(cache_key, permissions, ADMIN_PERMISSIONS_CACHE_TTL)
+        return permissions
 
     # --------------------------------------------------------
     # RETURN PERMISSION PROFILE
     # --------------------------------------------------------
 
-    return {
+    permissions = {
         permission: bool(
             getattr(
                 profile,
@@ -168,6 +178,8 @@ def get_admin_permissions(user):
         for permission
         in ADMIN_PERMISSION_NAMES
     }
+    cache.set(cache_key, permissions, ADMIN_PERMISSIONS_CACHE_TTL)
+    return permissions
 
 
 # ============================================================

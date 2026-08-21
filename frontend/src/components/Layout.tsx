@@ -67,16 +67,6 @@ function bottomNavClass(isActive: boolean) {
   }`
 }
 
-function adminNav(): NavItem[] {
-  return [
-    { to: '/admin-dashboard', label: 'Home', icon: 'home' },
-    { to: '/admin/pending-providers', label: 'Pending', icon: 'clock' },
-    { to: '/admin/providers', label: 'Providers', icon: 'briefcase' },
-    { to: '/admin/services', label: 'Services', icon: 'list' },
-    { to: '/admin/marketplace', label: 'Monitor', icon: 'calendar' },
-  ]
-}
-
 function RoleRouteGuard() {
   const { user } = useAuth()
   const { pathname } = useLocation()
@@ -85,13 +75,6 @@ function RoleRouteGuard() {
   const home = homePathForRole(user.role)
   const sharedPaths = ['/profile']
   if (sharedPaths.includes(pathname)) return null
-
-  if (user.role === 'admin') {
-    if (!pathname.startsWith('/admin')) {
-      return <Navigate to={home} replace />
-    }
-    return null
-  }
 
   if (user.role === 'customer') {
     const allowed =
@@ -122,16 +105,14 @@ export function Layout() {
   const { user } = useAuth()
   const { pathname } = useLocation()
 
-  if (!user) return null
+  if (!user || user.role === 'admin') return null
 
   const nav =
-    user.role === 'admin'
-      ? adminNav()
-      : user.role === 'customer'
-        ? customerNav()
-        : isProviderRole(user.role)
-          ? providerNav()
-          : []
+    user.role === 'customer'
+      ? customerNav()
+      : isProviderRole(user.role)
+        ? providerNav()
+        : []
 
   const isProviderDashboard =
     isProviderRole(user.role) &&

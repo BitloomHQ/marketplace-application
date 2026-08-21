@@ -106,11 +106,11 @@ export function Textarea({ className = '', ...props }: TextareaHTMLAttributes<HT
   )
 }
 
-export function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+export function PageHeader({ title, subtitle }: { title?: string; subtitle?: string }) {
   return (
     <div className="mb-5">
-      <h1 className="text-2xl font-bold tracking-tight text-zinc-900">{title}</h1>
-      {subtitle && <p className="mt-1 text-sm text-zinc-500">{subtitle}</p>}
+      {title && <h1 className="text-2xl font-bold tracking-tight text-zinc-900">{title}</h1>}
+      {subtitle && <p className={`text-sm text-zinc-500 ${title ? 'mt-1' : ''}`}>{subtitle}</p>}
     </div>
   )
 }

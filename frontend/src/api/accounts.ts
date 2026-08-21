@@ -1,4 +1,5 @@
 import { apiRequest } from './client'
+import { fetchBookableServices as fetchBookableCatalogServices, loadHomeCatalog } from './catalog'
 import { normalizeAddress } from '../lib/address'
 import type {
   AccountProfile,
@@ -288,17 +289,26 @@ export function fetchDashboard() {
 }
 
 export function fetchActiveServices() {
-  return apiRequest<{ success: boolean; services: ActiveService[] }>(
-    '/api/accounts/active-services/',
-    { auth: false },
-  )
+  return fetchBookableCatalogServices().then((res) => ({
+    success: res.success,
+    services: res.services.map(
+      (service): ActiveService => ({
+        id: service.id ?? 0,
+        name: service.name,
+        key: service.key,
+        description: service.description,
+        status: 'active',
+        service_image: service.service_image ?? null,
+      }),
+    ),
+  }))
 }
 
 export function fetchPublicServices() {
-  return apiRequest<{
-    success: boolean
-    services: ServiceCategory[]
-    popular_services: ServiceCategory[]
-    coming_soon_services: ServiceCategory[]
-  }>('/api/accounts/public-services/', { auth: false })
+  return loadHomeCatalog().then((catalog) => ({
+    success: true,
+    services: catalog.services,
+    popular_services: catalog.popularServices,
+    coming_soon_services: catalog.comingSoonServices,
+  }))
 }

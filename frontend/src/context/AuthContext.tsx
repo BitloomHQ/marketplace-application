@@ -48,22 +48,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = getToken()
     if (!token) return
 
-    fetchAccountProfile()
-      .then((res) => {
-        const profileUser = accountProfileToUser(res.data.profile)
-        const stored = loadUser()
-        const user =
-          stored?.role === 'admin' && profileUser.role !== 'admin'
-            ? { ...profileUser, role: 'admin' as const }
-            : profileUser
-        saveUser(user)
-        setUserState(user)
-      })
-      .catch(() => {
-        clearToken()
-        saveUser(null)
-        setUserState(null)
-      })
+    const refreshProfile = () => {
+      fetchAccountProfile()
+        .then((res) => {
+          const profileUser = accountProfileToUser(res.data.profile)
+          const stored = loadUser()
+          const user =
+            stored?.role === 'admin' && profileUser.role !== 'admin'
+              ? { ...profileUser, role: 'admin' as const }
+              : profileUser
+          saveUser(user)
+          setUserState(user)
+        })
+        .catch(() => {
+          // Keep cached session; profile refresh is best-effort on load.
+        })
+    }
+
+    const timeoutId = window.setTimeout(refreshProfile, 2500)
+    return () => window.clearTimeout(timeoutId)
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
@@ -81,8 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setUser = useCallback((u: User) => {
-    saveUser(u)
-    setUserState(u)
+    const stored = loadUser()
+    const next =
+      stored?.role === 'admin' && u.role !== 'admin' ? { ...u, role: 'admin' as const } : u
+    saveUser(next)
+    setUserState(next)
   }, [])
 
   const value = useMemo(

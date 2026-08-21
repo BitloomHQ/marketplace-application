@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { fetchDashboard } from '../../api/accounts'
-import { fetchMyServiceRequests } from '../../api/services'
+import type { SpotlightImage } from '../../api/catalog'
+import { fetchCustomerHome } from '../../api/services'
 import { CustomerHomeContent } from '../../components/CustomerHomeContent'
 import { useAuth } from '../../context/AuthContext'
 import type { ServiceCategory } from '../../types'
@@ -15,26 +15,28 @@ export function CustomerDashboard() {
   const [popularServices, setPopularServices] = useState<ServiceCategory[]>([])
   const [comingSoonServices, setComingSoonServices] = useState<ServiceCategory[]>([])
   const [comingSoonService, setComingSoonService] = useState<ServiceCategory | null>(null)
+  const [spotlights, setSpotlights] = useState<SpotlightImage[]>([])
+
   const [loadingServices, setLoadingServices] = useState(true)
 
+  const applyHomeData = (data: Awaited<ReturnType<typeof fetchCustomerHome>>) => {
+    setActiveBookings(data.booked_count)
+    setOpenRequests(data.open_requests)
+    setServices(data.services)
+    setPopularServices(data.popularServices)
+    setComingSoonServices(data.comingSoonServices)
+    setSpotlights(data.spotlights)
+  }
+
   const refreshCounts = () => {
-    fetchMyServiceRequests(1, 1)
-      .then((res) => {
-        setActiveBookings(res.booked_count)
-        setOpenRequests(res.total - res.booked_count)
-      })
+    fetchCustomerHome(true)
+      .then(applyHomeData)
       .catch(() => {})
   }
 
   useEffect(() => {
-    refreshCounts()
-    fetchDashboard()
-      .then((res) => {
-        const all = res.data.services ?? []
-        setServices(all)
-        setPopularServices(res.data.popular_services ?? [])
-        setComingSoonServices(all.filter((s) => s.status === 'coming_soon'))
-      })
+    fetchCustomerHome()
+      .then(applyHomeData)
       .catch(() => {
         setServices([])
         setPopularServices([])
@@ -54,6 +56,7 @@ export function CustomerDashboard() {
       services={services}
       popularServices={popularServices}
       comingSoonServices={comingSoonServices}
+      spotlights={spotlights}
       loadingServices={loadingServices}
       activeBookings={activeBookings}
       openRequests={openRequests}

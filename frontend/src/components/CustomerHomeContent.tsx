@@ -7,6 +7,7 @@ import {
   ServiceCirclesSkeleton,
 } from './Shimmer'
 import { Button, SectionTitle } from './ui'
+import type { SpotlightImage } from '../api/catalog'
 import { DEFAULT_SERVICE_IMAGE } from '../lib/defaultServiceImage'
 import { resolveMediaUrl } from '../lib/media'
 import type { ServiceCategory } from '../types'
@@ -78,6 +79,7 @@ export type CustomerHomeContentProps = {
   services: ServiceCategory[]
   popularServices: ServiceCategory[]
   comingSoonServices: ServiceCategory[]
+  spotlights?: SpotlightImage[]
   loadingServices?: boolean
   activeBookings?: number
   openRequests?: number
@@ -98,6 +100,7 @@ export function CustomerHomeContent({
   services,
   popularServices,
   comingSoonServices,
+  spotlights = [],
   loadingServices = false,
   activeBookings = 0,
   openRequests = 0,
@@ -123,6 +126,14 @@ export function CustomerHomeContent({
   }
 
   const activeServices = services.filter((service) => service.status === 'active')
+
+  const spotlightItems =
+    spotlights.length > 0
+      ? spotlights.map((item) => ({
+          src: resolveMediaUrl(item.image_url) ?? item.image_url ?? '/spotlight1.png',
+          alt: item.title,
+        }))
+      : SPOTLIGHT_IMAGES.map((item) => ({ src: item.src, alt: item.alt }))
 
   return (
     <div className="space-y-10 pb-4">
@@ -212,7 +223,7 @@ export function CustomerHomeContent({
           In the spotlight
         </SectionTitle>
         <div className="scrollbar-none flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0">
-          {SPOTLIGHT_IMAGES.map((item, index) => {
+          {spotlightItems.map((item, index) => {
             const linkedService = bookableServices[index]
             return (
               <SpotlightCard

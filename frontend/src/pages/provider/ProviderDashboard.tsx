@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import backgroundImage from '/providerHero.png'
-import { fetchDashboard } from '../../api/accounts'
-import { fetchMyBookings, fetchProfile, fetchProviderLeads } from '../../api/services'
+import { fetchDashboardStats } from '../../api/services'
 import { StarRating } from '../../components/StarRating'
 import { useAuth } from '../../context/AuthContext'
 import { providerDeactivationReason } from '../../lib/providerStatus'
@@ -91,7 +90,7 @@ function QuickActionCard({
 }
 
 export function ProviderDashboard() {
-  const { user, setUser } = useAuth()
+  const { user } = useAuth()
   const [newJobs, setNewJobs] = useState(0)
   const [activeJobs, setActiveJobs] = useState(0)
   const [dashboardType, setDashboardType] = useState<string | null>(null)
@@ -105,37 +104,20 @@ export function ProviderDashboard() {
   const deactivationReason = providerDeactivationReason(user)
 
   useEffect(() => {
-    fetchProfile()
-      .then((res) => setUser(res.user))
-      .catch(() => {})
-  }, [setUser])
-
-  useEffect(() => {
-    fetchDashboard()
-      .then((res) => {
-        setDashboardType(res.data.dashboard_type ?? null)
-        setFeatures(res.data.features ?? [])
-        if (res.data.average_rating != null) {
-          setAverageRating(res.data.average_rating)
-        }
-        if (res.data.total_reviews != null) {
-          setTotalReviews(res.data.total_reviews)
-        }
-      })
-      .catch(() => {})
-  }, [])
-
-  useEffect(() => {
     if (pendingApproval || deactivated) return
 
-    Promise.all([fetchProviderLeads(), fetchMyBookings()])
-      .then(([leadsRes, bookingsRes]) => {
-        setNewJobs(leadsRes.leads.length)
-        setActiveJobs(
-          bookingsRes.bookings.filter(
-            (b) => b.status !== 'completed' && b.status !== 'cancelled',
-          ).length,
-        )
+    fetchDashboardStats()
+      .then((res) => {
+        setDashboardType(res.dashboard_type ?? null)
+        setFeatures(res.features ?? [])
+        setNewJobs(res.new_jobs ?? 0)
+        setActiveJobs(res.active_jobs ?? 0)
+        if (res.average_rating != null) {
+          setAverageRating(res.average_rating)
+        }
+        if (res.total_reviews != null) {
+          setTotalReviews(res.total_reviews)
+        }
       })
       .catch(() => {})
   }, [pendingApproval, deactivated])

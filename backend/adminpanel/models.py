@@ -40,6 +40,13 @@ class ServiceCategory(models.Model):
     default=False
 )
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["status", "is_popular"]),
+            models.Index(fields=["display_order", "name"]),
+        ]
+
     def __str__(self):
         return self.name
 
@@ -76,6 +83,9 @@ class SpotlightImage(models.Model):
 
     class Meta:
         ordering = ["display_order", "-created_at"]
+        indexes = [
+            models.Index(fields=["is_active", "display_order"]),
+        ]
 
     def __str__(self):
         return self.title

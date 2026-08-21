@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { deleteAdminService, fetchAdminServices, reorderAdminServices } from '../../api/admin'
 import { ApiRequestError } from '../../api/client'
 import { SortableServiceList } from '../../components/admin/SortableServiceList'
@@ -63,13 +62,8 @@ export function AdminServicesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <PageHeader title="Service categories" subtitle="Create and manage marketplace services" />
-        <div className="flex gap-2">
-          <Button onClick={() => setCreateOpen(true)}>Create service</Button>
-          <Link to="/admin-dashboard">
-            <Button variant="secondary">Back</Button>
-          </Link>
-        </div>
+        <PageHeader subtitle="Create and manage marketplace services" />
+        <Button onClick={() => setCreateOpen(true)}>Create service</Button>
       </div>
 
       {error && <Alert variant="error">{error}</Alert>}

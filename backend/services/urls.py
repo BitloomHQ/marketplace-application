@@ -15,6 +15,8 @@ from .views import (
     # BOOKINGS
     my_bookings,
     update_booking_status,
+    dashboard_stats,
+    customer_home,
 
     # REVIEWS
     submit_review,
@@ -82,6 +84,16 @@ urlpatterns = [
         "my-bookings/",
         my_bookings,
         name="my_bookings"
+    ),
+    path(
+        "dashboard-stats/",
+        dashboard_stats,
+        name="dashboard_stats",
+    ),
+    path(
+        "customer-home/",
+        customer_home,
+        name="customer_home",
     ),
 
     path(

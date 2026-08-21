@@ -185,6 +185,11 @@ class Quote(models.Model):
 
     class Meta:
         unique_together = ("service_request", "provider")
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["provider", "status"]),
+            models.Index(fields=["-created_at"]),
+        ]
 
     def __str__(self):
         return f"{self.provider.username} - ₹{self.price}"
@@ -248,6 +253,13 @@ class Booking(models.Model):
         blank=True
     )
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["provider", "status"]),
+            models.Index(fields=["-created_at"]),
+        ]
+
     def __str__(self):
         return f"{self.customer.username} booked {self.provider.username}"
 
@@ -284,6 +296,11 @@ class Review(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True
     )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["provider"]),
+        ]
 
     def __str__(self):
         return f"{self.provider.username} - {self.rating} Stars"

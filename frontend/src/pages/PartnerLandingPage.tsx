@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { fetchActiveServices, register } from '../api/accounts'
+import { fetchRegisterableServices, registerableServiceLabel } from '../api/catalog'
+import { register } from '../api/accounts'
 import { ApiRequestError } from '../api/client'
 import { GuestHeader } from '../components/GuestHeader'
 import { SiteFooter } from '../components/SiteFooter'
@@ -8,7 +9,7 @@ import { AuthRegisterShell } from '../components/auth/AuthRegisterShell'
 import { Alert, Button, Field, Input, Modal, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { isProviderRole } from '../lib/format'
-import type { ActiveService } from '../types'
+import type { ServiceCategory } from '../types'
 import heroImage from '../assets/hero.png'
 
 const REMEMBER_KEY = 'hs_partner_remember_email'
@@ -135,7 +136,7 @@ export function PartnerLandingPage() {
   const { isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [services, setServices] = useState<ActiveService[]>([])
+  const [services, setServices] = useState<ServiceCategory[]>([])
   const [serviceType, setServiceType] = useState('')
   const [form, setForm] = useState({
     name: '',
@@ -156,7 +157,7 @@ export function PartnerLandingPage() {
   }, [isAuthenticated, user, navigate])
 
   useEffect(() => {
-    fetchActiveServices()
+    fetchRegisterableServices()
       .then((res) => {
         setServices(res.services)
         if (res.services[0]) setServiceType(res.services[0].key)
@@ -263,11 +264,11 @@ export function PartnerLandingPage() {
                     {loadingServices ? (
                       <option value="">Loading services…</option>
                     ) : services.length === 0 ? (
-                      <option value="">No active services available</option>
+                      <option value="">No services available</option>
                     ) : (
                       services.map((service) => (
-                        <option key={service.id} value={service.key}>
-                          {service.name}
+                        <option key={service.id ?? service.key} value={service.key}>
+                          {registerableServiceLabel(service)}
                         </option>
                       ))
                     )}

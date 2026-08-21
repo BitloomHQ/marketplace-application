@@ -1,22 +1,51 @@
 from django.conf import settings
+from django.core.cache import cache
 from django.db import ProgrammingError
+from django.db.models import Avg, Count
 from django.db.utils import OperationalError
 
 from adminpanel.models import ServiceCategory
 from services.models import Review
 
+CACHE_PROVIDER_ROLE_KEYS = "catalog:provider_role_keys"
+CACHE_ACTIVE_SERVICE_KEYS = "catalog:active_service_keys"
+CATALOG_CACHE_TIMEOUT = 300  # 5 minutes
+
+
+def invalidate_service_category_cache():
+    cache.delete(CACHE_PROVIDER_ROLE_KEYS)
+    cache.delete(CACHE_ACTIVE_SERVICE_KEYS)
+
+
 def provider_role_keys():
+    cached = cache.get(CACHE_PROVIDER_ROLE_KEYS)
+    if cached is not None:
+        return cached
+
     try:
         keys = list(ServiceCategory.objects.values_list("key", flat=True))
-        return keys or ["gardener", "electrician", "plumber"]
+        keys = keys or ["gardener", "electrician", "plumber"]
     except (ProgrammingError, OperationalError):
-        return ["gardener", "electrician", "plumber"]
+        keys = ["gardener", "electrician", "plumber"]
+
+    cache.set(CACHE_PROVIDER_ROLE_KEYS, keys, CATALOG_CACHE_TIMEOUT)
+    return keys
 
 
 def active_service_keys():
-    return list(
-        ServiceCategory.objects.filter(status='active').values_list('key', flat=True),
-    )
+    cached = cache.get(CACHE_ACTIVE_SERVICE_KEYS)
+    if cached is not None:
+        return cached
+
+    try:
+        keys = list(
+            ServiceCategory.objects.filter(status="active").values_list("key", flat=True),
+        )
+    except (ProgrammingError, OperationalError):
+        keys = []
+
+    cache.set(CACHE_ACTIVE_SERVICE_KEYS, keys, CATALOG_CACHE_TIMEOUT)
+    return keys
 
 
 def is_provider_role(role):
@@ -77,11 +106,13 @@ def serialize_address(address):
 
 
 def provider_rating(user):
-    reviews = Review.objects.filter(provider=user)
-    if not reviews.exists():
+    stats = Review.objects.filter(provider=user).aggregate(
+        avg=Avg("rating"),
+        total=Count("id"),
+    )
+    if not stats["total"]:
         return 0, 0
-    total = sum(review.rating for review in reviews)
-    return round(total / reviews.count(), 1), reviews.count()
+    return round(stats["avg"] or 0, 1), stats["total"]
 
 
 def serialize_service_category(category, request=None):

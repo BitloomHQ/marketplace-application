@@ -31,6 +31,7 @@ export function ProfilePage() {
   const [success, setSuccess] = useState('')
 
   const isProvider = user ? isProviderRole(user.role) : false
+  const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     setError('')
@@ -49,7 +50,8 @@ export function ProfilePage() {
         setPreviewUrl(profile.profile_picture_url ?? profile.profile_picture)
         setCompletion(profileRes.data.profile_completion)
         if (completionRes) setCompletion(completionRes.data.percentage)
-        setUser(accountProfileToUser(profile))
+        const profileUser = accountProfileToUser(profile)
+        setUser(profileUser)
       })
       .catch((err) =>
         setError(err instanceof ApiRequestError ? err.message : 'Failed to load profile'),
@@ -117,8 +119,8 @@ export function ProfilePage() {
   return (
     <div>
       <PageHeader
-        title="Account"
-        subtitle={user ? 'Your details & contact info' : 'Manage your account'}
+        title={isAdmin ? undefined : 'Account'}
+        subtitle={isAdmin ? 'Your admin account details' : 'Your details & contact info'}
       />
       {error && (
         <div className="mb-4">

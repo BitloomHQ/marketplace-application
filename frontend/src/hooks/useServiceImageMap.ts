@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchActiveServices } from '../api/accounts'
+import { fetchRegisterableServices } from '../api/catalog'
 import { DEFAULT_SERVICE_IMAGE } from '../lib/defaultServiceImage'
 import { resolveMediaUrl } from '../lib/media'
 
@@ -11,10 +11,10 @@ export function useServiceImageMap() {
 
   useEffect(() => {
     if (cachedMap) return
-    fetchActiveServices()
+    fetchRegisterableServices()
       .then((res) => {
         const map = Object.fromEntries(
-          res.services.map((service) => [service.key, service.service_image]),
+          res.services.map((service) => [service.key, service.service_image ?? null]),
         )
         cachedMap = map
         setImageMap(map)

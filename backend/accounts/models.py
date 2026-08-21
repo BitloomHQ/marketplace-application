@@ -65,6 +65,14 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["role"]),
+            models.Index(fields=["role", "is_active"]),
+            models.Index(fields=["role", "is_approved"]),
+            models.Index(fields=["-date_joined"]),
+        ]
+
     @property
     def is_provider(self):
         from accounts.helpers import is_provider_role

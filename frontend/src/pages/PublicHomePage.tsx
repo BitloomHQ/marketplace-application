@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { fetchPublicServices } from '../api/accounts'
+import { loadHomeCatalog } from '../api/catalog'
+import type { SpotlightImage } from '../api/catalog'
 import { CustomerHomeContent } from '../components/CustomerHomeContent'
 import { GuestHeader } from '../components/GuestHeader'
 import { SiteFooter } from '../components/SiteFooter'
@@ -22,6 +23,7 @@ export function PublicHomePage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [presetService, setPresetService] = useState('plumber')
   const [comingSoonService, setComingSoonService] = useState<ServiceCategory | null>(null)
+  const [spotlights, setSpotlights] = useState<SpotlightImage[]>([])
 
   useEffect(() => {
     if (!isAuthenticated || !user) return
@@ -31,11 +33,12 @@ export function PublicHomePage() {
   }, [isAuthenticated, user, navigate])
 
   useEffect(() => {
-    fetchPublicServices()
-      .then((res) => {
-        setServices(res.services ?? [])
-        setPopularServices(res.popular_services ?? [])
-        setComingSoonServices(res.coming_soon_services ?? [])
+    loadHomeCatalog()
+      .then((catalog) => {
+        setServices(catalog.services)
+        setPopularServices(catalog.popularServices)
+        setComingSoonServices(catalog.comingSoonServices)
+        setSpotlights(catalog.spotlights)
       })
       .catch(() => {
         setServices([])
@@ -76,6 +79,7 @@ export function PublicHomePage() {
           services={services}
           popularServices={popularServices}
           comingSoonServices={comingSoonServices}
+          spotlights={spotlights}
           loadingServices={loadingServices}
           createOpen={createOpen}
           presetService={presetService}

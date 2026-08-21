@@ -25,6 +25,7 @@ from accounts.helpers import (
     is_provider_role,
     provider_access_ok,
     provider_profile_payload,
+    provider_rating,
     user_base_payload,
 )
 
@@ -274,6 +275,7 @@ def provider_leads(request):
             selected_provider__isnull=True,
             status="pending"
         )
+        .select_related("customer")
         .annotate(
             has_quoted=Exists(my_quote)
         )
@@ -575,17 +577,22 @@ def select_provider(request):
 @permission_classes([IsAuthenticated])
 def my_bookings(request):
 
+    review_exists = Review.objects.filter(
+        booking_id=OuterRef("pk"),
+        customer_id=OuterRef("customer_id"),
+    )
+
     if request.user.role == "customer":
-
-        bookings = Booking.objects.filter(
-            customer=request.user
-        ).order_by("-created_at")
-
+        bookings = Booking.objects.filter(customer=request.user)
     else:
+        bookings = Booking.objects.filter(provider=request.user)
 
-        bookings = Booking.objects.filter(
-            provider=request.user
-        ).order_by("-created_at")
+    bookings = (
+        bookings
+        .select_related("service_request", "customer", "provider")
+        .annotate(has_review=Exists(review_exists))
+        .order_by("-created_at")
+    )
 
     return Response({
         "success": True,
@@ -595,14 +602,14 @@ def my_bookings(request):
                 "service_type": booking.service_request.service_type,
 
                 "customer": booking.customer.username,
-                "customer_id": booking.customer.id,
+                "customer_id": booking.customer_id,
                 "customer_profile_picture": (
                     request.build_absolute_uri(booking.customer.profile_picture.url)
                     if booking.customer.profile_picture else None
                 ),
 
                 "provider": booking.provider.username,
-                "provider_id": booking.provider.id,
+                "provider_id": booking.provider_id,
                 "provider_profile_picture": (
                     request.build_absolute_uri(booking.provider.profile_picture.url)
                     if booking.provider.profile_picture else None
@@ -618,10 +625,7 @@ def my_bookings(request):
                 "lawn_area": booking.service_request.lawn_area,
                 "polygon_points": booking.service_request.polygon_points,
 
-                "has_review": Review.objects.filter(
-                    booking=booking,
-                    customer=booking.customer,
-                ).exists(),
+                "has_review": booking.has_review,
             }
             for booking in bookings
         ]
@@ -1194,3 +1198,62 @@ def popular_providers(request):
         "success": True,
         "providers": data
     })
+
+
+# =========================================
+# DASHBOARD STATS (lightweight counts)
+# =========================================
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def dashboard_stats(request):
+    user = request.user
+
+    if user.role == "customer":
+        from .dashboard_cache import get_customer_stats
+
+        stats = get_customer_stats(user.id)
+        return Response({
+            "success": True,
+            "role": "customer",
+            **stats,
+        })
+
+    if not is_provider_role(user.role):
+        return Response(
+            {"success": False, "message": "Unsupported role"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    from .dashboard_cache import get_provider_stats
+
+    return Response({
+        "success": True,
+        **get_provider_stats(user),
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def customer_home(request):
+    user = request.user
+    if user.role != "customer":
+        return Response(
+            {"success": False, "message": "Only customers allowed"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    from adminpanel.catalog_helpers import build_home_catalog_payload
+    from .dashboard_cache import get_customer_home_payload
+
+    catalog = build_home_catalog_payload(request)
+    payload = get_customer_home_payload(request, user.id, catalog)
+
+    return Response(
+        {
+            "success": True,
+            "booked_count": payload["booked_count"],
+            "open_requests": payload["open_requests"],
+            "catalog": payload["catalog"],
+        },
+        status=status.HTTP_200_OK,
+    )

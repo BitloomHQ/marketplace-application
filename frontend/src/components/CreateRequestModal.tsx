@@ -1,6 +1,7 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { fetchActiveServices, fetchMyAddresses } from '../api/accounts'
+import { fetchMyAddresses } from '../api/accounts'
+import { fetchBookableServices } from '../api/catalog'
 import { createServiceRequest } from '../api/services'
 import { ApiRequestError } from '../api/client'
 import { FileUploadZone } from './FileUploadZone'
@@ -10,7 +11,7 @@ import { ListCardSkeleton } from './Shimmer'
 import { polygonAreaSqMeters } from '../lib/polygon'
 import { addressLatLon } from '../lib/address'
 import { addStoredRequestId } from '../lib/storage'
-import type { ActiveService, CustomerAddress, PolygonPoint } from '../types'
+import type { CustomerAddress, PolygonPoint, ServiceCategory } from '../types'
 
 const LAWN_CORNERS = 4
 
@@ -31,7 +32,7 @@ export function CreateRequestModal({
   const formId = useId()
   const resolvedFormId = formId.replace(/:/g, '')
   const [serviceType, setServiceType] = useState<string>(initialServiceType)
-  const [activeServices, setActiveServices] = useState<ActiveService[]>([])
+  const [activeServices, setActiveServices] = useState<ServiceCategory[]>([])
   const [addresses, setAddresses] = useState<CustomerAddress[]>([])
   const [addressId, setAddressId] = useState('')
   const [description, setDescription] = useState('')
@@ -55,7 +56,7 @@ export function CreateRequestModal({
     setPolygonPoints([])
     setError('')
     setLoadingAddresses(true)
-    Promise.all([fetchMyAddresses(), fetchActiveServices()])
+    Promise.all([fetchMyAddresses(), fetchBookableServices()])
       .then(([addressRes, servicesRes]) => {
         setAddresses(addressRes.addresses)
         setAddressId(addressRes.addresses[0] ? String(addressRes.addresses[0].id) : '')

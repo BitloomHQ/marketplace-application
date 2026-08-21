@@ -32,10 +32,12 @@ from .views import (
     delete_service_category,
     popular_services_api,
     public_services_api,
+    home_catalog_api,
 
     # Marketplace
     all_bookings,
     all_quotes,
+    marketplace_monitor_api,
 
     # Spotlight
     spotlight_list_api,
@@ -221,9 +223,21 @@ urlpatterns = [
         name="public-services",
     ),
 
+    path(
+        "catalog/home/",
+        home_catalog_api,
+        name="home-catalog",
+    ),
+
     # =========================================================
     # BOOKINGS & QUOTES
     # =========================================================
+
+    path(
+        "marketplace/monitor/",
+        marketplace_monitor_api,
+        name="marketplace-monitor",
+    ),
 
     path(
         "bookings/",

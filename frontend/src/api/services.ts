@@ -1,4 +1,5 @@
 import { apiRequest } from './client'
+import { toServiceCategory, type CatalogService, type SpotlightImage } from './catalog'
 import type {
   Booking,
   Lead,
@@ -6,8 +7,73 @@ import type {
   PopularProvider,
   ProviderRole,
   Quote,
+  ServiceCategory,
   User,
 } from '../types'
+
+const CUSTOMER_HOME_CACHE_KEY = 'marketplace_customer_home_v1'
+const CUSTOMER_HOME_TTL_MS = 45_000
+
+export type CustomerHomeData = {
+  booked_count: number
+  open_requests: number
+  services: ServiceCategory[]
+  popularServices: ServiceCategory[]
+  comingSoonServices: ServiceCategory[]
+  spotlights: SpotlightImage[]
+  expiresAt: number
+}
+
+export function clearCustomerHomeCache() {
+  sessionStorage.removeItem(CUSTOMER_HOME_CACHE_KEY)
+}
+
+function readCustomerHomeCache(): CustomerHomeData | null {
+  try {
+    const raw = sessionStorage.getItem(CUSTOMER_HOME_CACHE_KEY)
+    if (!raw) return null
+    const cached = JSON.parse(raw) as CustomerHomeData
+    if (cached.expiresAt <= Date.now()) {
+      sessionStorage.removeItem(CUSTOMER_HOME_CACHE_KEY)
+      return null
+    }
+    return cached
+  } catch {
+    return null
+  }
+}
+
+export async function fetchCustomerHome(force = false): Promise<CustomerHomeData> {
+  if (!force) {
+    const cached = readCustomerHomeCache()
+    if (cached) return cached
+  }
+
+  const res = await apiRequest<{
+    success: boolean
+    booked_count: number
+    open_requests: number
+    catalog: {
+      active_services: CatalogService[]
+      popular_services: CatalogService[]
+      coming_soon_services: CatalogService[]
+      spotlights: SpotlightImage[]
+    }
+  }>('/api/services/customer-home/')
+
+  const data: CustomerHomeData = {
+    booked_count: res.booked_count,
+    open_requests: res.open_requests,
+    services: res.catalog.active_services.map(toServiceCategory),
+    popularServices: res.catalog.popular_services.map(toServiceCategory),
+    comingSoonServices: res.catalog.coming_soon_services.map(toServiceCategory),
+    spotlights: res.catalog.spotlights ?? [],
+    expiresAt: Date.now() + CUSTOMER_HOME_TTL_MS,
+  }
+
+  sessionStorage.setItem(CUSTOMER_HOME_CACHE_KEY, JSON.stringify(data))
+  return data
+}
 
 export type ServiceRequestSummary = {
   id: number
@@ -59,7 +125,10 @@ export function createServiceRequest(data: {
   return apiRequest<{ success: boolean; request_id: number }>(
     '/api/services/create/',
     { method: 'POST', formData },
-  )
+  ).then((res) => {
+    clearCustomerHomeCache()
+    return res
+  })
 }
 
 export function fetchProviderLeads() {
@@ -115,6 +184,21 @@ export function updateBookingStatus(data: {
     '/api/services/update-booking-status/',
     { method: 'POST', body: data },
   )
+}
+
+export function fetchDashboardStats() {
+  return apiRequest<{
+    success: boolean
+    role: 'customer' | 'provider'
+    booked_count?: number
+    open_requests?: number
+    dashboard_type?: string
+    features?: string[]
+    new_jobs?: number
+    active_jobs?: number
+    average_rating?: number
+    total_reviews?: number
+  }>('/api/services/dashboard-stats/')
 }
 
 export function fetchMyServiceRequests(page = 1, pageSize = 10) {

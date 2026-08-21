@@ -30,6 +30,9 @@ export type AdminDashboardData = {
 }
 
 export type AdminProvider = User & {
+  first_name?: string
+  last_name?: string
+  full_name?: string
   bio?: string | null
   experience_years?: number | null
   is_active: boolean
@@ -178,11 +181,85 @@ export function deleteAdminService(serviceId: number, reason: string) {
   )
 }
 
+export type AdminCustomer = {
+  id: number
+  username: string
+  email: string
+  first_name: string
+  last_name: string
+  full_name: string
+  phone: string
+  address: string
+  is_active: boolean
+  is_email_verified: boolean
+  profile_picture: string | null
+  date_joined: string
+  last_login?: string | null
+}
+
+export type AdminPermissions = {
+  manage_providers: boolean
+  manage_customers: boolean
+  manage_services: boolean
+  manage_bookings: boolean
+  manage_quotes: boolean
+  view_reports: boolean
+  manage_spotlights: boolean
+  manage_admin_users: boolean
+}
+
+export type AdminStaffUser = {
+  id: number
+  username: string
+  email: string
+  first_name: string
+  last_name: string
+  full_name: string
+  is_staff: boolean
+  is_superuser: boolean
+  is_active: boolean
+  date_joined: string
+  permissions: AdminPermissions
+}
+
 export function fetchAdminCustomers() {
   return apiRequest<{
     success: boolean
-    customers: (User & { is_active: boolean; date_joined: string; profile_picture?: string | null })[]
+    customers: AdminCustomer[]
   }>('/api/admin-panel/customers/')
+}
+
+export function fetchAdminCustomerDetail(customerId: number) {
+  return apiRequest<{ success: boolean; data: AdminCustomer }>(
+    `/api/admin-panel/customers/${customerId}/`,
+  )
+}
+
+export function updateAdminCustomer(
+  customerId: number,
+  data: Partial<{
+    username: string
+    email: string
+    first_name: string
+    last_name: string
+    phone: string
+    address: string
+    profile_picture: File | null
+  }>,
+) {
+  const formData = new FormData()
+  if (data.username != null) formData.append('username', data.username)
+  if (data.email != null) formData.append('email', data.email)
+  if (data.first_name != null) formData.append('first_name', data.first_name)
+  if (data.last_name != null) formData.append('last_name', data.last_name)
+  if (data.phone != null) formData.append('phone', data.phone)
+  if (data.address != null) formData.append('address', data.address)
+  if (data.profile_picture) formData.append('profile_picture', data.profile_picture)
+
+  return apiRequest<{ success: boolean; message: string; data: AdminCustomer }>(
+    `/api/admin-panel/customers/${customerId}/update/`,
+    { method: 'PATCH', formData },
+  )
 }
 
 export function activateCustomer(customerId: number) {
@@ -199,26 +276,211 @@ export function deactivateCustomer(customerId: number) {
   )
 }
 
-export function fetchAdminRequests() {
-  return apiRequest<{ success: boolean; requests: Record<string, unknown>[] }>(
-    '/api/admin-panel/requests/',
-  )
+export function fetchAdminMarketplaceMonitor(sections?: Array<'bookings' | 'quotes' | 'providers'>) {
+  const query = sections?.length ? `?sections=${sections.join(',')}` : ''
+  return apiRequest<{
+    success: boolean
+    bookings?: AdminBooking[]
+    quotes?: AdminQuote[]
+    providers?: AdminProviderPerformance[]
+  }>(`/api/admin-panel/marketplace/monitor/${query}`)
 }
 
 export function fetchAdminBookings() {
-  return apiRequest<{ success: boolean; bookings: Record<string, unknown>[] }>(
+  return apiRequest<{ success: boolean; bookings: AdminBooking[] }>(
     '/api/admin-panel/bookings/',
   )
 }
 
 export function fetchAdminQuotes() {
-  return apiRequest<{ success: boolean; quotes: Record<string, unknown>[] }>(
+  return apiRequest<{ success: boolean; quotes: AdminQuote[] }>(
     '/api/admin-panel/quotes/',
   )
 }
 
 export function fetchProviderPerformance() {
-  return apiRequest<{ success: boolean; providers: Record<string, unknown>[] }>(
+  return apiRequest<{ success: boolean; providers: AdminProviderPerformance[] }>(
     '/api/admin-panel/provider-performance/',
   )
+}
+
+export function fetchAdminSpotlights() {
+  return apiRequest<{ success: boolean; count: number; data: Record<string, unknown>[] }>(
+    '/api/admin-panel/spotlights/',
+  )
+}
+
+export function createAdminSpotlight(data: FormData) {
+  return apiRequest<{ success: boolean; message: string; data: Record<string, unknown> }>(
+    '/api/admin-panel/spotlights/create/',
+    { method: 'POST', formData: data },
+  )
+}
+
+export function updateAdminSpotlight(spotlightId: number, data: FormData) {
+  return apiRequest<{ success: boolean; message: string; data: Record<string, unknown> }>(
+    `/api/admin-panel/spotlights/${spotlightId}/update/`,
+    { method: 'PATCH', formData: data },
+  )
+}
+
+export function deleteAdminSpotlight(spotlightId: number) {
+  return apiRequest<{ success: boolean; message: string }>(
+    `/api/admin-panel/spotlights/${spotlightId}/delete/`,
+    { method: 'DELETE' },
+  )
+}
+
+export function updateAdminProvider(
+  providerId: number,
+  data: Partial<{
+    username: string
+    email: string
+    first_name: string
+    last_name: string
+    phone: string
+    address: string
+    bio: string
+    experience_years: number | null
+    profile_picture: File | null
+  }>,
+) {
+  const formData = new FormData()
+  if (data.username != null) formData.append('username', data.username)
+  if (data.email != null) formData.append('email', data.email)
+  if (data.first_name != null) formData.append('first_name', data.first_name)
+  if (data.last_name != null) formData.append('last_name', data.last_name)
+  if (data.phone != null) formData.append('phone', data.phone)
+  if (data.address != null) formData.append('address', data.address)
+  if (data.bio != null) formData.append('bio', data.bio)
+  if (data.experience_years != null) {
+    formData.append('experience_years', String(data.experience_years))
+  } else if (data.experience_years === null && 'experience_years' in data) {
+    formData.append('experience_years', '')
+  }
+  if (data.profile_picture) formData.append('profile_picture', data.profile_picture)
+
+  return apiRequest<{ success: boolean; message: string; data: AdminProvider }>(
+    `/api/admin-panel/providers/${providerId}/update/`,
+    { method: 'PATCH', formData },
+  )
+}
+
+export function fetchAdminUsers() {
+  return apiRequest<{ success: boolean; count: number; data: AdminStaffUser[] }>(
+    '/api/admin-panel/admin-users/',
+  )
+}
+
+export function fetchAdminUserDetail(adminId: number) {
+  return apiRequest<{ success: boolean; data: AdminStaffUser }>(
+    `/api/admin-panel/admin-users/${adminId}/`,
+  )
+}
+
+export function createAdminUser(data: {
+  username: string
+  email: string
+  password: string
+  first_name?: string
+  last_name?: string
+  permissions: AdminPermissions
+}) {
+  return apiRequest<{ success: boolean; message: string; data: AdminStaffUser }>(
+    '/api/admin-panel/admin-users/create/',
+    { method: 'POST', body: data },
+  )
+}
+
+export function updateAdminUser(
+  adminId: number,
+  data: Partial<{
+    email: string
+    first_name: string
+    last_name: string
+    permissions: AdminPermissions
+  }>,
+) {
+  return apiRequest<{ success: boolean; message: string; data: AdminStaffUser }>(
+    `/api/admin-panel/admin-users/${adminId}/update/`,
+    { method: 'PATCH', body: data },
+  )
+}
+
+export function activateAdminUser(adminId: number) {
+  return apiRequest<{ success: boolean; message: string }>(
+    `/api/admin-panel/admin-users/${adminId}/activate/`,
+    { method: 'POST' },
+  )
+}
+
+export function deactivateAdminUser(adminId: number) {
+  return apiRequest<{ success: boolean; message: string }>(
+    `/api/admin-panel/admin-users/${adminId}/deactivate/`,
+    { method: 'POST' },
+  )
+}
+
+export function deleteAdminUser(adminId: number) {
+  return apiRequest<{ success: boolean; message: string }>(
+    `/api/admin-panel/admin-users/${adminId}/delete/`,
+    { method: 'DELETE' },
+  )
+}
+
+export function fetchAdminProviderDetail(providerId: number) {
+  return apiRequest<{ success: boolean; data: AdminProvider }>(
+    `/api/admin-panel/providers/${providerId}/`,
+  ).then((res) => ({
+    ...res,
+    data: normalizeAdminProvider(res.data),
+  }))
+}
+
+export type AdminBooking = {
+  id: number
+  service_request_id: number
+  service_type: string
+  customer_id: number
+  customer: string
+  provider_id: number
+  provider: string
+  final_price: number
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+export type AdminQuote = {
+  id: number
+  service_request_id: number
+  service_type: string
+  customer: string
+  provider_id: number
+  provider: string
+  price: number
+  message: string
+  status: string
+  created_at: string
+}
+
+export type AdminProviderPerformance = {
+  provider_id: number
+  provider: string
+  email: string
+  phone: string
+  role: string
+  is_active: boolean
+  is_approved: boolean
+  is_verified: boolean
+  profile_picture: string | null
+  total_quotes: number
+  accepted_quotes: number
+  acceptance_rate: number
+  total_bookings: number
+  completed_bookings: number
+  cancelled_bookings: number
+  completion_rate: number
+  total_reviews: number
+  average_rating: number
 }
