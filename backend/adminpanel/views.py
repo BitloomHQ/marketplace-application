@@ -24,6 +24,7 @@ from .services.dashboard_filters import (
     filter_service_bookings,
     filter_service_reviews,
 )
+from .analytics_cache import get_analytics_cache, set_analytics_cache
 from .models import ServiceCategory, SpotlightImage
 
 from .permissions import (
@@ -105,6 +106,16 @@ def admin_dashboard(request):
     dashboard_filters = (
         get_dashboard_filters(request)
     )
+
+    cached_payload = get_analytics_cache(
+        "kpi",
+        dashboard_filters,
+    )
+    if cached_payload is not None:
+        return Response(
+            cached_payload,
+            status=status.HTTP_200_OK,
+        )
 
     # =========================================================
     # CUSTOMER STATISTICS
@@ -495,8 +506,7 @@ def admin_dashboard(request):
     # RESPONSE
     # =========================================================
 
-    return Response(
-        {
+    payload = {
             "success": True,
 
             "message": (
@@ -764,7 +774,15 @@ def admin_dashboard(request):
                     ),
                 },
             },
-        },
+        }
+
+    set_analytics_cache(
+        "kpi",
+        dashboard_filters,
+        payload,
+    )
+    return Response(
+        payload,
         status=status.HTTP_200_OK,
     )
     
@@ -792,6 +810,16 @@ def dashboard_trends_api(request):
     dashboard_filters = (
         get_dashboard_filters(request)
     )
+
+    cached_payload = get_analytics_cache(
+        "trends",
+        dashboard_filters,
+    )
+    if cached_payload is not None:
+        return Response(
+            cached_payload,
+            status=status.HTTP_200_OK,
+        )
 
     bookings = (
         filter_service_bookings(
@@ -968,75 +996,81 @@ def dashboard_trends_api(request):
     # RESPONSE
     # =========================================================
 
-    return Response(
-        {
-            "success": True,
-            "message": (
-                "Dashboard trends fetched successfully."
+    payload = {
+        "success": True,
+        "message": (
+            "Dashboard trends fetched successfully."
+        ),
+
+        "filters": {
+            "period": (
+                dashboard_filters[
+                    "period"
+                ]
             ),
 
-            "filters": {
-                "period": (
-                    dashboard_filters[
-                        "period"
-                    ]
-                ),
+            "from": (
+                dashboard_filters[
+                    "start_date"
+                ]
+            ),
 
-                "from": (
-                    dashboard_filters[
-                        "start_date"
-                    ]
-                ),
+            "to": (
+                dashboard_filters[
+                    "end_date"
+                ]
+            ),
 
-                "to": (
-                    dashboard_filters[
-                        "end_date"
-                    ]
-                ),
+            "service": (
+                dashboard_filters[
+                    "service"
+                ]
+            ),
 
-                "service": (
-                    dashboard_filters[
-                        "service"
-                    ]
-                ),
-
-                "provider_id": (
-                    dashboard_filters[
-                        "provider_id"
-                    ]
-                ),
-            },
-
-            "summary": {
-                "total_bookings": (
-                    total_bookings
-                ),
-
-                "total_booking_value": (
-                    total_booking_value
-                ),
-            },
-
-            "chart": {
-                "labels": labels,
-
-                "booking_count": (
-                    booking_count
-                ),
-
-                "completed_bookings": (
-                    completed_bookings
-                ),
-
-                "cancelled_bookings": (
-                    cancelled_bookings
-                ),
-
-                "booking_value": (
-                    booking_value
-                ),
-            },
+            "provider_id": (
+                dashboard_filters[
+                    "provider_id"
+                ]
+            ),
         },
+
+        "summary": {
+            "total_bookings": (
+                total_bookings
+            ),
+
+            "total_booking_value": (
+                total_booking_value
+            ),
+        },
+
+        "chart": {
+            "labels": labels,
+
+            "booking_count": (
+                booking_count
+            ),
+
+            "completed_bookings": (
+                completed_bookings
+            ),
+
+            "cancelled_bookings": (
+                cancelled_bookings
+            ),
+
+            "booking_value": (
+                booking_value
+            ),
+        },
+    }
+    set_analytics_cache(
+        "trends",
+        dashboard_filters,
+        payload,
+    )
+    return Response(
+        payload,
         status=status.HTTP_200_OK,
     )
 
@@ -2413,6 +2447,16 @@ def provider_performance(request):
         request
     )
 
+    cached_payload = get_analytics_cache(
+        "provider-performance",
+        dashboard_filters,
+    )
+    if cached_payload is not None:
+        return Response(
+            cached_payload,
+            status=status.HTTP_200_OK,
+        )
+
     # We calculate accepted/completed/cancelled metrics
     # ourselves, so don't apply generic status filtering.
     analytics_filters = {
@@ -2784,8 +2828,7 @@ def provider_performance(request):
     # RESPONSE
     # =========================================================
 
-    return Response(
-        {
+    payload = {
             "success": True,
 
             "message": (
@@ -2840,9 +2883,19 @@ def provider_performance(request):
             "count": len(data),
 
             "providers": data,
-        },
+        }
+
+    set_analytics_cache(
+        "provider-performance",
+        dashboard_filters,
+        payload,
+    )
+    return Response(
+        payload,
         status=status.HTTP_200_OK,
     )
+
+
 @api_view(["GET"])
 @permission_classes([
     IsAuthenticated,
@@ -3888,7 +3941,7 @@ def customer_detail_api(request, customer_id):
                 "date_joined": customer.date_joined,
                 "last_login": customer.last_login,
             },
-        },
+        },  
         status=status.HTTP_200_OK,
     )
 
@@ -4482,6 +4535,16 @@ def service_performance_api(request):
         request
     )
 
+    cached_payload = get_analytics_cache(
+        "service-performance",
+        dashboard_filters,
+    )
+    if cached_payload is not None:
+        return Response(
+            cached_payload,
+            status=status.HTTP_200_OK,
+        )
+
     # We calculate status-specific metrics ourselves below.
     # Do not let a generic ?status filter accidentally
     # remove completed/cancelled bookings before aggregation.
@@ -4522,6 +4585,10 @@ def service_performance_api(request):
     # =========================================================
 
     for service in services:
+        # adminpanel.ServiceCategory and services.ServiceCategory are
+        # different models. CustomerServiceRequest.category FKs to
+        # services.ServiceCategory, so match by key — not by instance.
+        service_key = service.key
 
         # -----------------------------------------------------
         # REQUESTS
@@ -4530,7 +4597,7 @@ def service_performance_api(request):
         requests_queryset = (
             CustomerServiceRequest.objects
             .filter(
-                category=service
+                category__key__iexact=service_key
             )
         )
 
@@ -4552,7 +4619,7 @@ def service_performance_api(request):
         quotations_queryset = (
             ProviderQuotation.objects
             .filter(
-                service_request__category=service
+                service_request__category__key__iexact=service_key
             )
         )
 
@@ -4582,7 +4649,7 @@ def service_performance_api(request):
         bookings_queryset = (
             ServiceBooking.objects
             .filter(
-                service_request__category=service
+                service_request__category__key__iexact=service_key
             )
         )
 
@@ -4641,7 +4708,7 @@ def service_performance_api(request):
         reviews_queryset = (
             ServiceReview.objects
             .filter(
-                booking__service_request__category=service
+                booking__service_request__category__key__iexact=service_key
             )
         )
 
@@ -4745,6 +4812,7 @@ def service_performance_api(request):
         data.append(
             {
                 "service_id": service.id,
+                "service": service.name,
                 "service_name": service.name,
                 "service_key": service.key,
                 "status": service.status,
@@ -4768,10 +4836,16 @@ def service_performance_api(request):
                     total_bookings
                 ),
 
+                "completed_bookings": (
+                    completed_jobs
+                ),
                 "completed_jobs": (
                     completed_jobs
                 ),
 
+                "cancelled_bookings": (
+                    cancelled_jobs
+                ),
                 "cancelled_jobs": (
                     cancelled_jobs
                 ),
@@ -4784,6 +4858,9 @@ def service_performance_api(request):
                     cancellation_rate
                 ),
 
+                "booking_value": (
+                    total_booking_value
+                ),
                 "total_booking_value": (
                     total_booking_value
                 ),
@@ -4825,40 +4902,46 @@ def service_performance_api(request):
     # RESPONSE
     # =========================================================
 
-    return Response(
-        {
-            "success": True,
-            "message": (
-                "Service performance analytics "
-                "fetched successfully."
+    payload = {
+        "success": True,
+        "message": (
+            "Service performance analytics "
+            "fetched successfully."
+        ),
+
+        "filters": {
+            "period": (
+                dashboard_filters["period"]
             ),
 
-            "filters": {
-                "period": (
-                    dashboard_filters["period"]
-                ),
+            "from": (
+                dashboard_filters[
+                    "start_date"
+                ]
+            ),
 
-                "from": (
-                    dashboard_filters[
-                        "start_date"
-                    ]
-                ),
+            "to": (
+                dashboard_filters[
+                    "end_date"
+                ]
+            ),
 
-                "to": (
-                    dashboard_filters[
-                        "end_date"
-                    ]
-                ),
-
-                "service": (
-                    dashboard_filters["service"]
-                ),
-            },
-
-            "count": len(data),
-
-            "services": data,
+            "service": (
+                dashboard_filters["service"]
+            ),
         },
+
+        "count": len(data),
+
+        "services": data,
+    }
+    set_analytics_cache(
+        "service-performance",
+        dashboard_filters,
+        payload,
+    )
+    return Response(
+        payload,
         status=status.HTTP_200_OK,
     )
 
@@ -4884,6 +4967,16 @@ def service_request_funnel_api(request):
     dashboard_filters = get_dashboard_filters(
         request
     )
+
+    cached_payload = get_analytics_cache(
+        "funnel",
+        dashboard_filters,
+    )
+    if cached_payload is not None:
+        return Response(
+            cached_payload,
+            status=status.HTTP_200_OK,
+        )
 
     # We calculate stage statuses ourselves.
     analytics_filters = {
@@ -5109,8 +5202,7 @@ def service_request_funnel_api(request):
     # RESPONSE
     # =========================================================
 
-    return Response(
-        {
+    payload = {
             "success": True,
             "message": (
                 "Service request funnel "
@@ -5144,7 +5236,15 @@ def service_request_funnel_api(request):
             },
 
             "funnel": funnel,
-        },
+        }
+
+    set_analytics_cache(
+        "funnel",
+        dashboard_filters,
+        payload,
+    )
+    return Response(
+        payload,
         status=status.HTTP_200_OK,
     )
 
@@ -5170,6 +5270,16 @@ def customer_analytics_api(request):
     dashboard_filters = get_dashboard_filters(
         request
     )
+
+    cached_payload = get_analytics_cache(
+        "customer-analytics",
+        dashboard_filters,
+    )
+    if cached_payload is not None:
+        return Response(
+            cached_payload,
+            status=status.HTTP_200_OK,
+        )
 
     analytics_filters = {
         **dashboard_filters,
@@ -5466,8 +5576,7 @@ def customer_analytics_api(request):
     # RESPONSE
     # =========================================================
 
-    return Response(
-        {
+    payload = {
             "success": True,
 
             "message": (
@@ -5538,7 +5647,14 @@ def customer_analytics_api(request):
             "top_customers": (
                 top_customers
             ),
-        },
+        }
+    set_analytics_cache(
+        "customer-analytics",
+        dashboard_filters,
+        payload,
+    )
+    return Response(
+        payload,
         status=status.HTTP_200_OK,
     )
 
@@ -5575,6 +5691,16 @@ def geographic_analytics_api(request):
     dashboard_filters = get_dashboard_filters(
         request
     )
+
+    cached_payload = get_analytics_cache(
+        "geographic-analytics",
+        dashboard_filters,
+    )
+    if cached_payload is not None:
+        return Response(
+            cached_payload,
+            status=status.HTTP_200_OK,
+        )
 
     analytics_filters = {
         **dashboard_filters,
@@ -5955,8 +6081,7 @@ def geographic_analytics_api(request):
     # RESPONSE
     # =========================================================
 
-    return Response(
-        {
+    payload = {
             "success": True,
 
             "message": (
@@ -6017,6 +6142,13 @@ def geographic_analytics_api(request):
             "states": states,
 
             "map_points": map_points,
-        },
+        }
+    set_analytics_cache(
+        "geographic-analytics",
+        dashboard_filters,
+        payload,
+    )
+    return Response(
+        payload,
         status=status.HTTP_200_OK,
     )
