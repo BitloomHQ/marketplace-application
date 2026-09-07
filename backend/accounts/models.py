@@ -107,37 +107,160 @@ class ProviderPortfolioImage(models.Model):
 
 class CustomerAddress(models.Model):
 
+    # ============================================================
+    # ADDRESS TYPE
+    # ============================================================
+
+    ADDRESS_TYPE_HOME = "home"
+    ADDRESS_TYPE_WORK = "work"
+    ADDRESS_TYPE_OTHER = "other"
+
+    ADDRESS_TYPE_CHOICES = (
+        (ADDRESS_TYPE_HOME, "Home"),
+        (ADDRESS_TYPE_WORK, "Work"),
+        (ADDRESS_TYPE_OTHER, "Other"),
+    )
+
+    # ============================================================
+    # LOCATION SOURCE
+    # ============================================================
+
+    LOCATION_SOURCE_LIVE = "live"
+    LOCATION_SOURCE_MANUAL = "manual"
+
+    LOCATION_SOURCE_CHOICES = (
+        (LOCATION_SOURCE_LIVE, "Current Location"),
+        (LOCATION_SOURCE_MANUAL, "Manual Location"),
+    )
+
+    # ============================================================
+    # CUSTOMER
+    # ============================================================
+
     customer = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="addresses"
+        related_name="addresses",
     )
+
+    # ============================================================
+    # ADDRESS INFORMATION
+    # ============================================================
 
     title = models.CharField(
         max_length=100,
         blank=True,
-        null=True
+        default="",
+        help_text=(
+            "Custom address label such as "
+            "Home, Office, Parents' Home, etc."
+        ),
+    )
+
+    address_type = models.CharField(
+        max_length=20,
+        choices=ADDRESS_TYPE_CHOICES,
+        default=ADDRESS_TYPE_HOME,
     )
 
     address = models.TextField()
 
-    latitude = models.FloatField(
-        null=True,
-        blank=True
+    city = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
     )
 
-    longitude = models.FloatField(
-        null=True,
-        blank=True
+    state = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
     )
+
+    postal_code = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+    )
+
+    # ============================================================
+    # COORDINATES
+    # ============================================================
+
+    latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+    )
+
+    longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+    )
+
+    location_source = models.CharField(
+        max_length=20,
+        choices=LOCATION_SOURCE_CHOICES,
+        default=LOCATION_SOURCE_MANUAL,
+    )
+
+    # ============================================================
+    # DEFAULT ADDRESS
+    # ============================================================
+
+    is_default = models.BooleanField(
+        default=False,
+    )
+
+    # ============================================================
+    # TIMESTAMPS
+    # ============================================================
 
     created_at = models.DateTimeField(
-        auto_now_add=True
+        auto_now_add=True,
     )
 
-    def __str__(self):
-        return f"{self.customer.username} - {self.address}"
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
 
+    # ============================================================
+    # META
+    # ============================================================
+
+    class Meta:
+        ordering = [
+            "-is_default",
+            "-created_at",
+        ]
+
+        indexes = [
+            models.Index(
+                fields=[
+                    "customer",
+                    "is_default",
+                ]
+            ),
+        ]
+
+    # ============================================================
+    # STRING REPRESENTATION
+    # ============================================================
+
+    def __str__(self):
+        label = (
+            self.title
+            or self.get_address_type_display()
+        )
+
+        return (
+            f"{self.customer.username} - "
+            f"{label} - "
+            f"{self.address}"
+        )
 
 class EmailVerificationOTP(models.Model):
     user = models.OneToOneField(
@@ -155,3 +278,57 @@ class EmailVerificationOTP(models.Model):
 
     def __str__(self):
         return f"OTP for {self.user.email}"
+
+
+class FavoriteProvider(models.Model):
+    """
+    A provider saved/favorited by a customer.
+
+    A customer can save the same provider only once.
+    """
+
+    customer = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="favorite_providers",
+    )
+
+    provider = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="favorited_by_customers",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        ordering = [
+            "-created_at",
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "customer",
+                    "provider",
+                ],
+                name="unique_customer_favorite_provider",
+            ),
+        ]
+
+        indexes = [
+            models.Index(
+                fields=[
+                    "customer",
+                    "-created_at",
+                ]
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.customer.username} -> "
+            f"{self.provider.username}"
+        )

@@ -1,51 +1,61 @@
+from datetime import timedelta
 from math import radians, sin, cos, sqrt, atan2
 
-from providers.models import ProviderProfile
-from service_requests.models import CustomerServiceRequest
+from django.utils import timezone
+
+from adminpanel.models import MarketplaceLocationSettings
+from providers.models import (
+    ProviderAvailability,
+    ProviderProfile,
+)
+from service_requests.models import ServiceBooking
 
 
 # ============================================================
-# DISTANCE CALCULATION
+# DISTANCE
 # ============================================================
 
 def calculate_distance_km(
-    lat1,
-    lon1,
-    lat2,
-    lon2,
+    latitude_1,
+    longitude_1,
+    latitude_2,
+    longitude_2,
 ):
     """
-    Calculate straight-line distance between two geographic
-    coordinates using the Haversine formula.
+    Calculate straight-line geographical distance between
+    two latitude/longitude coordinates using Haversine.
 
-    Returns distance in kilometers.
+    Returns distance in kilometres.
     """
 
-    if None in (lat1, lon1, lat2, lon2):
+    if (
+        latitude_1 is None
+        or longitude_1 is None
+        or latitude_2 is None
+        or longitude_2 is None
+    ):
         return None
 
-    # DecimalField values may be Decimal objects.
-    # Convert them to float before doing math calculations.
-    lat1 = float(lat1)
-    lon1 = float(lon1)
-    lat2 = float(lat2)
-    lon2 = float(lon2)
+    try:
+        lat1 = radians(float(latitude_1))
+        lon1 = radians(float(longitude_1))
+        lat2 = radians(float(latitude_2))
+        lon2 = radians(float(longitude_2))
 
-    earth_radius_km = 6371.0
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return None
 
-    lat1_rad = radians(lat1)
-    lon1_rad = radians(lon1)
-    lat2_rad = radians(lat2)
-    lon2_rad = radians(lon2)
-
-    delta_lat = lat2_rad - lat1_rad
-    delta_lon = lon2_rad - lon1_rad
+    latitude_difference = lat2 - lat1
+    longitude_difference = lon2 - lon1
 
     a = (
-        sin(delta_lat / 2) ** 2
-        + cos(lat1_rad)
-        * cos(lat2_rad)
-        * sin(delta_lon / 2) ** 2
+        sin(latitude_difference / 2) ** 2
+        + cos(lat1)
+        * cos(lat2)
+        * sin(longitude_difference / 2) ** 2
     )
 
     c = 2 * atan2(
@@ -53,342 +63,670 @@ def calculate_distance_km(
         sqrt(1 - a),
     )
 
-    return earth_radius_km * c
+    earth_radius_km = 6371.0088
+
+    return round(
+        earth_radius_km * c,
+        2,
+    )
 
 
 # ============================================================
-# SERVICE AREA MATCHING
+# SERVICE REQUEST LOCATION
 # ============================================================
 
-def provider_matches_location(
-    provider_profile,
+def get_service_request_location(
     service_request,
 ):
     """
-    Check whether the customer's requested location falls
-    inside at least one active service area of the provider.
+    Support both service-request structures used by
+    the marketplace.
+
+    New structure:
+        latitude
+        longitude
+
+    Older structure:
+        lat
+        lon
     """
 
+    latitude = getattr(
+        service_request,
+        "latitude",
+        None,
+    )
+
+    longitude = getattr(
+        service_request,
+        "longitude",
+        None,
+    )
+
+    if latitude is None:
+        latitude = getattr(
+            service_request,
+            "lat",
+            None,
+        )
+
+    if longitude is None:
+        longitude = getattr(
+            service_request,
+            "lon",
+            None,
+        )
+
+    return (
+        latitude,
+        longitude,
+    )
+
+
+# ============================================================
+# SERVICE REQUEST CATEGORY
+# ============================================================
+
+def get_service_request_category(
+    service_request,
+):
+    """
+    Support both request naming conventions.
+
+    New structure:
+        category
+
+    Older structure:
+        service_type
+    """
+
+    category = getattr(
+        service_request,
+        "category",
+        None,
+    )
+
+    if category:
+        return category
+
+    return getattr(
+        service_request,
+        "service_type",
+        None,
+    )
+
+
+# ============================================================
+# SERVICE REQUEST PREFERRED SCHEDULE
+# ============================================================
+
+def get_service_request_schedule(
+    service_request,
+):
+    """
+    Return the customer's preferred schedule.
+
+    Schedule filtering is only enabled when ALL three
+    scheduling fields are present.
+
+    This preserves existing behaviour for requests where
+    the customer does not choose a preferred schedule.
+    """
+
+    preferred_date = getattr(
+        service_request,
+        "preferred_date",
+        None,
+    )
+
+    preferred_start_time = getattr(
+        service_request,
+        "preferred_start_time",
+        None,
+    )
+
+    preferred_end_time = getattr(
+        service_request,
+        "preferred_end_time",
+        None,
+    )
+
+    has_complete_schedule = all(
+        [
+            preferred_date,
+            preferred_start_time,
+            preferred_end_time,
+        ]
+    )
+
+    return {
+        "has_complete_schedule": (
+            has_complete_schedule
+        ),
+        "preferred_date": (
+            preferred_date
+        ),
+        "preferred_start_time": (
+            preferred_start_time
+        ),
+        "preferred_end_time": (
+            preferred_end_time
+        ),
+    }
+
+
+# ============================================================
+# EFFECTIVE PROVIDER RADIUS
+# ============================================================
+
+def get_effective_provider_radius(
+    provider_profile,
+    marketplace_settings=None,
+):
+    """
+    Effective provider radius is controlled by:
+
+    1. Marketplace admin maximum radius
+    2. Provider preferred service radius
+
+    Effective radius = minimum of both.
+    """
+
+    if marketplace_settings is None:
+
+        marketplace_settings = (
+            MarketplaceLocationSettings
+            .get_settings()
+        )
+
+    admin_max_radius = float(
+        marketplace_settings
+        .max_provider_radius_km
+    )
+
+    if (
+        provider_profile.service_radius_km
+        is not None
+    ):
+
+        provider_radius = float(
+            provider_profile
+            .service_radius_km
+        )
+
+    else:
+
+        provider_radius = float(
+            marketplace_settings
+            .default_provider_radius_km
+        )
+
+    return min(
+        admin_max_radius,
+        provider_radius,
+    )
+
+
+# ============================================================
+# PROVIDER LOCATION FRESHNESS
+# ============================================================
+
+def provider_location_is_usable(
+    provider_profile,
+    marketplace_settings,
+):
+    """
+    Determine whether provider coordinates are currently
+    usable for marketplace matching.
+
+    Manual location:
+        Does not expire.
+
+    Live GPS:
+        Expires according to marketplace timeout.
+    """
+
+    if (
+        provider_profile.current_latitude is None
+        or provider_profile.current_longitude is None
+    ):
+        return False
+
     # --------------------------------------------------------
-    # Customer has coordinates
+    # MANUAL LOCATION
     # --------------------------------------------------------
 
     if (
-        service_request.latitude is not None
-        and service_request.longitude is not None
+        provider_profile.location_source
+        == ProviderProfile.LOCATION_SOURCE_MANUAL
     ):
-        for area in provider_profile.service_areas.all():
+        return True
 
-            if not area.is_active:
-                continue
+    # --------------------------------------------------------
+    # LIVE LOCATION
+    # --------------------------------------------------------
 
-            if (
-                area.latitude is None
-                or area.longitude is None
-            ):
-                continue
+    if (
+        provider_profile.location_source
+        == ProviderProfile.LOCATION_SOURCE_LIVE
+    ):
 
-            distance = calculate_distance_km(
-                service_request.latitude,
-                service_request.longitude,
-                area.latitude,
-                area.longitude,
+        if (
+            provider_profile.last_location_updated_at
+            is None
+        ):
+            return False
+
+        timeout_minutes = (
+            marketplace_settings
+            .live_location_timeout_minutes
+        )
+
+        expiry_time = (
+            provider_profile
+            .last_location_updated_at
+            + timedelta(
+                minutes=timeout_minutes
             )
-
-            if distance is None:
-                continue
-
-            if distance <= area.service_radius_km:
-                return True
-
-        return False
-
-    # --------------------------------------------------------
-    # Fallback when coordinates are unavailable
-    # --------------------------------------------------------
-    # Use city + state matching.
-
-    request_city = (
-        service_request.city or ""
-    ).strip().lower()
-
-    request_state = (
-        service_request.state or ""
-    ).strip().lower()
-
-    for area in provider_profile.service_areas.all():
-
-        if not area.is_active:
-            continue
-
-        area_city = (
-            area.city or ""
-        ).strip().lower()
-
-        area_state = (
-            area.state or ""
-        ).strip().lower()
-
-        if (
-            request_city == area_city
-            and request_state == area_state
-        ):
-            return True
-
-    return False
-def get_provider_distance(
-    provider_profile,
-    service_request,
-):
-    """
-    Return the shortest distance between the customer's
-    requested location and any active provider service area.
-
-    Returns None when coordinates are unavailable.
-    """
-
-    if (
-        service_request.latitude is None
-        or service_request.longitude is None
-    ):
-        return None
-
-    distances = []
-
-    for area in provider_profile.service_areas.all():
-
-        if not area.is_active:
-            continue
-
-        if (
-            area.latitude is None
-            or area.longitude is None
-        ):
-            continue
-
-        distance = calculate_distance_km(
-            service_request.latitude,
-            service_request.longitude,
-            area.latitude,
-            area.longitude,
         )
 
-        if distance is not None:
-            distances.append(distance)
+        if timezone.now() > expiry_time:
+            return False
 
-    if not distances:
-        return None
-
-    return round(min(distances), 2)
-
-# ============================================================
-# FIND MATCHING PROVIDERS
-# ============================================================
-def provider_matches_availability(
-    provider_profile,
-    service_request,
-):
-    """
-    Check whether the provider is available for the
-    customer's preferred date and time.
-
-    Rules:
-    1. If no preferred date is provided, do not restrict matching.
-    2. Match the provider's day_of_week with preferred_date.
-    3. Provider availability slot must be active.
-    4. Requested time must fit inside provider's availability slot.
-    5. Emergency requests require accepts_emergency_work=True.
-    """
-
-    # --------------------------------------------------------
-    # EMERGENCY CHECK
-    # --------------------------------------------------------
-
-    if (
-        service_request.urgency == "emergency"
-        and not provider_profile.accepts_emergency_work
-    ):
-        return False
-
-    # --------------------------------------------------------
-    # NO PREFERRED DATE
-    # --------------------------------------------------------
-    # preferred_date is optional in your model.
-    # If customer hasn't selected one, availability should
-    # not remove the provider from matching.
-
-    if service_request.preferred_date is None:
         return True
 
-    # Python weekday():
-    # Monday = 0
-    # Tuesday = 1
-    # ...
-    # Sunday = 6
-    #
-    # This exactly matches ProviderAvailability.DAY_CHOICES.
+    return False
 
-    requested_day = service_request.preferred_date.weekday()
 
-    availability_slots = (
-        provider_profile.availability_slots
+# ============================================================
+# PROVIDER WEEKLY AVAILABILITY
+# ============================================================
+
+def provider_is_available_for_schedule(
+    provider_profile,
+    preferred_date,
+    preferred_start_time,
+    preferred_end_time,
+):
+    """
+    Check whether the requested customer schedule fits
+    completely inside one provider availability slot.
+
+    Example:
+
+        Provider availability:
+            Monday 09:00 - 12:00
+
+        Request 10:00 - 11:00
+            -> True
+
+        Request 11:00 - 13:00
+            -> False
+    """
+
+    if not all(
+        [
+            preferred_date,
+            preferred_start_time,
+            preferred_end_time,
+        ]
+    ):
+        return True
+
+    if preferred_end_time <= preferred_start_time:
+        return False
+
+    day_of_week = preferred_date.weekday()
+
+    return (
+        ProviderAvailability.objects
         .filter(
-            day_of_week=requested_day,
+            provider_profile=provider_profile,
+            day_of_week=day_of_week,
             is_available=True,
+            start_time__lte=preferred_start_time,
+            end_time__gte=preferred_end_time,
         )
+        .exists()
     )
 
-    if not availability_slots.exists():
-        return False
 
-    requested_start = service_request.preferred_start_time
-    requested_end = service_request.preferred_end_time
+# ============================================================
+# PROVIDER BOOKING CONFLICT
+# ============================================================
+from service_requests.models import ServiceBooking
 
-    # --------------------------------------------------------
-    # DATE PROVIDED BUT NO SPECIFIC TIME
-    # --------------------------------------------------------
-
-    if requested_start is None and requested_end is None:
-        return True
-
-    # --------------------------------------------------------
-    # CHECK EACH AVAILABILITY SLOT
-    # --------------------------------------------------------
-
-    for slot in availability_slots:
-
-        # An available slot should normally contain both times.
-        if (
-            slot.start_time is None
-            or slot.end_time is None
-        ):
-            continue
-
-        # Customer provided both start and end time.
-        if (
-            requested_start is not None
-            and requested_end is not None
-        ):
-            if (
-                slot.start_time <= requested_start
-                and slot.end_time >= requested_end
-            ):
-                return True
-
-        # Only preferred start time supplied.
-        elif requested_start is not None:
-            if (
-                slot.start_time <= requested_start
-                < slot.end_time
-            ):
-                return True
-
-        # Only preferred end time supplied.
-        elif requested_end is not None:
-            if (
-                slot.start_time < requested_end
-                <= slot.end_time
-            ):
-                return True
-
-    return False
-
-def provider_matches_budget(
+# ACTIVE marketplace booking flow
+from services.models import Booking
+def provider_has_booking_conflict(
     provider_profile,
-    service_request,
+    preferred_date,
+    preferred_start_time,
+    preferred_end_time,
 ):
     """
-    Check whether the provider fits the customer's budget.
+    Check whether the provider already has a booking occupying
+    the requested time.
 
-    Rules:
-    1. If customer has no budget, do not filter provider.
-    2. Provider minimum booking amount must not exceed budget_max.
-    3. Fixed/base-price services must not exceed budget_max.
-    4. Quotation-based services are allowed because final price
-       is decided later through quotes.
+    Checks BOTH marketplace booking systems:
+
+    1. ACTIVE marketplace:
+       services.Booking
+
+    2. Newer/parallel marketplace:
+       service_requests.ServiceBooking
+
+    Two ranges overlap when:
+
+        existing_start < requested_end
+        AND
+        existing_end > requested_start
+
+    Boundary-touching appointments are allowed.
+
+    Example:
+
+        Existing:
+            10:00 - 11:00
+
+        Request:
+            11:00 - 12:00
+
+        No conflict.
     """
 
-    budget_max = service_request.budget_max
+    # =========================================================
+    # SCHEDULE REQUIRED
+    # =========================================================
 
-    # Customer did not specify maximum budget
-    if budget_max is None:
-        return True
-
-    # --------------------------------------------------------
-    # PROVIDER MINIMUM BOOKING AMOUNT
-    # --------------------------------------------------------
-
-    minimum_booking = provider_profile.minimum_booking_amount
-
-    if (
-        minimum_booking is not None
-        and minimum_booking > budget_max
+    if not all(
+        [
+            preferred_date,
+            preferred_start_time,
+            preferred_end_time,
+        ]
     ):
         return False
 
-    # --------------------------------------------------------
-    # FIND PROVIDER'S SERVICE FOR THIS CATEGORY
-    # --------------------------------------------------------
-
-    provider_service = (
-        provider_profile.services
-        .filter(
-            category=service_request.category,
-            is_active=True,
-        )
-        .first()
-    )
-
-    if provider_service is None:
-        return False
-
-    # Quotation-based work has no exact price yet.
-    if provider_service.pricing_type == "quotation":
+    # Invalid schedule should never be considered available.
+    if preferred_end_time <= preferred_start_time:
         return True
 
-    # Other pricing types may have a base price.
-    if (
-        provider_service.base_price is not None
-        and provider_service.base_price > budget_max
+    # =========================================================
+    # ACTIVE MARKETPLACE BOOKING CONFLICT
+    # services.Booking
+    # =========================================================
+
+    active_booking_conflict = (
+        Booking.objects
+        .filter(
+            provider=provider_profile.provider,
+
+            scheduled_date=preferred_date,
+
+            status__in=[
+                "assigned",
+                "pending",
+                "in_progress",
+            ],
+
+            scheduled_start_time__lt=(
+                preferred_end_time
+            ),
+
+            scheduled_end_time__gt=(
+                preferred_start_time
+            ),
+        )
+        .exists()
+    )
+
+    if active_booking_conflict:
+        return True
+
+    # =========================================================
+    # NEWER / PARALLEL BOOKING CONFLICT
+    # service_requests.ServiceBooking
+    # =========================================================
+
+    service_booking_conflict = (
+        ServiceBooking.objects
+        .filter(
+            provider_profile=provider_profile,
+
+            scheduled_date=preferred_date,
+
+            status__in=[
+                "scheduled",
+                "in_progress",
+            ],
+
+            scheduled_start_time__lt=(
+                preferred_end_time
+            ),
+
+            scheduled_end_time__gt=(
+                preferred_start_time
+            ),
+        )
+        .exists()
+    )
+
+    if service_booking_conflict:
+        return True
+
+    return False
+
+
+# ============================================================
+# PROVIDER SCHEDULE ELIGIBILITY
+# ============================================================
+
+def provider_schedule_is_usable(
+    provider_profile,
+    schedule,
+):
+    """
+    Determine whether the provider can receive a request
+    for the customer's preferred schedule.
+
+    If the customer did not choose a complete schedule,
+    schedule filtering is skipped.
+    """
+
+    if not schedule["has_complete_schedule"]:
+        return True
+
+    preferred_date = (
+        schedule["preferred_date"]
+    )
+
+    preferred_start_time = (
+        schedule["preferred_start_time"]
+    )
+
+    preferred_end_time = (
+        schedule["preferred_end_time"]
+    )
+
+    # Invalid range should never produce matches.
+    if preferred_end_time <= preferred_start_time:
+        return False
+
+    # Provider must work during this period.
+    if not provider_is_available_for_schedule(
+        provider_profile,
+        preferred_date,
+        preferred_start_time,
+        preferred_end_time,
+    ):
+        return False
+
+    # Provider must not already be occupied.
+    if provider_has_booking_conflict(
+        provider_profile,
+        preferred_date,
+        preferred_start_time,
+        preferred_end_time,
     ):
         return False
 
     return True
 
 
-def find_matching_providers(service_request):
+# ============================================================
+# MATCH SCORE
+# ============================================================
+
+def calculate_match_score(
+    provider_profile,
+    distance_km,
+    effective_radius_km,
+):
     """
-    Find providers matching the customer service request.
+    Calculate provider ranking score.
 
-    Matching rules:
+    Distance contributes 80%.
+    Provider rating contributes 20%.
 
-    1. Provider account is active.
-    2. Provider account is approved.
-    3. Provider profile is active.
-    4. Provider is currently available.
-    5. Provider offers the requested category.
-    6. Provider service is active.
-    7. Customer location is inside provider service area.
-    8. Provider matches requested date/time availability.
-    9. Provider matches customer budget.
-    10. Providers are ranked using match score.
-    11. Distance is included in ranking.
+    This score ranks eligible providers.
+    It does not determine eligibility.
     """
 
-    if not isinstance(
-        service_request,
-        CustomerServiceRequest,
-    ):
-        raise ValueError(
-            "service_request must be a "
-            "CustomerServiceRequest instance."
+    if effective_radius_km <= 0:
+        return 0.0
+
+    distance_ratio = min(
+        distance_km / effective_radius_km,
+        1.0,
+    )
+
+    distance_score = (
+        1.0 - distance_ratio
+    ) * 80.0
+
+    try:
+        rating = float(
+            provider_profile.average_rating
+            or 0
         )
 
+    except (
+        TypeError,
+        ValueError,
+    ):
+        rating = 0.0
+
+    rating = max(
+        0.0,
+        min(
+            rating,
+            5.0,
+        ),
+    )
+
+    rating_score = (
+        rating / 5.0
+    ) * 20.0
+
+    return round(
+        distance_score + rating_score,
+        2,
+    )
+
+
+# ============================================================
+# FIND MATCHING PROVIDERS
+# ============================================================
+
+def find_matching_providers(
+    service_request,
+):
+    """
+    Find providers eligible for a customer service request.
+
+    Provider must:
+
+    - have active user account
+    - be approved
+    - have active provider profile
+    - be available
+    - be online
+    - provide requested service
+    - have valid current coordinates
+    - have usable/fresh location
+    - be inside effective service radius
+
+    If customer selected preferred date/time:
+
+    - provider must work during requested period
+    - provider must not have another booking conflict
+
+    Matching is coordinate based.
+
+    City equality is intentionally NOT used.
+    """
+
     # ========================================================
-    # STEP 1: BASIC PROVIDER MATCHING
+    # REQUEST LOCATION
     # ========================================================
 
-    candidate_providers = (
+    (
+        request_latitude,
+        request_longitude,
+    ) = get_service_request_location(
+        service_request
+    )
+
+    if (
+        request_latitude is None
+        or request_longitude is None
+    ):
+        return []
+
+    # ========================================================
+    # REQUEST SERVICE/CATEGORY
+    # ========================================================
+
+    request_category = (
+        get_service_request_category(
+            service_request
+        )
+    )
+
+    if not request_category:
+        return []
+
+    # ========================================================
+    # REQUEST SCHEDULE
+    # ========================================================
+
+    request_schedule = (
+        get_service_request_schedule(
+            service_request
+        )
+    )
+
+    # ========================================================
+    # MARKETPLACE SETTINGS
+    # ========================================================
+
+    marketplace_settings = (
+        MarketplaceLocationSettings
+        .get_settings()
+    )
+
+    if not (
+        marketplace_settings
+        .is_location_matching_enabled
+    ):
+        return []
+
+    # ========================================================
+    # PROVIDER DATABASE FILTER
+    # ========================================================
+
+    provider_profiles = (
         ProviderProfile.objects
         .filter(
             provider__is_active=True,
@@ -396,8 +734,12 @@ def find_matching_providers(service_request):
 
             is_profile_active=True,
             is_available=True,
+            is_online=True,
 
-            services__category=service_request.category,
+            current_latitude__isnull=False,
+            current_longitude__isnull=False,
+
+            services__category=request_category,
             services__is_active=True,
         )
         .select_related(
@@ -406,193 +748,177 @@ def find_matching_providers(service_request):
         .prefetch_related(
             "services",
             "availability_slots",
-            "service_areas",
         )
         .distinct()
     )
 
+    matches = []
+
     # ========================================================
-    # STEP 2-4: FILTER PROVIDERS
+    # PROVIDER MATCHING
     # ========================================================
 
-    matching_providers = []
-
-    for provider_profile in candidate_providers:
+    for provider_profile in provider_profiles:
 
         # ----------------------------------------------------
-        # STEP 2: LOCATION / SERVICE RADIUS
+        # LOCATION FRESHNESS / VALIDITY
         # ----------------------------------------------------
 
-        if not provider_matches_location(
+        if not provider_location_is_usable(
             provider_profile,
-            service_request,
+            marketplace_settings,
         ):
             continue
 
         # ----------------------------------------------------
-        # STEP 3: DATE / TIME AVAILABILITY
+        # DISTANCE
         # ----------------------------------------------------
 
-        if not provider_matches_availability(
-            provider_profile,
-            service_request,
-        ):
+        distance_km = calculate_distance_km(
+            request_latitude,
+            request_longitude,
+            provider_profile.current_latitude,
+            provider_profile.current_longitude,
+        )
+
+        if distance_km is None:
             continue
 
         # ----------------------------------------------------
-        # STEP 4: BUDGET
+        # EFFECTIVE RADIUS
         # ----------------------------------------------------
 
-        if not provider_matches_budget(
-            provider_profile,
-            service_request,
-        ):
-            continue
-
-        matching_providers.append(
-            provider_profile
-        )
-
-    # ========================================================
-    # STEP 5: DISTANCE + MATCH SCORE
-    # ========================================================
-
-    ranked_providers = []
-
-    for provider_profile in matching_providers:
-
-        distance_km = get_provider_distance(
-            provider_profile,
-            service_request,
-        )
-
-        score = calculate_provider_match_score(
-            provider_profile,
-            service_request,
-            distance_km=distance_km,
-        )
-
-        ranked_providers.append(
-            {
-                "provider_profile": provider_profile,
-                "distance_km": distance_km,
-                "match_score": score,
-            }
-        )
-
-    # ========================================================
-    # SORT BEST PROVIDERS FIRST
-    # ========================================================
-
-    ranked_providers.sort(
-        key=lambda item: (
-            -item["match_score"],
-            (
-                item["distance_km"]
-                if item["distance_km"] is not None
-                else float("inf")
-            ),
-        )
-    )
-
-    return ranked_providers
-
-def calculate_provider_match_score(
-    provider_profile,
-    service_request,
-    distance_km=None,
-):
-    """
-    Calculate a ranking score for an already-matched provider.
-
-    Higher score = better recommendation.
-    """
-
-    score = 0
-
-    # --------------------------------------------------------
-    # RATING
-    # Maximum contribution: 50 points
-    # --------------------------------------------------------
-
-    rating = float(
-        provider_profile.average_rating or 0
-    )
-
-    score += rating * 10
-
-    # Example:
-    # 4.8 rating = 48 points
-
-
-    # --------------------------------------------------------
-    # COMPLETED JOBS
-    # Maximum contribution: 20 points
-    # --------------------------------------------------------
-
-    completed_jobs = (
-        provider_profile.completed_jobs or 0
-    )
-
-    score += min(
-        completed_jobs,
-        20,
-    )
-
-
-    # --------------------------------------------------------
-    # EMERGENCY SUPPORT
-    # --------------------------------------------------------
-
-    if (
-        service_request.urgency == "emergency"
-        and provider_profile.accepts_emergency_work
-    ):
-        score += 15
-
-
-    # --------------------------------------------------------
-    # SERVICE PRICE / BUDGET FIT
-    # Maximum contribution: 15 points
-    # --------------------------------------------------------
-
-    if service_request.budget_max is not None:
-
-        provider_service = (
-            provider_profile.services
-            .filter(
-                category=service_request.category,
-                is_active=True,
+        effective_radius_km = (
+            get_effective_provider_radius(
+                provider_profile,
+                marketplace_settings,
             )
-            .first()
         )
 
-        if provider_service:
+        if distance_km > effective_radius_km:
+            continue
 
-            if provider_service.pricing_type == "quotation":
-                score += 5
+        # ----------------------------------------------------
+        # SCHEDULE AVAILABILITY
+        # ----------------------------------------------------
 
-            elif provider_service.base_price is not None:
+        if not provider_schedule_is_usable(
+            provider_profile,
+            request_schedule,
+        ):
+            continue
 
-                base_price = float(
-                    provider_service.base_price
-                )
+        # ----------------------------------------------------
+        # MATCH SCORE
+        # ----------------------------------------------------
 
-                budget_max = float(
-                    service_request.budget_max
-                )
+        match_score = calculate_match_score(
+            provider_profile,
+            distance_km,
+            effective_radius_km,
+        )
 
-                if budget_max > 0:
+        # ----------------------------------------------------
+        # PROVIDER PREFERRED RADIUS
+        # ----------------------------------------------------
 
-                    ratio = base_price / budget_max
+        if (
+            provider_profile.service_radius_km
+            is not None
+        ):
 
-                    if ratio <= 0.70:
-                        score += 15
+            provider_preferred_radius = float(
+                provider_profile
+                .service_radius_km
+            )
 
-                    elif ratio <= 0.85:
-                        score += 10
+        else:
 
-                    elif ratio <= 1:
-                        score += 5
+            provider_preferred_radius = float(
+                marketplace_settings
+                .default_provider_radius_km
+            )
 
-    return round(score, 2)
+        # ----------------------------------------------------
+        # RESULT
+        # ----------------------------------------------------
+
+        match_data = {
+            "provider_profile": (
+                provider_profile
+            ),
+
+            "distance_km": (
+                distance_km
+            ),
+
+            "provider_preferred_radius_km": (
+                provider_preferred_radius
+            ),
+
+            "admin_max_radius_km": float(
+                marketplace_settings
+                .max_provider_radius_km
+            ),
+
+            "effective_radius_km": (
+                effective_radius_km
+            ),
+
+            "match_score": (
+                match_score
+            ),
+        }
+
+        # ----------------------------------------------------
+        # SCHEDULE INFORMATION
+        # ----------------------------------------------------
+
+        if request_schedule[
+            "has_complete_schedule"
+        ]:
+
+            match_data[
+                "schedule_matched"
+            ] = True
+
+            match_data[
+                "preferred_date"
+            ] = request_schedule[
+                "preferred_date"
+            ]
+
+            match_data[
+                "preferred_start_time"
+            ] = request_schedule[
+                "preferred_start_time"
+            ]
+
+            match_data[
+                "preferred_end_time"
+            ] = request_schedule[
+                "preferred_end_time"
+            ]
+
+        else:
+
+            match_data[
+                "schedule_matched"
+            ] = None
+
+        matches.append(
+            match_data
+        )
+
+    # ========================================================
+    # BEST MATCHES FIRST
+    # ========================================================
+
+    matches.sort(
+        key=lambda match: (
+            -match["match_score"],
+            match["distance_km"],
+        )
+    )
+
+    return matches

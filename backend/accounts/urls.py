@@ -23,6 +23,7 @@ from .views import (
     maps_reverse_geocode,
     active_services,
     public_services,
+    set_default_address,
 )
 
 urlpatterns = [
@@ -52,4 +53,9 @@ urlpatterns = [
     path('maps/reverse-geocode/', maps_reverse_geocode, name='maps_reverse_geocode'),
     path('active-services/', active_services, name='active_services'),
     path('public-services/', public_services, name='public_services'),
+    path(
+    "addresses/<int:address_id>/default/",
+    set_default_address,
+    name="set-default-address",
+),
 ]

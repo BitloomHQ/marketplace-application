@@ -13,9 +13,13 @@ from .services.reviews import recalculate_provider_rating
 from .models import CustomerServiceRequest, ProviderQuotation, ServiceBooking, ServiceNotification, ServiceReview
 from .permissions import IsBookingParticipant, IsCustomerUser, IsProviderUser
 from .serializers import CustomerServiceRequestSerializer, ProviderQuotationSerializer, ServiceBookingSerializer, ServiceNotificationSerializer, ServiceReviewSerializer
-
-
-
+from django.core.paginator import Paginator
+from .helpers import (
+    build_request_tracking,
+    serialize_customer_booking,
+)
+from accounts.helpers import media_url
+from django.db.models import Avg, Count
 @api_view(["GET", "POST"])
 @permission_classes([
     IsAuthenticated,
@@ -2463,6 +2467,1208 @@ def mark_all_notifications_read_api(request):
                 "All notifications marked as read."
             ),
             "updated_count": updated_count,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def customer_request_tracking(
+    request,
+    request_id,
+):
+    """
+    Return lifecycle tracking information
+    for one customer service request.
+
+    Customers can only track their own requests.
+    """
+
+    user = request.user
+
+    # =========================================================
+    # CUSTOMER ACCESS
+    # =========================================================
+
+    if user.role != "customer":
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Only customers can track "
+                    "service requests."
+                ),
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # =========================================================
+    # SERVICE REQUEST
+    # =========================================================
+
+    service_request = (
+        CustomerServiceRequest.objects
+        .select_related(
+            "category",
+            "customer",
+        )
+        .filter(
+            id=request_id,
+            customer=user,
+        )
+        .first()
+    )
+
+    if not service_request:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Service request not found."
+                ),
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # =========================================================
+    # TRACKING
+    # =========================================================
+
+    tracking = build_request_tracking(
+        service_request
+    )
+
+    # =========================================================
+    # QUOTATIONS
+    # =========================================================
+
+    quotations = (
+        ProviderQuotation.objects
+        .filter(
+            service_request=service_request
+        )
+    )
+
+    total_quotations = quotations.count()
+
+    pending_quotations = (
+        quotations
+        .filter(status="pending")
+        .count()
+    )
+
+    accepted_quotation = (
+        quotations
+        .filter(status="accepted")
+        .select_related(
+            "provider_profile",
+            "provider_profile__provider",
+        )
+        .first()
+    )
+
+    # =========================================================
+    # BOOKING
+    # =========================================================
+
+    booking = (
+        ServiceBooking.objects
+        .filter(
+            service_request=service_request
+        )
+        .select_related(
+            "provider_profile",
+            "provider_profile__provider",
+            "quotation",
+        )
+        .first()
+    )
+
+    # =========================================================
+    # ACCEPTED PROVIDER
+    # =========================================================
+
+    accepted_provider = None
+
+    if accepted_quotation:
+
+        provider = (
+            accepted_quotation
+            .provider_profile
+            .provider
+        )
+
+        accepted_provider = {
+            "id": provider.id,
+
+            "username": (
+                provider.username
+            ),
+
+            "full_name": (
+                provider.get_full_name()
+                or provider.username
+            ),
+
+            "is_verified": (
+                provider.is_verified
+            ),
+
+            "quoted_price": str(
+                accepted_quotation
+                .quoted_price
+            ),
+        }
+
+    # =========================================================
+    # BOOKING PAYLOAD
+    # =========================================================
+
+    booking_data = None
+
+    if booking:
+
+        provider = (
+            booking
+            .provider_profile
+            .provider
+        )
+
+        booking_data = {
+            "id": booking.id,
+
+            "status": booking.status,
+
+            "final_price": str(
+                booking.final_price
+            ),
+
+            "scheduled_date": (
+                booking.scheduled_date
+            ),
+
+            "scheduled_start_time": (
+                booking.scheduled_start_time
+            ),
+
+            "scheduled_end_time": (
+                booking.scheduled_end_time
+            ),
+
+            "provider": {
+                "id": provider.id,
+
+                "username": (
+                    provider.username
+                ),
+
+                "full_name": (
+                    provider.get_full_name()
+                    or provider.username
+                ),
+
+                "is_verified": (
+                    provider.is_verified
+                ),
+            },
+
+            "created_at": (
+                booking.created_at
+            ),
+
+            "updated_at": (
+                booking.updated_at
+            ),
+
+            "completed_at": (
+                booking.completed_at
+            ),
+        }
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
+
+    return Response(
+        {
+            "success": True,
+
+            "message": (
+                "Service request tracking "
+                "fetched successfully."
+            ),
+
+            "request": {
+                "id": str(
+                    service_request.id
+                ),
+
+                "title": (
+                    service_request.title
+                ),
+
+                "service": {
+                    "id": (
+                        service_request.category.id
+                    ),
+
+                    "name": (
+                        service_request.category.name
+                    ),
+
+                    "key": (
+                        service_request.category.key
+                    ),
+                },
+
+                "urgency": (
+                    service_request.urgency
+                ),
+
+                "preferred_date": (
+                    service_request.preferred_date
+                ),
+
+                "preferred_start_time": (
+                    service_request
+                    .preferred_start_time
+                ),
+
+                "preferred_end_time": (
+                    service_request
+                    .preferred_end_time
+                ),
+
+                "service_address": (
+                    service_request
+                    .service_address
+                ),
+
+                "city": (
+                    service_request.city
+                ),
+
+                "state": (
+                    service_request.state
+                ),
+
+                "postal_code": (
+                    service_request
+                    .postal_code
+                ),
+
+                "created_at": (
+                    service_request.created_at
+                ),
+
+                "updated_at": (
+                    service_request.updated_at
+                ),
+            },
+
+            "tracking": tracking,
+
+            "quotations": {
+                "total": (
+                    total_quotations
+                ),
+
+                "pending": (
+                    pending_quotations
+                ),
+
+                "has_accepted_quotation": (
+                    accepted_quotation
+                    is not None
+                ),
+
+                "accepted_provider": (
+                    accepted_provider
+                ),
+            },
+
+            "booking": booking_data,
+
+            "cancellation": {
+                "is_cancelled": (
+                    service_request.status
+                    == "cancelled"
+                ),
+
+                "reason": (
+                    service_request
+                    .cancellation_reason
+                    or None
+                ),
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def customer_quotation_comparison(
+    request,
+    request_id,
+):
+    """
+    Return all available quotations for one customer
+    service request in a frontend-friendly comparison format.
+
+    Only the owner of the service request can access it.
+    """
+
+    user = request.user
+
+    # =========================================================
+    # CUSTOMER ACCESS
+    # =========================================================
+
+    if user.role != "customer":
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Only customers can compare quotations."
+                ),
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # =========================================================
+    # SERVICE REQUEST
+    # =========================================================
+
+    service_request = (
+        CustomerServiceRequest.objects
+        .select_related("category")
+        .filter(
+            id=request_id,
+            customer=user,
+        )
+        .first()
+    )
+
+    if not service_request:
+        return Response(
+            {
+                "success": False,
+                "message": "Service request not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # =========================================================
+    # QUOTATIONS
+    # =========================================================
+
+    quotations = (
+        ProviderQuotation.objects
+        .filter(
+            service_request=service_request
+        )
+        .exclude(
+            status="withdrawn"
+        )
+        .select_related(
+            "provider_profile",
+            "provider_profile__provider",
+        )
+        .order_by(
+            "quoted_price",
+            "created_at",
+        )
+    )
+
+    quotation_data = []
+
+    for quotation in quotations:
+
+        provider_profile = (
+            quotation.provider_profile
+        )
+
+        provider = (
+            provider_profile.provider
+        )
+
+        # =====================================================
+        # PROVIDER RATING
+        # =====================================================
+
+        rating_stats = (
+            provider_profile.reviews
+            .aggregate(
+                average_rating=Avg("rating"),
+                total_reviews=Count("id"),
+            )
+        )
+
+        average_rating = round(
+            float(
+                rating_stats["average_rating"]
+                or 0
+            ),
+            1,
+        )
+
+        total_reviews = (
+            rating_stats["total_reviews"]
+            or 0
+        )
+
+        # =====================================================
+        # PROVIDER JOB STATS
+        # =====================================================
+
+        provider_bookings = (
+            provider_profile.service_bookings
+        )
+
+        total_jobs = (
+            provider_bookings.count()
+        )
+
+        completed_jobs = (
+            provider_bookings
+            .filter(status="completed")
+            .count()
+        )
+
+        # =====================================================
+        # COMPLETION RATE
+        # =====================================================
+
+        completion_rate = 0
+
+        if total_jobs > 0:
+            completion_rate = round(
+                (
+                    completed_jobs
+                    / total_jobs
+                )
+                * 100,
+                2,
+            )
+
+        # =====================================================
+        # QUOTATION DATA
+        # =====================================================
+
+        quotation_data.append(
+            {
+                "quotation_id": quotation.id,
+
+                "quoted_price": str(
+                    quotation.quoted_price
+                ),
+
+                "message": (
+                    quotation.message
+                ),
+
+                "estimated_duration_minutes": (
+                    quotation
+                    .estimated_duration_minutes
+                ),
+
+                "status": quotation.status,
+
+                "created_at": (
+                    quotation.created_at
+                ),
+
+                "provider": {
+                    "id": provider.id,
+
+                    "username": (
+                        provider.username
+                    ),
+
+                    "full_name": (
+                        provider.get_full_name()
+                        or provider.username
+                    ),
+
+                    "profile_picture": (
+                        media_url(
+                            request,
+                            provider.profile_picture,
+                        )
+                    ),
+
+                    "role": (
+                        provider.role
+                    ),
+
+                    "bio": (
+                        provider.bio
+                        or None
+                    ),
+
+                    "experience_years": (
+                        provider.experience_years
+                    ),
+
+                    "is_verified": (
+                        provider.is_verified
+                    ),
+
+                    "average_rating": (
+                        average_rating
+                    ),
+
+                    "total_reviews": (
+                        total_reviews
+                    ),
+
+                    "completed_jobs": (
+                        completed_jobs
+                    ),
+
+                    "completion_rate": (
+                        completion_rate
+                    ),
+                },
+            }
+        )
+
+    # =========================================================
+    # PRICE SUMMARY
+    # =========================================================
+
+    prices = [
+        quotation.quoted_price
+        for quotation in quotations
+    ]
+
+    lowest_price = None
+    highest_price = None
+    average_price = None
+
+    if prices:
+
+        lowest_price = min(prices)
+        highest_price = max(prices)
+
+        average_price = (
+            sum(prices)
+            / len(prices)
+        )
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
+
+    return Response(
+        {
+            "success": True,
+
+            "message": (
+                "Quotation comparison "
+                "fetched successfully."
+            ),
+
+            "request": {
+                "id": str(
+                    service_request.id
+                ),
+
+                "title": (
+                    service_request.title
+                ),
+
+                "status": (
+                    service_request.status
+                ),
+
+                "service": {
+                    "id": (
+                        service_request.category.id
+                    ),
+
+                    "name": (
+                        service_request.category.name
+                    ),
+
+                    "key": (
+                        service_request.category.key
+                    ),
+                },
+
+                "urgency": (
+                    service_request.urgency
+                ),
+
+                "budget": {
+                    "minimum": (
+                        str(service_request.budget_min)
+                        if service_request.budget_min
+                        is not None
+                        else None
+                    ),
+
+                    "maximum": (
+                        str(service_request.budget_max)
+                        if service_request.budget_max
+                        is not None
+                        else None
+                    ),
+                },
+            },
+
+            "summary": {
+                "total_quotations": (
+                    len(quotation_data)
+                ),
+
+                "lowest_price": (
+                    str(lowest_price)
+                    if lowest_price is not None
+                    else None
+                ),
+
+                "highest_price": (
+                    str(highest_price)
+                    if highest_price is not None
+                    else None
+                ),
+
+                "average_price": (
+                    str(
+                        round(
+                            average_price,
+                            2,
+                        )
+                    )
+                    if average_price is not None
+                    else None
+                ),
+            },
+
+            "quotations": quotation_data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def customer_booking_history(request):
+    """
+    Return booking history for the
+    currently logged-in customer.
+
+    Filters:
+    ?status=completed
+    ?service=plumber
+    ?page=1
+    ?page_size=10
+    """
+
+    user = request.user
+
+    # =========================================================
+    # CUSTOMER ACCESS
+    # =========================================================
+
+    if user.role != "customer":
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Only customers can access "
+                    "booking history."
+                ),
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # =========================================================
+    # BASE QUERYSET
+    # =========================================================
+
+    base_queryset = (
+        ServiceBooking.objects
+        .filter(customer=user)
+    )
+
+    # =========================================================
+    # COMPLETE BOOKING SUMMARY
+    # =========================================================
+
+    summary = {
+        "total": (
+            base_queryset.count()
+        ),
+
+        "accepted": (
+            base_queryset
+            .filter(status="accepted")
+            .count()
+        ),
+
+        "scheduled": (
+            base_queryset
+            .filter(status="scheduled")
+            .count()
+        ),
+
+        "in_progress": (
+            base_queryset
+            .filter(status="in_progress")
+            .count()
+        ),
+
+        "completed": (
+            base_queryset
+            .filter(status="completed")
+            .count()
+        ),
+
+        "cancelled": (
+            base_queryset
+            .filter(status="cancelled")
+            .count()
+        ),
+    }
+
+    # =========================================================
+    # FILTERS
+    # =========================================================
+
+    booking_status = (
+        request.query_params
+        .get("status")
+    )
+
+    service_key = (
+        request.query_params
+        .get("service")
+    )
+
+    valid_statuses = [
+        "accepted",
+        "scheduled",
+        "in_progress",
+        "completed",
+        "cancelled",
+    ]
+
+    if booking_status:
+
+        booking_status = (
+            booking_status
+            .strip()
+            .lower()
+        )
+
+        if booking_status not in valid_statuses:
+
+            return Response(
+                {
+                    "success": False,
+
+                    "message": (
+                        "Invalid booking status."
+                    ),
+
+                    "allowed_statuses": (
+                        valid_statuses
+                    ),
+                },
+                status=(
+                    status.HTTP_400_BAD_REQUEST
+                ),
+            )
+
+    if service_key:
+
+        service_key = (
+            service_key
+            .strip()
+            .lower()
+        )
+
+    # =========================================================
+    # APPLY FILTERS
+    # =========================================================
+
+    bookings = base_queryset
+
+    if booking_status:
+
+        bookings = (
+            bookings
+            .filter(
+                status=booking_status
+            )
+        )
+
+    if service_key:
+
+        bookings = (
+            bookings
+            .filter(
+                service_request__category__key=(
+                    service_key
+                )
+            )
+        )
+
+    # =========================================================
+    # QUERY OPTIMIZATION
+    # =========================================================
+
+    bookings = (
+        bookings
+        .select_related(
+            "service_request",
+            "service_request__category",
+            "provider_profile",
+            "provider_profile__provider",
+            "quotation",
+            "review",
+        )
+        .order_by("-created_at")
+    )
+
+    # =========================================================
+    # PAGINATION
+    # =========================================================
+
+    try:
+        page_number = int(
+            request.query_params.get(
+                "page",
+                1,
+            )
+        )
+    except (TypeError, ValueError):
+        page_number = 1
+
+    try:
+        page_size = int(
+            request.query_params.get(
+                "page_size",
+                10,
+            )
+        )
+    except (TypeError, ValueError):
+        page_size = 10
+
+    page_number = max(
+        page_number,
+        1,
+    )
+
+    page_size = max(
+        1,
+        min(
+            page_size,
+            100,
+        ),
+    )
+
+    paginator = Paginator(
+        bookings,
+        page_size,
+    )
+
+    page = paginator.get_page(
+        page_number
+    )
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
+
+    return Response(
+        {
+            "success": True,
+
+            "message": (
+                "Customer booking history "
+                "fetched successfully."
+            ),
+
+            "summary": summary,
+
+            "filters": {
+                "status": (
+                    booking_status
+                ),
+
+                "service": (
+                    service_key
+                ),
+            },
+
+            "pagination": {
+                "page": (
+                    page.number
+                ),
+
+                "page_size": (
+                    page_size
+                ),
+
+                "total_items": (
+                    paginator.count
+                ),
+
+                "total_pages": (
+                    paginator.num_pages
+                ),
+
+                "has_next": (
+                    page.has_next()
+                ),
+
+                "has_previous": (
+                    page.has_previous()
+                ),
+            },
+
+            "bookings": [
+                serialize_customer_booking(
+                    booking,
+                    request,
+                )
+                for booking
+                in page.object_list
+            ],
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def customer_booking_detail(
+    request,
+    booking_id,
+):
+    """
+    Return complete details for one customer booking.
+
+    Security:
+    A customer can only view their own booking.
+    """
+
+    user = request.user
+
+    # =========================================================
+    # CUSTOMER ACCESS
+    # =========================================================
+
+    if user.role != "customer":
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Only customers can access "
+                    "booking details."
+                ),
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # =========================================================
+    # BOOKING
+    # =========================================================
+
+    booking = (
+        ServiceBooking.objects
+        .filter(
+            id=booking_id,
+            customer=user,
+        )
+        .select_related(
+            "service_request",
+            "service_request__category",
+            "quotation",
+            "provider_profile",
+            "provider_profile__provider",
+            "review",
+        )
+        .first()
+    )
+
+    if not booking:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Booking not found."
+                ),
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # =========================================================
+    # SERVICE REQUEST
+    # =========================================================
+
+    service_request = (
+        booking.service_request
+    )
+
+    # =========================================================
+    # ACCEPTED QUOTATION
+    # =========================================================
+
+    quotation = (
+        booking.quotation
+    )
+
+    quotation_data = {
+        "id": quotation.id,
+
+        "quoted_price": str(
+            quotation.quoted_price
+        ),
+
+        "message": (
+            quotation.message
+        ),
+
+        "estimated_duration_minutes": (
+            quotation
+            .estimated_duration_minutes
+        ),
+
+        "status": (
+            quotation.status
+        ),
+
+        "created_at": (
+            quotation.created_at
+        ),
+
+        "updated_at": (
+            quotation.updated_at
+        ),
+    }
+
+    # =========================================================
+    # ALL QUOTATION SUMMARY
+    # =========================================================
+
+    request_quotations = (
+        ProviderQuotation.objects
+        .filter(
+            service_request=service_request
+        )
+    )
+
+    quotation_summary = {
+        "total": (
+            request_quotations.count()
+        ),
+
+        "pending": (
+            request_quotations
+            .filter(status="pending")
+            .count()
+        ),
+
+        "accepted": (
+            request_quotations
+            .filter(status="accepted")
+            .count()
+        ),
+
+        "rejected": (
+            request_quotations
+            .filter(status="rejected")
+            .count()
+        ),
+
+        "withdrawn": (
+            request_quotations
+            .filter(status="withdrawn")
+            .count()
+        ),
+    }
+
+    # =========================================================
+    # TRACKING
+    # =========================================================
+
+    tracking = (
+        build_request_tracking(
+            service_request
+        )
+    )
+
+    # =========================================================
+    # AVAILABLE ACTIONS
+    # =========================================================
+
+    can_review = (
+        booking.status == "completed"
+        and not hasattr(
+            booking,
+            "review",
+        )
+    )
+
+    can_cancel = (
+        booking.status in [
+            "accepted",
+            "scheduled",
+        ]
+    )
+
+    # =========================================================
+    # COMPLETE BOOKING PAYLOAD
+    # =========================================================
+
+    booking_data = (
+        serialize_customer_booking(
+            booking,
+            request,
+        )
+    )
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
+
+    return Response(
+        {
+            "success": True,
+
+            "message": (
+                "Booking details "
+                "fetched successfully."
+            ),
+
+            "booking": booking_data,
+
+            "accepted_quotation": (
+                quotation_data
+            ),
+
+            "quotation_summary": (
+                quotation_summary
+            ),
+
+            "tracking": tracking,
+
+            "available_actions": {
+                "can_review": can_review,
+                "can_cancel": can_cancel,
+
+                "can_contact_provider": (
+                    booking.status
+                    in [
+                        "accepted",
+                        "scheduled",
+                        "in_progress",
+                    ]
+                ),
+            },
         },
         status=status.HTTP_200_OK,
     )

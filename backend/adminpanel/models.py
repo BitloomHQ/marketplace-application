@@ -119,4 +119,75 @@ class AdminPermissionProfile(models.Model):
 from django.conf import settings
 from django.db import models
 
+from django.core.validators import MinValueValidator
+from django.db import models
+
+
+class MarketplaceLocationSettings(models.Model):
+    """
+    Global marketplace location/matching configuration.
+
+    Only one active configuration is expected for the platform.
+    """
+
+    max_provider_radius_km = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=20.00,
+        validators=[
+            MinValueValidator(1),
+        ],
+        help_text=(
+            "Maximum distance within which providers "
+            "can receive customer service requests."
+        ),
+    )
+
+    default_provider_radius_km = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=10.00,
+        validators=[
+            MinValueValidator(1),
+        ],
+        help_text=(
+            "Default provider preference when a provider "
+            "has not selected their own radius."
+        ),
+    )
+
+    is_location_matching_enabled = models.BooleanField(
+        default=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+    live_location_timeout_minutes = models.PositiveIntegerField(
+    default=15,
+    validators=[MinValueValidator(1)],
+    help_text=(
+        "Number of minutes a provider's live GPS location "
+        "remains valid for marketplace matching."
+    ),
+)
+
+    class Meta:
+        verbose_name = "Marketplace Location Settings"
+        verbose_name_plural = "Marketplace Location Settings"
+
+    def __str__(self):
+        return "Marketplace Location Settings"
+
+    @classmethod
+    def get_settings(cls):
+        settings_obj, _ = cls.objects.get_or_create(
+            pk=1,
+        )
+        return settings_obj
+
 

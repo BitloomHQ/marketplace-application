@@ -1,11 +1,15 @@
 from django.urls import path
 
 from .views import (
+    # Admin authentication
+    admin_login_api,
+
     # Dashboard
     admin_dashboard,
     customer_analytics_api,
     dashboard_trends_api,
     geographic_analytics_api,
+    marketplace_location_settings_api,
 
     # Provider management
     pending_providers,
@@ -65,6 +69,16 @@ from .views import (
 urlpatterns = [
 
     # =========================================================
+    # ADMIN AUTHENTICATION
+    # =========================================================
+
+    path(
+        "login/",
+        admin_login_api,
+        name="admin-login",
+    ),
+
+    # =========================================================
     # ADMIN DASHBOARD
     # =========================================================
 
@@ -72,6 +86,36 @@ urlpatterns = [
         "dashboard/",
         admin_dashboard,
         name="admin-dashboard",
+    ),
+
+    path(
+        "dashboard/trends/",
+        dashboard_trends_api,
+        name="dashboard-trends",
+    ),
+
+    path(
+        "dashboard/service-performance/",
+        service_performance_api,
+        name="dashboard-service-performance",
+    ),
+
+    path(
+        "dashboard/funnel/",
+        service_request_funnel_api,
+        name="dashboard-funnel",
+    ),
+
+    path(
+        "dashboard/customer-analytics/",
+        customer_analytics_api,
+        name="dashboard-customer-analytics",
+    ),
+
+    path(
+        "dashboard/geographic-analytics/",
+        geographic_analytics_api,
+        name="dashboard-geographic-analytics",
     ),
 
     # =========================================================
@@ -235,7 +279,7 @@ urlpatterns = [
     ),
 
     # =========================================================
-    # BOOKINGS & QUOTES
+    # MARKETPLACE / BOOKINGS / QUOTES
     # =========================================================
 
     path(
@@ -340,28 +384,8 @@ urlpatterns = [
         name="delete-admin-user",
     ),
     path(
-    "dashboard/trends/",
-    dashboard_trends_api,
-    name="dashboard-trends",
-),
-path(
-    "dashboard/service-performance/",
-    service_performance_api,
-    name="dashboard-service-performance",
-),
-path(
-    "dashboard/funnel/",
-    service_request_funnel_api,
-    name="dashboard-funnel",
-),
-path(
-    "dashboard/customer-analytics/",
-    customer_analytics_api,
-    name="dashboard-customer-analytics",
-),
-path(
-    "dashboard/geographic-analytics/",
-    geographic_analytics_api,
-    name="dashboard-geographic-analytics",
+    "location-settings/",
+    marketplace_location_settings_api,
+    name="marketplace-location-settings",
 ),
 ]

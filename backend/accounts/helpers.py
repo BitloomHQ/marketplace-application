@@ -97,12 +97,32 @@ def media_url(request, field):
 
 
 def serialize_address(address):
+
     return {
-        'id': address.id,
-        'title': address.title,
-        'address': address.address,
-        'latitude': address.latitude,
-        'longitude': address.longitude,
+        "id": address.id,
+        "title": address.title,
+        "address_type": address.address_type,
+        "address": address.address,
+        "city": address.city,
+        "state": address.state,
+        "postal_code": address.postal_code,
+
+        "latitude": (
+            float(address.latitude)
+            if address.latitude is not None
+            else None
+        ),
+
+        "longitude": (
+            float(address.longitude)
+            if address.longitude is not None
+            else None
+        ),
+
+        "location_source": address.location_source,
+        "is_default": address.is_default,
+        "created_at": address.created_at,
+        "updated_at": address.updated_at,
     }
 
 
@@ -213,3 +233,74 @@ def provider_access_ok(user):
             message = f'{message}: {reason}'
         return False, message
     return True, None
+
+def favorite_provider_payload(
+    favorite,
+    request=None,
+):
+    """
+    Serialize a customer's saved provider.
+    """
+
+    provider = favorite.provider
+
+    average_rating, total_reviews = (
+        provider_rating(provider)
+    )
+
+    return {
+        "favorite_id": favorite.id,
+
+        "saved_at": favorite.created_at,
+
+        "provider": {
+            "id": provider.id,
+
+            "username": provider.username,
+
+            "full_name": (
+                provider.get_full_name()
+                or provider.username
+            ),
+
+            "email": provider.email,
+
+            "phone": provider.phone,
+
+            "role": provider.role,
+
+            "profile_picture": media_url(
+                request,
+                provider.profile_picture,
+            ),
+
+            "bio": (
+                provider.bio
+                or None
+            ),
+
+            "experience_years": (
+                provider.experience_years
+            ),
+
+            "is_verified": (
+                provider.is_verified
+            ),
+
+            "is_approved": (
+                provider.is_approved
+            ),
+
+            "is_active": (
+                provider.is_active
+            ),
+
+            "average_rating": (
+                average_rating
+            ),
+
+            "total_reviews": (
+                total_reviews
+            ),
+        },
+    }

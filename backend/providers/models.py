@@ -2,8 +2,23 @@ from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 
-
+from django.core.exceptions import ValidationError
 class ProviderProfile(models.Model):
+
+    LOCATION_SOURCE_LIVE = "live"
+    LOCATION_SOURCE_MANUAL = "manual"
+
+    LOCATION_SOURCE_CHOICES = [
+        (
+            LOCATION_SOURCE_LIVE,
+            "Live Location",
+        ),
+        (
+            LOCATION_SOURCE_MANUAL,
+            "Manual Location",
+        ),
+    ]
+
     provider = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -40,13 +55,91 @@ class ProviderProfile(models.Model):
         ],
     )
 
+    # =========================================================
+    # PROVIDER AVAILABILITY
+    # =========================================================
+
+    # General availability:
+    # Provider is currently accepting new work.
     is_available = models.BooleanField(
         default=True,
+    )
+
+    # Live marketplace status:
+    # Provider is online and can receive nearby service leads.
+    is_online = models.BooleanField(
+        default=False,
     )
 
     is_profile_active = models.BooleanField(
         default=True,
     )
+
+    # =========================================================
+    # CURRENT WORKING LOCATION
+    # =========================================================
+
+    # Current latitude used for nearby matching.
+    current_latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+    )
+
+    # Current longitude used for nearby matching.
+    current_longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+    )
+
+    # Indicates whether the current coordinates came from
+    # device GPS/live location or a manually selected location.
+    location_source = models.CharField(
+        max_length=20,
+        choices=LOCATION_SOURCE_CHOICES,
+        null=True,
+        blank=True,
+    )
+
+    # Human-readable location.
+    #
+    # Examples:
+    # "Sector 62, Noida"
+    # "Connaught Place, New Delhi"
+    #
+    # Matching will NOT depend on this field.
+    current_location_text = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+    )
+
+    # Maximum distance from the provider's current location
+    # within which the provider wants to receive service leads.
+    #
+    # Example:
+    # 5 km, 10 km, 15 km, etc.
+    service_radius_km = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=10.00,
+        validators=[
+            MinValueValidator(1),
+        ],
+    )
+
+    # Used to determine whether a live location has become stale.
+    last_location_updated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    # =========================================================
+    # PROVIDER PERFORMANCE
+    # =========================================================
 
     completed_jobs = models.PositiveIntegerField(
         default=0,
@@ -57,6 +150,10 @@ class ProviderProfile(models.Model):
         decimal_places=2,
         default=0,
     )
+
+    # =========================================================
+    # TIMESTAMPS
+    # =========================================================
 
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -155,6 +252,7 @@ class ProviderService(models.Model):
         )
 
 class ProviderAvailability(models.Model):
+
     DAY_CHOICES = (
         (0, "Monday"),
         (1, "Tuesday"),
@@ -215,10 +313,50 @@ class ProviderAvailability(models.Model):
             ),
         ]
 
+    def clean(self):
+
+        super().clean()
+
+        if self.is_available:
+
+            if (
+                self.start_time is None
+                or self.end_time is None
+            ):
+                raise ValidationError(
+                    {
+                        "start_time": (
+                            "Start time and end time "
+                            "are required for an "
+                            "available slot."
+                        )
+                    }
+                )
+
+            if self.start_time >= self.end_time:
+                raise ValidationError(
+                    {
+                        "end_time": (
+                            "End time must be later "
+                            "than start time."
+                        )
+                    }
+                )
+
     def __str__(self):
+
+        if self.start_time and self.end_time:
+            time_range = (
+                f"{self.start_time} - "
+                f"{self.end_time}"
+            )
+        else:
+            time_range = "Unavailable"
+
         return (
             f"{self.provider_profile.provider.email} "
-            f"- {self.get_day_of_week_display()}"
+            f"- {self.get_day_of_week_display()} "
+            f"- {time_range}"
         )
 
 class ProviderServiceArea(models.Model):
@@ -294,3 +432,5 @@ class ProviderServiceArea(models.Model):
             f"{self.provider_profile.provider.email} "
             f"- {self.city}"
         )
+
+

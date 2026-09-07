@@ -138,6 +138,20 @@ class ServiceRequest(models.Model):
     updated_at = models.DateTimeField(
         auto_now=True
     )
+    preferred_date = models.DateField(
+    null=True,
+    blank=True,
+)
+
+    preferred_start_time = models.TimeField(
+    null=True,
+    blank=True,
+)
+
+    preferred_end_time = models.TimeField(
+    null=True,
+    blank=True,
+)
 
     def __str__(self):
         return f"{self.customer.username} - {self.service_type}"
@@ -234,6 +248,25 @@ class Booking(models.Model):
 
     final_price = models.FloatField()
 
+    # =========================================================
+    # SCHEDULE SNAPSHOT
+    # =========================================================
+
+    scheduled_date = models.DateField(
+        null=True,
+        blank=True,
+    )
+
+    scheduled_start_time = models.TimeField(
+        null=True,
+        blank=True,
+    )
+
+    scheduled_end_time = models.TimeField(
+        null=True,
+        blank=True,
+    )
+
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -256,12 +289,17 @@ class Booking(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["status"]),
-            models.Index(fields=["provider", "status"]),
+            models.Index(
+                fields=["provider", "status"]
+            ),
             models.Index(fields=["-created_at"]),
         ]
 
     def __str__(self):
-        return f"{self.customer.username} booked {self.provider.username}"
+        return (
+            f"{self.customer.username} "
+            f"booked {self.provider.username}"
+        )
 
 
 # =========================================

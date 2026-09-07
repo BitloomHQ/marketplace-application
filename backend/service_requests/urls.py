@@ -2,6 +2,8 @@ from django.urls import path
 
 from .views import (
     booking_review_api,
+    customer_booking_history,
+    customer_request_tracking,
     customer_service_request_list_create_api,
     matched_providers_api,
     provider_leads_api,
@@ -19,6 +21,8 @@ from .views import (
     notifications_api,
     mark_notification_read_api,
     mark_all_notifications_read_api,
+    customer_quotation_comparison,
+    customer_booking_detail,
     
     
 )
@@ -147,5 +151,25 @@ path(
     "notifications/read-all/",
     mark_all_notifications_read_api,
     name="mark-all-notifications-read",
+),
+path(
+    "requests/<uuid:request_id>/tracking/",
+    customer_request_tracking,
+    name="customer-request-tracking",
+),
+path(
+    "requests/<uuid:request_id>/quotations/compare/",
+    customer_quotation_comparison,
+    name="customer-quotation-comparison",
+),
+path(
+    "bookings/history/",
+    customer_booking_history,
+    name="customer-booking-history",
+),
+path(
+    "bookings/<int:booking_id>/",
+    customer_booking_detail,
+    name="customer-booking-detail",
 ),
 ]
