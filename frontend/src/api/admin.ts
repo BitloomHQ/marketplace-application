@@ -1,32 +1,391 @@
 import { apiRequest } from './client'
 import type { ServiceCategory, User } from '../types'
 
+export type DashboardPeriod = '7d' | '30d' | '6m' | '1y'
+
+export type DashboardFilters = {
+  period?: DashboardPeriod | string | null
+  from?: string | null
+  to?: string | null
+  service?: string | null
+  provider_id?: number | null
+  status?: string | null
+}
+
 export type AdminDashboardData = {
   users: {
+    customers: {
+      total: number
+      active: number
+      inactive: number
+    }
+    providers: {
+      total: number
+      active: number
+      inactive: number
+      pending: number
+      approved: number
+      verified: number
+      unverified: number
+      pending_approvals: number
+    }
+  }
+  services: {
+    total: number
+    active: number
+    coming_soon: number
+    inactive: number
+    popular: number
+  }
+  requests: {
+    total: number
+    today: number
+    this_week: number
+    this_month: number
+  }
+  quotations: {
+    total: number
+  }
+  bookings: {
+    total: number
+    completed: number
+    cancelled: number
+    completion_rate: number
+    cancellation_rate: number
+    total_booking_value: string | number
+    average_booking_value: string | number
+  }
+  reviews: {
+    total: number
+    average_provider_rating: number
+  }
+}
+
+export type DashboardTrendsResponse = {
+  success: boolean
+  message: string
+  filters: DashboardFilters
+  summary: {
+    total_bookings: number
+    total_booking_value: number
+  }
+  chart: {
+    labels: string[]
+    booking_count: number[]
+    completed_bookings: number[]
+    cancelled_bookings: number[]
+    booking_value: number[]
+  }
+}
+
+export type ServicePerformanceRow = {
+  service_id: number
+  service: string
+  service_key: string
+  total_requests: number
+  total_quotations: number
+  total_bookings: number
+  completed_bookings: number
+  cancelled_bookings: number
+  booking_value: string | number
+  average_rating: number
+  conversion_rate: number
+}
+
+export type FunnelStage = {
+  stage: string
+  count: number
+  percentage: number
+  overall_conversion_rate?: number
+}
+
+export type CustomerAnalyticsResponse = {
+  success: boolean
+  message: string
+  filters: DashboardFilters
+  summary: {
     total_customers: number
     active_customers: number
     inactive_customers: number
-    total_providers: number
-    active_providers: number
-    inactive_providers: number
-    pending_providers: number
-    approved_providers: number
-    verified_providers: number
+    new_customers: number
+    repeat_customers: number
+    customers_with_no_bookings: number
+    repeat_booking_rate: number
   }
-  services: {
-    total_services: number
-    active_services: number
-    coming_soon_services: number
-    inactive_services: number
-  }
-  marketplace: {
-    total_requests: number
-    total_quotes: number
+  top_customers: Array<{
+    customer_id: number
+    username: string
+    full_name: string
+    email: string
     total_bookings: number
     completed_bookings: number
-    cancelled_bookings: number
-    total_reviews: number
+    total_spend: string | number
+  }>
+}
+
+export type GeographicLocation = {
+  city: string
+  state: string
+  total_requests: number
+  services: Array<{
+    service: string
+    service_key: string
+    requests: number
+  }>
+}
+
+function dashboardQuery(params?: DashboardFilters) {
+  const search = new URLSearchParams()
+  if (params?.period) search.set('period', String(params.period))
+  if (params?.from) search.set('from', params.from)
+  if (params?.to) search.set('to', params.to)
+  if (params?.service) search.set('service', params.service)
+  if (params?.provider_id != null) search.set('provider_id', String(params.provider_id))
+  if (params?.status) search.set('status', params.status)
+  const qs = search.toString()
+  return qs ? `?${qs}` : ''
+}
+
+const ADMIN_DASHBOARD_CACHE_TTL_MS = 15 * 60 * 1000
+const ADMIN_DASHBOARD_CACHE_PREFIX = 'marketplace_admin_dashboard_v3:'
+
+function num(value: unknown, fallback = 0) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : fallback
+}
+
+export function normalizeDashboardStats(raw: unknown): AdminDashboardData | null {
+  if (!raw || typeof raw !== 'object') return null
+  const data = raw as Record<string, any>
+  const users = data.users ?? {}
+  const customers = users.customers ?? {}
+  const providers = users.providers ?? {}
+  const services = data.services ?? {}
+  const requests = data.requests ?? {}
+  const quotations = data.quotations ?? {}
+  const bookings = data.bookings ?? data.marketplace ?? {}
+  const reviews = data.reviews ?? {}
+
+  return {
+    users: {
+      customers: {
+        total: num(customers.total ?? users.total_customers),
+        active: num(customers.active ?? users.active_customers),
+        inactive: num(customers.inactive ?? users.inactive_customers),
+      },
+      providers: {
+        total: num(providers.total ?? users.total_providers),
+        active: num(providers.active ?? users.active_providers),
+        inactive: num(providers.inactive ?? users.inactive_providers),
+        pending: num(providers.pending ?? users.pending_providers),
+        approved: num(providers.approved ?? users.approved_providers),
+        verified: num(providers.verified ?? users.verified_providers),
+        unverified: num(providers.unverified),
+        pending_approvals: num(
+          providers.pending_approvals ?? providers.pending ?? users.pending_providers,
+        ),
+      },
+    },
+    services: {
+      total: num(services.total ?? services.total_services),
+      active: num(services.active ?? services.active_services),
+      coming_soon: num(services.coming_soon ?? services.coming_soon_services),
+      inactive: num(services.inactive ?? services.inactive_services),
+      popular: num(services.popular),
+    },
+    requests: {
+      total: num(requests.total ?? data.marketplace?.total_requests),
+      today: num(requests.today),
+      this_week: num(requests.this_week),
+      this_month: num(requests.this_month),
+    },
+    quotations: {
+      total: num(quotations.total ?? data.marketplace?.total_quotes),
+    },
+    bookings: {
+      total: num(bookings.total ?? bookings.total_bookings),
+      completed: num(bookings.completed ?? bookings.completed_bookings),
+      cancelled: num(bookings.cancelled ?? bookings.cancelled_bookings),
+      completion_rate: num(bookings.completion_rate),
+      cancellation_rate: num(bookings.cancellation_rate),
+      total_booking_value: bookings.total_booking_value ?? 0,
+      average_booking_value: bookings.average_booking_value ?? 0,
+    },
+    reviews: {
+      total: num(reviews.total ?? data.marketplace?.total_reviews),
+      average_provider_rating: num(reviews.average_provider_rating),
+    },
   }
+}
+
+function normalizeTrends(raw: DashboardTrendsResponse | null | undefined): DashboardTrendsResponse | null {
+  if (!raw) return null
+  return {
+    ...raw,
+    summary: {
+      total_bookings: num(raw.summary?.total_bookings),
+      total_booking_value: num(raw.summary?.total_booking_value),
+    },
+    chart: {
+      labels: raw.chart?.labels ?? [],
+      booking_count: raw.chart?.booking_count ?? [],
+      completed_bookings: raw.chart?.completed_bookings ?? [],
+      cancelled_bookings: raw.chart?.cancelled_bookings ?? [],
+      booking_value: raw.chart?.booking_value ?? [],
+    },
+  }
+}
+
+function normalizeFunnel(stages: FunnelStage[] | undefined): FunnelStage[] {
+  return (stages ?? []).map((stage) => ({
+    ...stage,
+    count: num(stage.count),
+    percentage: num(stage.percentage ?? stage.overall_conversion_rate),
+  }))
+}
+
+function normalizeLocations(geo: {
+  locations?: GeographicLocation[]
+  cities?: GeographicLocation[]
+}): GeographicLocation[] {
+  const rows = (geo.locations ?? geo.cities ?? []) as Array<
+    GeographicLocation & {
+      top_service?: {
+        service_name?: string
+        service?: string
+        service_key?: string
+        request_count?: number
+        requests?: number
+      }
+    }
+  >
+  return rows.map((row) => ({
+    city: row.city,
+    state: row.state,
+    total_requests: num(row.total_requests),
+    services:
+      row.services ??
+      (row.top_service
+        ? [
+            {
+              service: row.top_service.service ?? row.top_service.service_name ?? '',
+              service_key: row.top_service.service_key ?? '',
+              requests: num(row.top_service.requests ?? row.top_service.request_count),
+            },
+          ]
+        : []),
+  }))
+}
+
+function normalizeServices(rows: ServicePerformanceRow[] | undefined): ServicePerformanceRow[] {
+  return (rows ?? []).map((row) => ({
+    ...row,
+    service: row.service || (row as { service_name?: string }).service_name || '',
+    total_requests: num(row.total_requests),
+    total_quotations: num(row.total_quotations),
+    total_bookings: num(row.total_bookings),
+    completed_bookings: num(row.completed_bookings ?? (row as { completed_jobs?: number }).completed_jobs),
+    cancelled_bookings: num(row.cancelled_bookings ?? (row as { cancelled_jobs?: number }).cancelled_jobs),
+    booking_value: row.booking_value ?? (row as { total_booking_value?: number }).total_booking_value ?? 0,
+    average_rating: num(row.average_rating),
+    conversion_rate: num(row.conversion_rate),
+  }))
+}
+
+export type AdminDashboardBundle = {
+  stats: AdminDashboardData
+  trends: DashboardTrendsResponse | null
+  services: ServicePerformanceRow[]
+  funnel: FunnelStage[]
+  providers: AdminProviderPerformance[]
+  customers: CustomerAnalyticsResponse | null
+  locations: GeographicLocation[]
+  expiresAt: number
+}
+
+function adminDashboardCacheKey(period: string) {
+  return `${ADMIN_DASHBOARD_CACHE_PREFIX}${period}`
+}
+
+export function readAdminDashboardCache(period: string): AdminDashboardBundle | null {
+  try {
+    const raw = sessionStorage.getItem(adminDashboardCacheKey(period))
+    if (!raw) return null
+    const cached = JSON.parse(raw) as AdminDashboardBundle
+    if (!cached?.expiresAt || cached.expiresAt <= Date.now()) {
+      sessionStorage.removeItem(adminDashboardCacheKey(period))
+      return null
+    }
+    const stats = normalizeDashboardStats(cached.stats)
+    if (!stats) {
+      sessionStorage.removeItem(adminDashboardCacheKey(period))
+      return null
+    }
+    return {
+      ...cached,
+      stats,
+      trends: normalizeTrends(cached.trends),
+      services: normalizeServices(cached.services),
+      funnel: normalizeFunnel(cached.funnel),
+      providers: cached.providers ?? [],
+      customers: cached.customers ?? null,
+      locations: normalizeLocations({ locations: cached.locations }),
+    }
+  } catch {
+    return null
+  }
+}
+
+export function writeAdminDashboardCache(period: string, data: Omit<AdminDashboardBundle, 'expiresAt'>) {
+  const payload: AdminDashboardBundle = {
+    ...data,
+    expiresAt: Date.now() + ADMIN_DASHBOARD_CACHE_TTL_MS,
+  }
+  sessionStorage.setItem(adminDashboardCacheKey(period), JSON.stringify(payload))
+  return payload
+}
+
+export function clearAdminDashboardCache() {
+  Object.keys(sessionStorage)
+    .filter((key) => key.startsWith(ADMIN_DASHBOARD_CACHE_PREFIX))
+    .forEach((key) => sessionStorage.removeItem(key))
+}
+
+export async function loadAdminDashboardBundle(
+  period: DashboardPeriod | string,
+  force = false,
+): Promise<AdminDashboardBundle> {
+  if (!force) {
+    const cached = readAdminDashboardCache(String(period))
+    if (cached) return cached
+  }
+
+  const params = { period }
+  const [dashRes, trendsRes, serviceRes, funnelRes, providerRes, customerRes, geoRes] =
+    await Promise.all([
+      fetchAdminDashboard(params),
+      fetchDashboardTrends(params),
+      fetchServicePerformance(params),
+      fetchRequestFunnel(params),
+      fetchProviderPerformance(params),
+      fetchCustomerAnalytics(params),
+      fetchGeographicAnalytics(params),
+    ])
+
+  const stats = normalizeDashboardStats(dashRes.data)
+  if (!stats) {
+    throw new Error('Admin dashboard payload was missing.')
+  }
+
+  return writeAdminDashboardCache(String(period), {
+    stats,
+    trends: normalizeTrends(trendsRes),
+    services: normalizeServices(serviceRes.services),
+    funnel: normalizeFunnel(funnelRes.funnel),
+    providers: providerRes.providers ?? [],
+    customers: customerRes,
+    locations: normalizeLocations(geoRes),
+  })
 }
 
 export type AdminProvider = User & {
@@ -51,10 +410,53 @@ function normalizeAdminProvider(provider: AdminProvider): AdminProvider {
   }
 }
 
-export function fetchAdminDashboard() {
-  return apiRequest<{ success: boolean; data: AdminDashboardData }>(
-    '/api/admin-panel/dashboard/',
+export function fetchAdminDashboard(params?: DashboardFilters) {
+  return apiRequest<{
+    success: boolean
+    message?: string
+    filters?: DashboardFilters
+    data: AdminDashboardData
+  }>(`/api/admin-panel/dashboard/${dashboardQuery(params)}`)
+}
+
+export function fetchDashboardTrends(params?: DashboardFilters) {
+  return apiRequest<DashboardTrendsResponse>(
+    `/api/admin-panel/dashboard/trends/${dashboardQuery(params)}`,
   )
+}
+
+export function fetchServicePerformance(params?: DashboardFilters) {
+  return apiRequest<{
+    success: boolean
+    message: string
+    filters?: DashboardFilters
+    services: ServicePerformanceRow[]
+  }>(`/api/admin-panel/dashboard/service-performance/${dashboardQuery(params)}`)
+}
+
+export function fetchRequestFunnel(params?: DashboardFilters) {
+  return apiRequest<{
+    success: boolean
+    message: string
+    filters?: DashboardFilters
+    funnel: FunnelStage[]
+  }>(`/api/admin-panel/dashboard/funnel/${dashboardQuery(params)}`)
+}
+
+export function fetchCustomerAnalytics(params?: DashboardFilters) {
+  return apiRequest<CustomerAnalyticsResponse>(
+    `/api/admin-panel/dashboard/customer-analytics/${dashboardQuery(params)}`,
+  )
+}
+
+export function fetchGeographicAnalytics(params?: DashboardFilters) {
+  return apiRequest<{
+    success: boolean
+    message: string
+    filters?: DashboardFilters
+    locations?: GeographicLocation[]
+    cities?: GeographicLocation[]
+  }>(`/api/admin-panel/dashboard/geographic-analytics/${dashboardQuery(params)}`)
 }
 
 export function fetchPendingProviders() {
@@ -298,10 +700,13 @@ export function fetchAdminQuotes() {
   )
 }
 
-export function fetchProviderPerformance() {
-  return apiRequest<{ success: boolean; providers: AdminProviderPerformance[] }>(
-    '/api/admin-panel/provider-performance/',
-  )
+export function fetchProviderPerformance(params?: DashboardFilters) {
+  return apiRequest<{
+    success: boolean
+    message?: string
+    count?: number
+    providers: AdminProviderPerformance[]
+  }>(`/api/admin-panel/provider-performance/${dashboardQuery(params)}`)
 }
 
 export function fetchAdminSpotlights() {
@@ -465,8 +870,10 @@ export type AdminQuote = {
 }
 
 export type AdminProviderPerformance = {
+  rank?: number
   provider_id: number
   provider: string
+  full_name?: string
   email: string
   phone: string
   role: string
@@ -481,6 +888,8 @@ export type AdminProviderPerformance = {
   completed_bookings: number
   cancelled_bookings: number
   completion_rate: number
+  cancellation_rate?: number
   total_reviews: number
   average_rating: number
+  booking_value?: string | number
 }

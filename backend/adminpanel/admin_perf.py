@@ -38,6 +38,8 @@ def run_parallel(*tasks: Callable[[], T]) -> list[T]:
 
 
 def invalidate_admin_cache() -> None:
+    from adminpanel.analytics_cache import invalidate_analytics_cache
+
     cache_delete_many(
         [
             ADMIN_STATS_CACHE_KEY,
@@ -48,6 +50,7 @@ def invalidate_admin_cache() -> None:
             ADMIN_MONITOR_PROVIDERS_KEY,
         ]
     )
+    invalidate_analytics_cache()
 
 
 def _fetch_user_stats(provider_roles: list[str]) -> dict[str, int]:

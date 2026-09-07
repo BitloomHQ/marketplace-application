@@ -5,7 +5,7 @@ from rest_framework.authtoken.models import Token
 from backend.cache_utils import cache_delete, cache_delete_many, cache_get, cache_set
 
 User = get_user_model()
-TOKEN_USER_CACHE_TTL = 120
+TOKEN_USER_CACHE_TTL = 15 * 60  # 15 minutes
 
 
 class CachedTokenAuthentication(TokenAuthentication):
