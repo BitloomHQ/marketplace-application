@@ -292,14 +292,18 @@ def resend_email_otp(request):
     )
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([AllowAny])
 def login_api(request):
     from django.contrib.auth import login as django_login
     from rest_framework.authtoken.models import Token
 
-    email = (request.data.get('email') or '').strip().lower()
-    password = request.data.get('password')
+    email = (
+        request.data.get("email")
+        or ""
+    ).strip().lower()
+
+    password = request.data.get("password")
 
     # =========================================================
     # VALIDATE INPUT
@@ -308,9 +312,11 @@ def login_api(request):
     if not email or not password:
         return Response(
             {
-                'success': False,
-                'message': 'Email and password are required.',
-                'code': 'EMAIL_PASSWORD_REQUIRED',
+                "success": False,
+                "message": (
+                    "Email and password are required."
+                ),
+                "code": "EMAIL_PASSWORD_REQUIRED",
             },
             status=status.HTTP_400_BAD_REQUEST,
         )
@@ -327,11 +333,45 @@ def login_api(request):
     except User.DoesNotExist:
         return Response(
             {
-                'success': False,
-                'message': 'Invalid email or password.',
-                'code': 'INVALID_CREDENTIALS',
+                "success": False,
+                "message": (
+                    "Invalid email or password."
+                ),
+                "code": "INVALID_CREDENTIALS",
             },
             status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    # =========================================================
+    # BLOCK ADMIN ACCOUNTS
+    # =========================================================
+    #
+    # This endpoint belongs only to marketplace users:
+    #
+    #   Customer
+    #   Provider
+    #
+    # Staff and superusers must use the separate
+    # Admin Login API.
+    # =========================================================
+
+    if (
+        user_obj.is_staff
+        or user_obj.is_superuser
+    ):
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Admin accounts cannot log in "
+                    "through the customer/provider login."
+                ),
+                "code": "ADMIN_LOGIN_NOT_ALLOWED",
+                "data": {
+                    "next_step": "admin_login",
+                },
+            },
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     # =========================================================
@@ -346,9 +386,11 @@ def login_api(request):
     if user is None:
         return Response(
             {
-                'success': False,
-                'message': 'Invalid email or password.',
-                'code': 'INVALID_CREDENTIALS',
+                "success": False,
+                "message": (
+                    "Invalid email or password."
+                ),
+                "code": "INVALID_CREDENTIALS",
             },
             status=status.HTTP_401_UNAUTHORIZED,
         )
@@ -360,103 +402,86 @@ def login_api(request):
     if not user.is_active:
         return Response(
             {
-                'success': False,
-                'message': 'Your account is inactive.',
-                'code': 'ACCOUNT_INACTIVE',
+                "success": False,
+                "message": (
+                    "Your account is inactive."
+                ),
+                "code": "ACCOUNT_INACTIVE",
             },
             status=status.HTTP_403_FORBIDDEN,
         )
 
     # =========================================================
-    # DETERMINE ADMIN TYPE
-    # =========================================================
-
-    is_super_admin = user.is_superuser
-
-    is_staff_admin = (
-        user.is_staff
-        and not user.is_superuser
-    )
-
-    is_admin = (
-        is_super_admin
-        or is_staff_admin
-    )
-
-    # =========================================================
     # EMAIL VERIFICATION
     # =========================================================
-    # Admin users are allowed through based on
-    # staff/superuser status.
-    #
-    # Normal customers/providers must verify email.
 
-    if (
-        not is_admin
-        and not user.is_email_verified
-    ):
+    if not user.is_email_verified:
         return Response(
             {
-                'success': False,
-                'message': (
-                    'Please verify your email '
-                    'before logging in.'
+                "success": False,
+                "message": (
+                    "Please verify your email "
+                    "before logging in."
                 ),
-                'code': 'EMAIL_NOT_VERIFIED',
-                'data': {
-                    'email': user.email,
-                    'next_step': 'verify_email',
+                "code": "EMAIL_NOT_VERIFIED",
+                "data": {
+                    "email": user.email,
+                    "next_step": "verify_email",
                 },
             },
             status=status.HTTP_403_FORBIDDEN,
         )
 
     # =========================================================
-    # DETERMINE USER TYPE / ROLE
+    # DETERMINE MARKETPLACE USER TYPE
     # =========================================================
 
-    if is_super_admin:
-        user_type = 'super_admin'
-        role = 'admin'
+    role = effective_role(user)
 
-    elif is_staff_admin:
-        user_type = 'admin'
-        role = 'admin'
+    if is_provider_role(role):
+        user_type = "provider"
+
+    elif role == "customer":
+        user_type = "customer"
 
     else:
-        role = effective_role(user)
-
-        if is_provider_role(role):
-            user_type = 'provider'
-        else:
-            user_type = 'customer'
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "This account is not allowed to use "
+                    "the customer/provider login."
+                ),
+                "code": "INVALID_MARKETPLACE_ACCOUNT",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     # =========================================================
-    # PROVIDER APPROVAL
+    # PROVIDER APPROVAL CHECK
     # =========================================================
 
     if (
-        not is_admin
-        and is_provider_role(role)
+        user_type == "provider"
         and not user.is_approved
     ):
         return Response(
             {
-                'success': False,
-                'message': (
-                    'Your provider account is '
-                    'waiting for admin approval.'
+                "success": False,
+                "message": (
+                    "Your provider account is "
+                    "waiting for admin approval."
                 ),
-                'code': 'PROVIDER_APPROVAL_PENDING',
-                'data': {
-                    'email': user.email,
-                    'role': role,
-                    'is_email_verified': (
+                "code": "PROVIDER_APPROVAL_PENDING",
+                "data": {
+                    "email": user.email,
+                    "role": role,
+                    "is_email_verified": (
                         user.is_email_verified
                     ),
-                    'is_approved': False,
-                    'next_step': (
-                        'wait_for_admin_approval'
+                    "is_approved": False,
+                    "next_step": (
+                        "wait_for_admin_approval"
                     ),
                 },
             },
@@ -480,17 +505,13 @@ def login_api(request):
     # REDIRECT URL
     # =========================================================
 
-    if is_admin:
-        redirect_url = '/admin-dashboard'
-
-    elif is_provider_role(role):
-        redirect_url = '/provider-dashboard'
-
+    if user_type == "provider":
+        redirect_url = "/provider-dashboard"
     else:
-        redirect_url = '/customer-dashboard'
+        redirect_url = "/customer-dashboard"
 
     # =========================================================
-    # BASE USER PAYLOAD
+    # USER PAYLOAD
     # =========================================================
 
     payload = user_base_payload(
@@ -498,28 +519,11 @@ def login_api(request):
         request,
     )
 
-    payload['is_email_verified'] = (
+    payload["is_email_verified"] = (
         user.is_email_verified
     )
 
-    payload['user_type'] = user_type
-    payload['is_staff'] = user.is_staff
-    payload['is_superuser'] = user.is_superuser
-
-    # =========================================================
-    # ADMIN PERMISSIONS
-    # =========================================================
-
-    if is_admin:
-        payload['permissions'] = (
-            get_admin_permissions(user)
-        )
-
-        payload['admin_type'] = (
-            'super_admin'
-            if user.is_superuser
-            else 'admin'
-        )
+    payload["user_type"] = user_type
 
     # =========================================================
     # RESPONSE
@@ -527,11 +531,11 @@ def login_api(request):
 
     return Response(
         {
-            'success': True,
-            'message': 'Login successful.',
-            'token': token.key,
-            'user': payload,
-            'redirect_url': redirect_url,
+            "success": True,
+            "message": "Login successful.",
+            "token": token.key,
+            "user": payload,
+            "redirect_url": redirect_url,
         },
         status=status.HTTP_200_OK,
     )

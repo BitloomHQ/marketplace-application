@@ -450,12 +450,13 @@ DEFAULT_AUTO_FIELD = (
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "accounts.authentication."
-        "CachedTokenAuthentication",
+        "rest_framework.authentication.TokenAuthentication",
+    ),
+
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
     ),
 }
-
-
 # ============================================================
 # CUSTOM USER MODEL
 # ============================================================

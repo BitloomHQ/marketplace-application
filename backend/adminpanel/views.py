@@ -9832,6 +9832,14 @@ def geographic_analytics_api(request):
 def admin_login_api(request):
     """
     Login endpoint exclusively for Marketplace admins.
+
+    Allowed:
+    - Staff Admin
+    - Super Admin
+
+    Rejected:
+    - Customer
+    - Provider
     """
 
     email = str(
@@ -9842,22 +9850,23 @@ def admin_login_api(request):
         request.data.get("password", "")
     )
 
-    # ---------------------------------------------------------
-    # VALIDATION
-    # ---------------------------------------------------------
+    # =========================================================
+    # VALIDATE INPUT
+    # =========================================================
 
     if not email or not password:
         return Response(
             {
                 "success": False,
-                "error": "Email and password are required.",
+                "message": "Email and password are required.",
+                "code": "EMAIL_PASSWORD_REQUIRED",
             },
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # ---------------------------------------------------------
-    # FIND USER BY EMAIL
-    # ---------------------------------------------------------
+    # =========================================================
+    # FIND USER
+    # =========================================================
 
     from django.contrib.auth import get_user_model
 
@@ -9872,7 +9881,8 @@ def admin_login_api(request):
         return Response(
             {
                 "success": False,
-                "error": "Invalid email or password.",
+                "message": "Invalid email or password.",
+                "code": "INVALID_CREDENTIALS",
             },
             status=status.HTTP_401_UNAUTHORIZED,
         )
@@ -9881,14 +9891,44 @@ def admin_login_api(request):
         return Response(
             {
                 "success": False,
-                "error": "Unable to login with this account.",
+                "message": (
+                    "Unable to login with this account."
+                ),
+                "code": "MULTIPLE_ACCOUNTS_FOUND",
             },
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # ---------------------------------------------------------
-    # AUTHENTICATE
-    # ---------------------------------------------------------
+    # =========================================================
+    # BLOCK NON-ADMIN ACCOUNTS
+    # =========================================================
+    #
+    # Customer and Provider accounts must use:
+    # /api/accounts/login/
+    # =========================================================
+
+    if not (
+        user_record.is_staff
+        or user_record.is_superuser
+    ):
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Customer and provider accounts cannot "
+                    "log in through the admin login."
+                ),
+                "code": "MARKETPLACE_LOGIN_NOT_ALLOWED",
+                "data": {
+                    "next_step": "marketplace_login",
+                },
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # =========================================================
+    # AUTHENTICATE ADMIN
+    # =========================================================
 
     user = authenticate(
         request=request,
@@ -9900,47 +9940,49 @@ def admin_login_api(request):
         return Response(
             {
                 "success": False,
-                "error": "Invalid email or password.",
+                "message": "Invalid email or password.",
+                "code": "INVALID_CREDENTIALS",
             },
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
-    # ---------------------------------------------------------
-    # ADMIN ONLY
-    # ---------------------------------------------------------
-
-    if not user.is_staff and not user.is_superuser:
-        return Response(
-            {
-                "success": False,
-                "error": (
-                    "This account does not have "
-                    "admin access."
-                ),
-            },
-            status=status.HTTP_403_FORBIDDEN,
-        )
+    # =========================================================
+    # ACTIVE ACCOUNT CHECK
+    # =========================================================
 
     if not user.is_active:
         return Response(
             {
                 "success": False,
-                "error": "This admin account is inactive.",
+                "message": (
+                    "This admin account is inactive."
+                ),
+                "code": "ADMIN_ACCOUNT_INACTIVE",
             },
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    # ---------------------------------------------------------
+    # =========================================================
+    # DETERMINE ADMIN TYPE
+    # =========================================================
+
+    admin_type = (
+        "super_admin"
+        if user.is_superuser
+        else "admin"
+    )
+
+    # =========================================================
     # TOKEN
-    # ---------------------------------------------------------
+    # =========================================================
 
     token, _ = Token.objects.get_or_create(
         user=user
     )
 
-    # ---------------------------------------------------------
+    # =========================================================
     # RESPONSE
-    # ---------------------------------------------------------
+    # =========================================================
 
     return Response(
         {
@@ -9953,7 +9995,11 @@ def admin_login_api(request):
                 "email": user.email,
                 "first_name": user.first_name,
                 "last_name": user.last_name,
-                "full_name": user.get_full_name(),
+                "full_name": (
+                    user.get_full_name()
+                    or user.username
+                ),
+                "admin_type": admin_type,
                 "is_staff": user.is_staff,
                 "is_superuser": user.is_superuser,
             },
