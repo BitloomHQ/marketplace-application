@@ -131,6 +131,8 @@ export function AddressLocationPicker(props: Props) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [searching, setSearching] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [locating, setLocating] = useState(false)
+  const [locateError, setLocateError] = useState('')
   const searchRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -175,6 +177,31 @@ export function AddressLocationPicker(props: Props) {
     [onAddressChange, onLocationChange],
   )
 
+  const useMyLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocateError('Your browser does not support location access.')
+      return
+    }
+    setLocating(true)
+    setLocateError('')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        applyCoordinates(pos.coords.latitude, pos.coords.longitude).finally(() =>
+          setLocating(false),
+        )
+      },
+      (err) => {
+        setLocating(false)
+        setLocateError(
+          err.code === err.PERMISSION_DENIED
+            ? 'Location access was denied. Allow it in your browser settings, or pick a point on the map.'
+            : 'Could not detect your location. Try picking a point on the map instead.',
+        )
+      },
+      { enableHighAccuracy: true, timeout: 10_000 },
+    )
+  }, [applyCoordinates])
+
   const runSearch = useCallback((text: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     if (text.trim().length < 2) {
@@ -216,24 +243,32 @@ export function AddressLocationPicker(props: Props) {
   }
 
   if (!configured) {
-    if (variant === 'map-only') {
-      return (
-        <Alert variant="error">
-          Map search is unavailable. Enter latitude and longitude manually, or configure{' '}
-          GOOGLE_MAPS_API_KEY on the server.
-        </Alert>
-      )
-    }
+    // Map search needs a server-side Maps API key. Fall back to manual
+    // entry so address selection never becomes a dead end.
     return (
       <ManualLocationFields
         {...props}
-        hint="Set GOOGLE_MAPS_API_KEY in the project root .env (backend only), then restart Django."
+        hint="Map search is temporarily unavailable, so enter your location manually for now."
       />
     )
   }
 
   const mapBlock = (
     <>
+      <button
+        type="button"
+        onClick={useMyLocation}
+        disabled={disabled || locating}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        {locating ? 'Detecting your location…' : 'Use my current location'}
+      </button>
+      {locateError && <Alert variant="error">{locateError}</Alert>}
+
       <div ref={searchRef} className="relative z-[1000]">
         <Field label={variant === 'map-only' ? 'Search on map' : 'Search address'}>
           <Input

@@ -18,15 +18,6 @@ type Props = {
   error: string
 }
 
-function CrosshairIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" d="M12 4v16M4 12h16" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  )
-}
-
 export function AddAddressModal({
   open,
   onClose,
@@ -40,7 +31,6 @@ export function AddAddressModal({
   const [address, setAddress] = useState('')
   const [lat, setLat] = useState('')
   const [lon, setLon] = useState('')
-  const [showMap, setShowMap] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -56,7 +46,6 @@ export function AddAddressModal({
       setLat('')
       setLon('')
     }
-    setShowMap(false)
   }, [open, initialAddress])
 
   const handleSubmit = async (e: FormEvent) => {
@@ -105,72 +94,24 @@ export function AddAddressModal({
           />
         </Field>
 
-        <Field label="Full Address">
-          <Input
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="7 Sunflower Court, Edison, New Jersey, USA"
-            required
-            disabled={saving}
-          />
-        </Field>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Latitude">
-            <Input
-              type="number"
-              step="any"
-              value={lat}
-              onChange={(e) => setLat(e.target.value)}
-              placeholder="40.602546"
-              required
-              disabled={saving}
-            />
-          </Field>
-          <Field label="Longitude">
-            <Input
-              type="number"
-              step="any"
-              value={lon}
-              onChange={(e) => setLon(e.target.value)}
-              placeholder="-74.658865"
-              required
-              disabled={saving}
-            />
-          </Field>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="h-px flex-1 bg-zinc-200" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">or</span>
-          <div className="h-px flex-1 bg-zinc-200" />
-        </div>
-
-        <Button
-          type="button"
-          variant="secondary"
-          className="flex w-full items-center justify-center gap-2 !rounded-xl"
+        <AddressLocationPicker
+          variant="map-only"
+          address={address}
+          lat={lat ? Number(lat) : null}
+          lon={lon ? Number(lon) : null}
+          onAddressChange={setAddress}
+          onLocationChange={(nextLat, nextLon, nextAddress) => {
+            if (nextLat != null) setLat(String(nextLat))
+            if (nextLon != null) setLon(String(nextLon))
+            if (nextAddress) setAddress(nextAddress)
+          }}
           disabled={saving}
-          onClick={() => setShowMap((v) => !v)}
-        >
-          <CrosshairIcon />
-          {showMap ? 'Hide map' : 'Select location manually'}
-        </Button>
+        />
 
-        {showMap && (
-          <AddressLocationPicker
-            variant="map-only"
-            address={address}
-            lat={lat ? Number(lat) : null}
-            lon={lon ? Number(lon) : null}
-            onAddressChange={setAddress}
-            onLocationChange={(nextLat, nextLon, nextAddress) => {
-              if (nextLat != null) setLat(String(nextLat))
-              if (nextLon != null) setLon(String(nextLon))
-              if (nextAddress) setAddress(nextAddress)
-            }}
-            disabled={saving}
-          />
+        {address && (
+          <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm text-zinc-700">
+            {address}
+          </p>
         )}
 
         <Button
