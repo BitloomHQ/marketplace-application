@@ -860,23 +860,69 @@ export function fetchProviderPerformance(params?: DashboardFilters) {
   }>(`/api/admin-panel/provider-performance/${dashboardQuery(params)}`)
 }
 
+export type AdminSpotlight = {
+  id: number
+  title: string
+  subtitle: string
+  image: string | null
+  image_url: string | null
+  redirect_url: string
+  display_order: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 export function fetchAdminSpotlights() {
-  return apiRequest<{ success: boolean; count: number; data: Record<string, unknown>[] }>(
+  return apiRequest<{ success: boolean; count: number; data: AdminSpotlight[] }>(
     '/api/admin-panel/spotlights/',
   )
 }
 
-export function createAdminSpotlight(data: FormData) {
-  return apiRequest<{ success: boolean; message: string; data: Record<string, unknown> }>(
+export function createAdminSpotlight(data: {
+  title: string
+  subtitle?: string
+  redirect_url?: string
+  display_order?: number
+  is_active?: boolean
+  image: File
+}) {
+  const formData = new FormData()
+  formData.append('title', data.title)
+  if (data.subtitle) formData.append('subtitle', data.subtitle)
+  if (data.redirect_url) formData.append('redirect_url', data.redirect_url)
+  if (data.display_order != null) formData.append('display_order', String(data.display_order))
+  if (data.is_active != null) formData.append('is_active', String(data.is_active))
+  formData.append('image', data.image)
+
+  return apiRequest<{ success: boolean; message: string; data: AdminSpotlight }>(
     '/api/admin-panel/spotlights/create/',
-    { method: 'POST', formData: data },
+    { method: 'POST', formData },
   )
 }
 
-export function updateAdminSpotlight(spotlightId: number, data: FormData) {
-  return apiRequest<{ success: boolean; message: string; data: Record<string, unknown> }>(
+export function updateAdminSpotlight(
+  spotlightId: number,
+  data: Partial<{
+    title: string
+    subtitle: string
+    redirect_url: string
+    display_order: number
+    is_active: boolean
+    image: File | null
+  }>,
+) {
+  const formData = new FormData()
+  if (data.title != null) formData.append('title', data.title)
+  if (data.subtitle != null) formData.append('subtitle', data.subtitle)
+  if (data.redirect_url != null) formData.append('redirect_url', data.redirect_url)
+  if (data.display_order != null) formData.append('display_order', String(data.display_order))
+  if (data.is_active != null) formData.append('is_active', String(data.is_active))
+  if (data.image) formData.append('image', data.image)
+
+  return apiRequest<{ success: boolean; message: string; data: AdminSpotlight }>(
     `/api/admin-panel/spotlights/${spotlightId}/update/`,
-    { method: 'PATCH', formData: data },
+    { method: 'PATCH', formData },
   )
 }
 

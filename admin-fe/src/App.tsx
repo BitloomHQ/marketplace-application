@@ -10,6 +10,7 @@ const AccountPage = lazy(() => import('./pages/AccountPage').then((m) => ({ defa
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const ProvidersPage = lazy(() => import('./pages/ProvidersPage').then((m) => ({ default: m.ProvidersPage })))
 const ServicesPage = lazy(() => import('./pages/ServicesPage').then((m) => ({ default: m.ServicesPage })))
+const SpotlightsPage = lazy(() => import('./pages/SpotlightsPage').then((m) => ({ default: m.SpotlightsPage })))
 const MarketplacePage = lazy(() => import('./pages/MarketplacePage').then((m) => ({ default: m.MarketplacePage })))
 const CustomersPage = lazy(() => import('./pages/CustomersPage').then((m) => ({ default: m.CustomersPage })))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage').then((m) => ({ default: m.AdminUsersPage })))
@@ -41,6 +42,7 @@ function AppRoutes() {
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/admin-users" element={<AdminUsersPage />} />
           <Route path="/services" element={<ServicesPage />} />
+          <Route path="/spotlights" element={<SpotlightsPage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/account" element={<AccountPage />} />
         </Route>

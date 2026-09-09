@@ -18,12 +18,6 @@ function serviceImage(category: ServiceCategory): string {
   return fromApi ?? DEFAULT_SERVICE_IMAGE
 }
 
-const SPOTLIGHT_IMAGES = [
-  { src: '/spotlight1.png', alt: 'Spotlight offer 1' },
-  { src: '/spotlight2.png', alt: 'Spotlight offer 2' },
-  { src: '/spotlight3.png', alt: 'Spotlight offer 3' },
-] as const
-
 type SpotlightCardProps = {
   image: string
   alt: string
@@ -35,7 +29,7 @@ function SpotlightCard({ image, alt, onBook }: SpotlightCardProps) {
     <button
       type="button"
       onClick={onBook}
-      className="w-[min(88vw,20rem)] shrink-0 snap-start overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition hover:shadow-md sm:w-auto sm:flex-1"
+      className="w-[min(88vw,20rem)] shrink-0 snap-start overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition hover:shadow-md sm:w-[calc((100%-2*1rem)/3)]"
     >
       <img src={image} alt={alt} className="w-full" loading="lazy" />
     </button>
@@ -127,13 +121,13 @@ export function CustomerHomeContent({
 
   const activeServices = services.filter((service) => service.status === 'active')
 
-  const spotlightItems =
-    spotlights.length > 0
-      ? spotlights.map((item) => ({
-          src: resolveMediaUrl(item.image_url) ?? item.image_url ?? '/spotlight1.png',
-          alt: item.title,
-        }))
-      : SPOTLIGHT_IMAGES.map((item) => ({ src: item.src, alt: item.alt }))
+  const spotlightItems = spotlights
+    .filter((item) => item.image_url)
+    .map((item) => ({
+      id: item.id,
+      src: resolveMediaUrl(item.image_url)!,
+      alt: item.title,
+    }))
 
   return (
     <div className="space-y-10 pb-4">
@@ -218,26 +212,28 @@ export function CustomerHomeContent({
         )}
       </section>
 
-      <section>
-        <SectionTitle subtitle="Featured offers from verified professionals">
-          In the spotlight
-        </SectionTitle>
-        <div className="scrollbar-none flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0">
-          {spotlightItems.map((item, index) => {
-            const linkedService = bookableServices[index]
-            return (
-              <SpotlightCard
-                key={item.src}
-                image={item.src}
-                alt={item.alt}
-                onBook={() =>
-                  linkedService ? handleSelect(linkedService.key) : onBookService()
-                }
-              />
-            )
-          })}
-        </div>
-      </section>
+      {spotlightItems.length > 0 && (
+        <section>
+          <SectionTitle subtitle="Featured offers from verified professionals">
+            In the spotlight
+          </SectionTitle>
+          <div className="scrollbar-none flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2">
+            {spotlightItems.map((item, index) => {
+              const linkedService = bookableServices[index]
+              return (
+                <SpotlightCard
+                  key={item.id}
+                  image={item.src}
+                  alt={item.alt}
+                  onBook={() =>
+                    linkedService ? handleSelect(linkedService.key) : onBookService()
+                  }
+                />
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {loadingServices ? (
         <section>
