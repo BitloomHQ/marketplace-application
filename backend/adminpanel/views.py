@@ -602,7 +602,9 @@ def admin_dashboard(request):
     # =========================================================
 
     customer_queryset = User.objects.filter(
-        role="customer"
+        role="customer",
+        is_staff=False,
+        is_superuser=False,
     )
 
     total_customers = customer_queryset.count()
@@ -3176,7 +3178,7 @@ def all_customers(request):
 
     customers = list(
         User.objects
-        .filter(role="customer")
+        .filter(role="customer", is_staff=False, is_superuser=False)
         .order_by("-date_joined")
         .only(
             "id",
@@ -3239,6 +3241,8 @@ def activate_customer(request, customer_id):
         .filter(
             id=customer_id,
             role="customer",
+            is_staff=False,
+            is_superuser=False,
         )
         .first()
     )
@@ -3287,6 +3291,8 @@ def deactivate_customer(request, customer_id):
         .filter(
             id=customer_id,
             role="customer",
+            is_staff=False,
+            is_superuser=False,
         )
         .first()
     )
@@ -6471,6 +6477,8 @@ def customer_detail_api(request, customer_id):
         .filter(
             id=customer_id,
             role="customer",
+            is_staff=False,
+            is_superuser=False,
         )
         .first()
     )
@@ -6533,6 +6541,8 @@ def update_customer_api(request, customer_id):
         .filter(
             id=customer_id,
             role="customer",
+            is_staff=False,
+            is_superuser=False,
         )
         .first()
     )
@@ -8990,7 +9000,9 @@ def customer_analytics_api(request):
     customers = (
         User.objects
         .filter(
-            role="customer"
+            role="customer",
+            is_staff=False,
+            is_superuser=False,
         )
     )
 

@@ -55,9 +55,9 @@ def invalidate_admin_cache() -> None:
 
 def _fetch_user_stats(provider_roles: list[str]) -> dict[str, int]:
     return User.objects.aggregate(
-        total_customers=Count("id", filter=Q(role="customer")),
-        active_customers=Count("id", filter=Q(role="customer", is_active=True)),
-        inactive_customers=Count("id", filter=Q(role="customer", is_active=False)),
+        total_customers=Count("id", filter=Q(role="customer", is_staff=False, is_superuser=False)),
+        active_customers=Count("id", filter=Q(role="customer", is_staff=False, is_superuser=False, is_active=True)),
+        inactive_customers=Count("id", filter=Q(role="customer", is_staff=False, is_superuser=False, is_active=False)),
         total_providers=Count("id", filter=Q(role__in=provider_roles)),
         active_providers=Count("id", filter=Q(role__in=provider_roles, is_active=True)),
         inactive_providers=Count("id", filter=Q(role__in=provider_roles, is_active=False)),
