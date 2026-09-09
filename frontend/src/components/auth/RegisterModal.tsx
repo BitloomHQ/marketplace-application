@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { register } from '../../api/accounts'
 import { ApiRequestError } from '../../api/client'
-import { Alert, Button, Field, Input, Modal } from '../ui'
+import { Alert, Button, EyeIcon, Field, IconInput, LockIcon, MailIcon, Modal, UserIcon } from '../ui'
 
 type Props = {
   open: boolean
@@ -12,6 +12,7 @@ type Props = {
 
 export function RegisterModal({ open, onClose, onSwitchToLogin, onRegistered }: Props) {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm_password: '' })
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -49,49 +50,56 @@ export function RegisterModal({ open, onClose, onSwitchToLogin, onRegistered }: 
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Full name" required>
-          <Input
+          <IconInput
+            icon={<UserIcon />}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
             placeholder="Your full name"
-            className="!rounded-xl"
           />
         </Field>
         <Field label="Email address" required>
-          <Input
+          <IconInput
+            icon={<MailIcon />}
             type="email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             required
             placeholder="Enter your email address"
-            className="!rounded-xl"
           />
         </Field>
         <Field label="Password" required>
-          <Input
-            type="password"
+          <IconInput
+            icon={<LockIcon />}
+            trailing={
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="text-zinc-400 transition hover:text-zinc-600"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                <EyeIcon off={showPassword} />
+              </button>
+            }
+            type={showPassword ? 'text' : 'password'}
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
             placeholder="Create a password"
-            className="!rounded-xl"
           />
         </Field>
         <Field label="Confirm password" required>
-          <Input
-            type="password"
+          <IconInput
+            icon={<LockIcon />}
+            type={showPassword ? 'text' : 'password'}
             value={form.confirm_password}
             onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
             required
             placeholder="Confirm your password"
-            className="!rounded-xl"
           />
         </Field>
-        <Button
-          type="submit"
-          className="w-full !rounded-full !bg-sky-600 py-3.5 text-base font-bold shadow-md shadow-sky-600/25 hover:!bg-sky-700"
-          disabled={loading}
-        >
+        <Button type="submit" className="w-full py-3.5 text-base" disabled={loading}>
           {loading ? 'Creating account…' : 'Create account'}
         </Button>
 

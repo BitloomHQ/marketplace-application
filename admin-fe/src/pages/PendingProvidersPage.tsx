@@ -16,6 +16,14 @@ function formatJoined(value: string): string {
   })
 }
 
+function Avatar({ name }: { name: string }) {
+  return (
+    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-sm font-bold text-amber-700 ring-1 ring-amber-200/70">
+      {name.charAt(0).toUpperCase()}
+    </span>
+  )
+}
+
 export function PendingProvidersPage() {
   const [pending, setPending] = useState<AdminProvider[]>([])
   const [loading, setLoading] = useState(true)
@@ -88,28 +96,31 @@ export function PendingProvidersPage() {
           {pending.map((provider) => (
             <Card key={provider.id} className="space-y-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-bold text-zinc-900">{provider.username}</p>
-                    <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-                      Pending approval
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-zinc-500">
-                    {provider.email} · {formatService(provider.role)}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
-                    {provider.phone && <span>Phone: {provider.phone}</span>}
-                    {provider.experience_years != null && (
-                      <span>{provider.experience_years} years experience</span>
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <Avatar name={provider.username} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-bold text-zinc-900">{provider.username}</p>
+                      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                        Pending approval
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      {provider.email} · {formatService(provider.role)}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+                      {provider.phone && <span>Phone: {provider.phone}</span>}
+                      {provider.experience_years != null && (
+                        <span>{provider.experience_years} years experience</span>
+                      )}
+                      {provider.date_joined && (
+                        <span>Joined {formatJoined(provider.date_joined)}</span>
+                      )}
+                    </div>
+                    {provider.bio && (
+                      <p className="mt-2 text-sm text-zinc-600">{provider.bio}</p>
                     )}
-                    {provider.date_joined && (
-                      <span>Joined {formatJoined(provider.date_joined)}</span>
-                    )}
                   </div>
-                  {provider.bio && (
-                    <p className="mt-2 text-sm text-zinc-600">{provider.bio}</p>
-                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <AdminActionButton

@@ -27,7 +27,7 @@ function ServiceThumbnail({ serviceType }: { serviceType: string }) {
   const { resolveServiceImage } = useServiceImageMap()
 
   return (
-    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-zinc-200 ring-1 ring-zinc-100">
+    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-zinc-200 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-zinc-100">
       <img
         src={resolveServiceImage(serviceType)}
         alt={formatService(serviceType)}
@@ -96,9 +96,11 @@ function ActionIcon({ type }: { type: 'calendar' | 'cancel' }) {
 }
 
 const actionStyles = {
-  primary: 'bg-zinc-900 text-white hover:bg-zinc-800',
-  danger: 'bg-rose-500 text-white hover:bg-rose-600',
-  secondary: 'bg-white text-zinc-900 border border-zinc-200 hover:bg-zinc-50',
+  primary:
+    'bg-sky-600 text-white shadow-[0_1px_2px_rgba(3,105,161,0.2),0_6px_14px_-6px_rgba(2,132,199,0.5)] hover:bg-sky-700 active:scale-[0.98]',
+  danger:
+    'bg-rose-500 text-white shadow-[0_1px_2px_rgba(159,18,57,0.18),0_6px_14px_-6px_rgba(225,29,72,0.4)] hover:bg-rose-600 active:scale-[0.98]',
+  secondary: 'bg-white text-zinc-900 border border-zinc-200 hover:bg-zinc-50 active:scale-[0.98]',
 }
 
 export function ListCardButton({
@@ -114,7 +116,7 @@ export function ListCardButton({
   return (
     <button
       type="button"
-      className={`inline-flex min-w-[9.5rem] items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${actionStyles[variant]} ${className}`}
+      className={`inline-flex min-w-[9.5rem] items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 ${actionStyles[variant]} ${className}`}
       {...props}
     >
       {icon && <ActionIcon type={icon} />}
@@ -135,7 +137,7 @@ export function ListCardLink({
 }) {
   return (
     <Link
-      className={`inline-flex min-w-[9.5rem] items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition ${actionStyles[variant]} ${className}`}
+      className={`inline-flex min-w-[9.5rem] items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-150 ${actionStyles[variant]} ${className}`}
       {...props}
     >
       {icon && <ActionIcon type={icon} />}
@@ -175,8 +177,10 @@ export function ServiceListCard({
   return (
     <article
       onClick={onClick}
-      className={`rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 ${
-        onClick ? 'cursor-pointer transition hover:border-sky-200 hover:shadow-md' : ''
+      className={`rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_1px_1px_rgba(0,0,0,0.02)] transition-all duration-150 sm:p-5 ${
+        onClick
+          ? 'cursor-pointer hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_24px_-12px_rgba(2,132,199,0.25)]'
+          : ''
       }`}
     >
       <div className="flex gap-4">

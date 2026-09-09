@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiRequestError } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { isProviderRole } from '../../lib/format'
-import { Alert, Button, Field, Input, Modal } from '../ui'
+import { Alert, Button, EyeIcon, Field, IconInput, LockIcon, MailIcon, Modal } from '../ui'
 
 const REMEMBER_KEY = 'hs_remember_email'
 
@@ -27,6 +27,7 @@ export function LoginModal({
   const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_KEY) ?? '')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(() => !!localStorage.getItem(REMEMBER_KEY))
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -85,13 +86,13 @@ export function LoginModal({
       )}
       <form onSubmit={handleSubmit} className="space-y-5">
         <Field label="Email address">
-          <Input
+          <IconInput
+            icon={<MailIcon />}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             placeholder="Enter your email address"
-            className="!rounded-xl"
           />
         </Field>
 
@@ -107,13 +108,24 @@ export function LoginModal({
             </button>
           }
         >
-          <Input
-            type="password"
+          <IconInput
+            icon={<LockIcon />}
+            trailing={
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="text-zinc-400 transition hover:text-zinc-600"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                <EyeIcon off={showPassword} />
+              </button>
+            }
+            type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             placeholder="Enter your password here"
-            className="!rounded-xl"
           />
         </Field>
 
@@ -127,11 +139,7 @@ export function LoginModal({
           Remember me
         </label>
 
-        <Button
-          type="submit"
-          className="w-full !rounded-full !bg-sky-600 py-3.5 text-base font-bold shadow-md shadow-sky-600/25 hover:!bg-sky-700"
-          disabled={loading}
-        >
+        <Button type="submit" className="w-full py-3.5 text-base" disabled={loading}>
           {loading ? 'Signing in…' : 'Submit'}
         </Button>
 

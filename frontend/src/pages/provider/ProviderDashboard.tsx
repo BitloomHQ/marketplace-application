@@ -37,12 +37,14 @@ function StatCard({
 
   return (
     <article
-      className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 ${styles.card}`}
+      className={`relative overflow-hidden rounded-2xl border p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_24px_-12px_rgba(0,0,0,0.12)] sm:p-5 ${styles.card}`}
     >
       <div className="relative z-10 max-w-[70%]">
         <h3 className={`text-sm font-bold sm:text-base ${styles.title}`}>{title}</h3>
         <p className={`mt-1 text-xs leading-relaxed sm:text-sm ${styles.desc}`}>{description}</p>
-        <p className={`mt-3 text-3xl font-bold sm:text-4xl ${styles.value}`}>{value}</p>
+        <p className={`mt-3 text-[2.25rem] font-bold leading-none tracking-tight tabular-nums sm:text-[2.5rem] ${styles.value}`}>
+          {value}
+        </p>
       </div>
       <div className="pointer-events-none absolute -bottom-2 -right-1 opacity-[0.18]">
         {watermark}
@@ -75,7 +77,7 @@ function QuickActionCard({
   return (
     <Link
       to={to}
-      className="group flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md"
+      className="group flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-all duration-150 hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_24px_-12px_rgba(0,0,0,0.12)]"
     >
       <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
         {icon}
@@ -137,18 +139,15 @@ export function ProviderDashboard() {
         </Alert>
       )}
       <section
-        className="relative h-80 rounded-[1.75rem] bg-cover bg-center px-5 py-6 text-white sm:px-7 sm:py-8"
+        className="relative h-80 rounded-[1.75rem] bg-cover bg-center px-5 py-6 text-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_24px_48px_-16px_rgba(2,132,199,0.35)] sm:px-7 sm:py-8"
         style={{ backgroundImage: `url(${backgroundImage})` }}
       >
         <div className="relative z-10 flex sm:items-center sm:justify-between">
           <div className="relative w-full">
-            <p className="inline-flex items-center gap-2 text-base font-medium text-sky-100">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-xs">
-                👋
-              </span>
+            <p className="text-sm font-semibold uppercase tracking-wider text-sky-200">
               Hello, {firstName}
             </p>
-            <h1 className="mt-3 text-2xl font-bold leading-tight sm:text-3xl">
+            <h1 className="mt-2 text-2xl font-bold leading-tight tracking-tight sm:text-3xl lg:text-4xl">
               {dashboardType ?? 'Your provider dashboard'}
             </h1>
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-sky-100/90 sm:text-[15px]">
@@ -156,8 +155,11 @@ export function ProviderDashboard() {
               place.
             </p>
             {user?.is_verified && (
-              <p className="mt-3 inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
-                ✅ Verified provider
+              <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold backdrop-blur-sm">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Verified provider
               </p>
             )}
           </div>
@@ -206,9 +208,13 @@ export function ProviderDashboard() {
             {features.map((feature) => (
               <li
                 key={feature}
-                className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-700"
+                className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-700"
               >
-                <span className="text-sky-600">✓</span>
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
                 {feature}
               </li>
             ))}

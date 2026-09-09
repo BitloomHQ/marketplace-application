@@ -301,7 +301,7 @@ export function AddressLocationPicker(props: Props) {
               <li key={s.place_id}>
                 <button
                   type="button"
-                  className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-sky-50"
+                  className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-sky-50 hover:text-sky-900"
                   onClick={() => pickSuggestion(s)}
                 >
                   {s.description}

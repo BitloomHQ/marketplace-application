@@ -28,6 +28,14 @@ function DetailField({ label, children }: { label: string; children: ReactNode }
   )
 }
 
+function CalendarIcon() {
+  return (
+    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )
+}
+
 function quoteStatusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger' {
   if (status === 'accepted') return 'success'
   if (status === 'rejected' || status === 'cancelled') return 'danger'
@@ -130,7 +138,14 @@ export function LeadDetailModal({
             <Badge tone="warning">{formatStatus(lead.status)}</Badge>
             {lead.is_booked && <Badge tone="success">Booked</Badge>}
             {lead.has_quoted && <Badge tone="success">Quote sent</Badge>}
-            {preferredSchedule && <Badge tone="neutral">📅 Preferred slot</Badge>}
+            {preferredSchedule && (
+              <Badge tone="neutral">
+                <span className="inline-flex items-center gap-1">
+                  <CalendarIcon />
+                  Preferred slot
+                </span>
+              </Badge>
+            )}
           </div>
 
           {preferredSchedule && (

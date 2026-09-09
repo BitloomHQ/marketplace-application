@@ -147,3 +147,23 @@ export function BadgeMinusIcon() {
     </svg>
   )
 }
+
+export function WrenchIcon() {
+  return (
+    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+    </svg>
+  )
+}
+
+export function SignalIcon() {
+  return (
+    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a.75.75 0 100-1.5.75.75 0 000 1.5zM7.03 13.97a7 7 0 019.94 0M3.5 10.44a12 12 0 0117 0" />
+    </svg>
+  )
+}
+
+export function StatusDot({ tone }: { tone: 'success' | 'neutral' }) {
+  return <span className={`inline-block h-2 w-2 rounded-full ${tone === 'success' ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+}

@@ -6,7 +6,7 @@ import { ApiRequestError } from '../api/client'
 import { GuestHeader } from '../components/GuestHeader'
 import { SiteFooter } from '../components/SiteFooter'
 import { AuthRegisterShell } from '../components/auth/AuthRegisterShell'
-import { Alert, Button, Field, Input, Modal, Select } from '../components/ui'
+import { Alert, Button, EyeIcon, Field, IconInput, LockIcon, MailIcon, Modal, Select, UserIcon } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { isProviderRole } from '../lib/format'
 import type { ServiceCategory } from '../types'
@@ -26,6 +26,7 @@ function ProviderLoginModal({
   const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_KEY) ?? '')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(() => !!localStorage.getItem(REMEMBER_KEY))
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -74,13 +75,13 @@ function ProviderLoginModal({
       )}
       <form onSubmit={handleSubmit} className="space-y-5">
         <Field label="Email address">
-          <Input
+          <IconInput
+            icon={<MailIcon />}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             placeholder="Enter your email address"
-            className="!rounded-xl"
           />
         </Field>
         <Field
@@ -91,13 +92,24 @@ function ProviderLoginModal({
             </Link>
           }
         >
-          <Input
-            type="password"
+          <IconInput
+            icon={<LockIcon />}
+            trailing={
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="text-zinc-400 transition hover:text-zinc-600"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                <EyeIcon off={showPassword} />
+              </button>
+            }
+            type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             placeholder="Enter your password"
-            className="!rounded-xl"
           />
         </Field>
         <label className="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-600">
@@ -109,11 +121,7 @@ function ProviderLoginModal({
           />
           Remember me
         </label>
-        <Button
-          type="submit"
-          className="w-full !rounded-full !bg-sky-600 py-3.5 font-bold hover:!bg-sky-700"
-          disabled={loading}
-        >
+        <Button type="submit" className="w-full py-3.5" disabled={loading}>
           {loading ? 'Signing in…' : 'Submit'}
         </Button>
         <p className="text-center text-sm text-zinc-500">
@@ -196,34 +204,34 @@ export function PartnerLandingPage() {
       <main className="mx-auto max-w-7xl px-4 py-6 sm:py-10">
         <section className="grid gap-8 lg:grid-cols-2 lg:items-center">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-sky-600">
-              Partner program
-            </p>
-            <h1 className="mt-2 text-3xl font-bold leading-tight text-zinc-900 sm:text-4xl">
-              Grow your service business with HomeServices
+            <h1 className="text-3xl font-bold leading-tight tracking-tight text-zinc-900 sm:text-4xl lg:text-5xl">
+              Grow your service business with{' '}
+              <span className="text-sky-600">ZepServe</span>
             </h1>
-            <p className="mt-4 text-base leading-relaxed text-zinc-600">
+            <p className="mt-4 max-w-lg text-base leading-relaxed text-zinc-600">
               Join verified professionals on our platform. Receive job leads, send quotes, manage
               bookings, and build your reputation — all in one place.
             </p>
-            <ul className="mt-6 space-y-3 text-sm text-zinc-700">
-              <li className="flex items-start gap-2">
-                <span className="mt-0.5 text-sky-600">✓</span>
-                Get matched with customers in your service area
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-0.5 text-sky-600">✓</span>
-                Manage leads, quotes, and schedules from one dashboard
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-0.5 text-sky-600">✓</span>
-                Build trust with verified profiles and customer reviews
-              </li>
+            <ul className="mt-7 space-y-4 text-sm text-zinc-700">
+              {[
+                'Get matched with customers in your service area',
+                'Manage leads, quotes, and schedules from one dashboard',
+                'Build trust with verified profiles and customer reviews',
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </span>
+                  {item}
+                </li>
+              ))}
             </ul>
             <img
               src={heroImage}
               alt=""
-              className="mt-8 w-full max-w-md rounded-2xl object-cover shadow-lg lg:hidden"
+              className="mt-8 w-full max-w-md rounded-2xl object-cover shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_32px_-12px_rgba(0,0,0,0.15)] lg:hidden"
             />
           </div>
 
@@ -273,47 +281,47 @@ export function PartnerLandingPage() {
                   </Select>
                 </Field>
                 <Field label="Full name" required>
-                  <Input
+                  <IconInput
+                    icon={<UserIcon />}
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     required
                     placeholder="Your full name"
-                    className="!rounded-xl"
                   />
                 </Field>
                 <Field label="Email address" required>
-                  <Input
+                  <IconInput
+                    icon={<MailIcon />}
                     type="email"
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
                     required
                     placeholder="Enter your email address"
-                    className="!rounded-xl"
                   />
                 </Field>
                 <Field label="Password" required>
-                  <Input
+                  <IconInput
+                    icon={<LockIcon />}
                     type="password"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
                     required
                     placeholder="Create a password"
-                    className="!rounded-xl"
                   />
                 </Field>
                 <Field label="Confirm password" required>
-                  <Input
+                  <IconInput
+                    icon={<LockIcon />}
                     type="password"
                     value={form.confirm_password}
                     onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
                     required
                     placeholder="Confirm your password"
-                    className="!rounded-xl"
                   />
                 </Field>
                 <Button
                   type="submit"
-                  className="w-full !rounded-full !bg-sky-600 py-3.5 text-base font-bold shadow-md hover:!bg-sky-700"
+                  className="w-full py-3.5 text-base"
                   disabled={loading || loadingServices || services.length === 0}
                 >
                   {loading ? 'Creating account…' : 'Create partner account'}

@@ -1,3 +1,4 @@
+import { StatusDot } from './IconActionButton'
 import { Card } from './ui'
 import type {
   AdminDashboardData,
@@ -197,7 +198,7 @@ function FunnelChart({ funnel }: { funnel: FunnelStage[] }) {
               </div>
               <div className="h-2.5 overflow-hidden rounded-full bg-zinc-100">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500"
+                  className="h-full rounded-full bg-violet-600"
                   style={{ width: `${(stage.count / max) * 100}%` }}
                 />
               </div>
@@ -323,7 +324,9 @@ export function AdminDashboardCharts({
                   <p className="font-medium text-zinc-900">
                     {row.full_name || row.provider}
                     {row.operational_status?.is_online && (
-                      <span className="ml-1.5 text-emerald-500" title="Online">●</span>
+                      <span className="ml-1.5 inline-block align-middle" title="Online">
+                        <StatusDot tone="success" />
+                      </span>
                     )}
                   </p>
                   <p className="text-xs text-zinc-500">{row.role}</p>

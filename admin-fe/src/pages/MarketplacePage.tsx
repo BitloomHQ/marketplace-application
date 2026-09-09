@@ -12,6 +12,8 @@ import {
 } from '../api/admin'
 import { ApiRequestError } from '../api/client'
 import { AdminDataTable } from '../components/AdminDataTable'
+import { CheckIcon, SignalIcon, StatusDot, WrenchIcon } from '../components/IconActionButton'
+import { SortControl, sortByKey, type SortDirection } from '../components/SortControl'
 import { Alert, Badge, Button, Card, Field, Input, PageHeader, Switch } from '../components/ui'
 import { ListCardSkeleton } from '../components/Shimmer'
 import { formatService, formatStatus } from '../lib/format'
@@ -168,6 +170,47 @@ function quoteStatusTone(status: string): 'success' | 'warning' | 'danger' | 'ne
   return 'neutral'
 }
 
+const BOOKING_SORT_OPTIONS = [
+  { value: 'date', label: 'Date' },
+  { value: 'amount', label: 'Amount' },
+  { value: 'status', label: 'Status' },
+]
+
+const QUOTE_SORT_OPTIONS = [
+  { value: 'date', label: 'Date' },
+  { value: 'price', label: 'Price' },
+  { value: 'status', label: 'Status' },
+]
+
+const PERFORMANCE_SORT_OPTIONS = [
+  { value: 'rank', label: 'Rank (default)' },
+  { value: 'rating', label: 'Rating' },
+  { value: 'bookings', label: 'Total bookings' },
+  { value: 'acceptance', label: 'Acceptance rate' },
+]
+
+function extractBooking(row: AdminBooking, key: string): string | number {
+  if (key === 'date') return new Date(row.created_at).getTime()
+  if (key === 'amount') return Number(row.final_price || 0)
+  if (key === 'status') return row.status
+  return ''
+}
+
+function extractQuote(row: AdminQuote, key: string): string | number {
+  if (key === 'date') return new Date(row.created_at).getTime()
+  if (key === 'price') return Number(row.price || 0)
+  if (key === 'status') return row.status
+  return ''
+}
+
+function extractPerformance(row: AdminProviderPerformance, key: string): string | number {
+  if (key === 'rank') return row.rank ?? 999999
+  if (key === 'rating') return row.average_rating ?? 0
+  if (key === 'bookings') return row.total_bookings ?? 0
+  if (key === 'acceptance') return row.acceptance_rate ?? 0
+  return ''
+}
+
 function SummaryCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
     <Card className="min-w-[8rem] flex-1">
@@ -186,6 +229,12 @@ export function MarketplacePage() {
   const [pulse, setPulse] = useState<MarketplaceMonitorSummary['providers'] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [bookingSortKey, setBookingSortKey] = useState('date')
+  const [bookingDirection, setBookingDirection] = useState<SortDirection>('desc')
+  const [quoteSortKey, setQuoteSortKey] = useState('date')
+  const [quoteDirection, setQuoteDirection] = useState<SortDirection>('desc')
+  const [performanceSortKey, setPerformanceSortKey] = useState('rank')
+  const [performanceDirection, setPerformanceDirection] = useState<SortDirection>('asc')
 
   useEffect(() => {
     setLoading(true)
@@ -239,6 +288,19 @@ export function MarketplacePage() {
 
   const activeTab = TABS.find((t) => t.id === tab)!
 
+  const sortedBookings = useMemo(
+    () => sortByKey(bookings, bookingSortKey, bookingDirection, extractBooking),
+    [bookings, bookingSortKey, bookingDirection],
+  )
+  const sortedQuotes = useMemo(
+    () => sortByKey(quotes, quoteSortKey, quoteDirection, extractQuote),
+    [quotes, quoteSortKey, quoteDirection],
+  )
+  const sortedPerformance = useMemo(
+    () => sortByKey(performance, performanceSortKey, performanceDirection, extractPerformance),
+    [performance, performanceSortKey, performanceDirection],
+  )
+
   return (
     <div className="space-y-6">
       <PageHeader subtitle="Bookings, quotes, and provider performance" />
@@ -278,12 +340,37 @@ export function MarketplacePage() {
 
       {pulse && (
         <div className="flex flex-wrap gap-2">
-          <Badge tone="success">🟢 {pulse.online} online</Badge>
-          <Badge tone="neutral">⚪️ {pulse.offline} offline</Badge>
-          <Badge tone="success">✅ {pulse.marketplace_ready} marketplace-ready</Badge>
-          <Badge tone="warning">🔧 {pulse.busy} busy</Badge>
+          <Badge tone="success">
+            <span className="inline-flex items-center gap-1.5">
+              <StatusDot tone="success" />
+              {pulse.online} online
+            </span>
+          </Badge>
+          <Badge tone="neutral">
+            <span className="inline-flex items-center gap-1.5">
+              <StatusDot tone="neutral" />
+              {pulse.offline} offline
+            </span>
+          </Badge>
+          <Badge tone="success">
+            <span className="inline-flex items-center gap-1">
+              <CheckIcon />
+              {pulse.marketplace_ready} marketplace-ready
+            </span>
+          </Badge>
+          <Badge tone="warning">
+            <span className="inline-flex items-center gap-1">
+              <WrenchIcon />
+              {pulse.busy} busy
+            </span>
+          </Badge>
           {pulse.stale_live_location > 0 && (
-            <Badge tone="danger">📡 {pulse.stale_live_location} stale GPS</Badge>
+            <Badge tone="danger">
+              <span className="inline-flex items-center gap-1">
+                <SignalIcon />
+                {pulse.stale_live_location} stale GPS
+              </span>
+            </Badge>
           )}
         </div>
       )}
@@ -294,13 +381,24 @@ export function MarketplacePage() {
         <>
           {tab === 'bookings' && (
             <>
-              <div className="flex flex-wrap gap-3">
-                <SummaryCard label="Total bookings" value={bookings.length} />
-                <SummaryCard label="Completed" value={bookingSummary.completed} />
-                <SummaryCard label="Total revenue" value={formatMoney(bookingSummary.revenue)} />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-3">
+                  <SummaryCard label="Total bookings" value={bookings.length} />
+                  <SummaryCard label="Completed" value={bookingSummary.completed} />
+                  <SummaryCard label="Total revenue" value={formatMoney(bookingSummary.revenue)} />
+                </div>
+                <SortControl
+                  options={BOOKING_SORT_OPTIONS}
+                  sortKey={bookingSortKey}
+                  direction={bookingDirection}
+                  onChange={(key, dir) => {
+                    setBookingSortKey(key)
+                    setBookingDirection(dir)
+                  }}
+                />
               </div>
               <AdminDataTable
-                rows={bookings}
+                rows={sortedBookings}
                 rowKey={(row) => row.id}
                 emptyMessage="No bookings yet."
                 columns={[
@@ -358,13 +456,24 @@ export function MarketplacePage() {
 
           {tab === 'quotes' && (
             <>
-              <div className="flex flex-wrap gap-3">
-                <SummaryCard label="Total quotes" value={quotes.length} />
-                <SummaryCard label="Accepted" value={quoteSummary.accepted} />
-                <SummaryCard label="Pending" value={quoteSummary.pending} />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-3">
+                  <SummaryCard label="Total quotes" value={quotes.length} />
+                  <SummaryCard label="Accepted" value={quoteSummary.accepted} />
+                  <SummaryCard label="Pending" value={quoteSummary.pending} />
+                </div>
+                <SortControl
+                  options={QUOTE_SORT_OPTIONS}
+                  sortKey={quoteSortKey}
+                  direction={quoteDirection}
+                  onChange={(key, dir) => {
+                    setQuoteSortKey(key)
+                    setQuoteDirection(dir)
+                  }}
+                />
               </div>
               <AdminDataTable
-                rows={quotes}
+                rows={sortedQuotes}
                 rowKey={(row) => row.id}
                 emptyMessage="No quotes yet."
                 columns={[
@@ -427,21 +536,32 @@ export function MarketplacePage() {
 
           {tab === 'performance' && (
             <>
-              <div className="flex flex-wrap gap-3">
-                <SummaryCard label="Providers tracked" value={performance.length} />
-                <SummaryCard
-                  label="Avg. rating"
-                  value={
-                    performance.length
-                      ? (
-                          performance.reduce((sum, p) => sum + p.average_rating, 0) / performance.length
-                        ).toFixed(1)
-                      : '—'
-                  }
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-3">
+                  <SummaryCard label="Providers tracked" value={performance.length} />
+                  <SummaryCard
+                    label="Avg. rating"
+                    value={
+                      performance.length
+                        ? (
+                            performance.reduce((sum, p) => sum + p.average_rating, 0) / performance.length
+                          ).toFixed(1)
+                        : '—'
+                    }
+                  />
+                </div>
+                <SortControl
+                  options={PERFORMANCE_SORT_OPTIONS}
+                  sortKey={performanceSortKey}
+                  direction={performanceDirection}
+                  onChange={(key, dir) => {
+                    setPerformanceSortKey(key)
+                    setPerformanceDirection(dir)
+                  }}
                 />
               </div>
               <AdminDataTable
-                rows={performance}
+                rows={sortedPerformance}
                 rowKey={(row) => row.provider_id}
                 emptyMessage="No provider data yet."
                 columns={[
@@ -471,7 +591,12 @@ export function MarketplacePage() {
                         {row.is_verified && <Badge tone="success">Verified</Badge>}
                         {!row.is_approved && <Badge tone="warning">Pending</Badge>}
                         {row.operational_status?.is_online && (
-                          <Badge tone="success">🟢 Online</Badge>
+                          <Badge tone="success">
+                            <span className="inline-flex items-center gap-1.5">
+                              <StatusDot tone="success" />
+                              Online
+                            </span>
+                          </Badge>
                         )}
                         {row.operational_status?.is_busy && (
                           <Badge tone="warning">Busy</Badge>

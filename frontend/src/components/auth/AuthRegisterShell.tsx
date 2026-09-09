@@ -21,7 +21,7 @@ export function AuthRegisterShell({
 }: Props) {
   return (
     <>
-      <div className="rounded-[1.75rem] border border-zinc-100 bg-white px-6 py-8 shadow-xl shadow-zinc-300/25 sm:px-8 sm:py-10">
+      <div className="rounded-[1.75rem] border border-zinc-100 bg-white px-6 py-8 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_24px_48px_-16px_rgba(24,24,27,0.16)] sm:px-8 sm:py-10">
         <AuthLogo />
         <h1 className="text-center text-2xl font-bold tracking-tight text-zinc-900">{title}</h1>
         <p className="mx-auto mt-2 max-w-sm text-center text-sm leading-relaxed text-zinc-500">

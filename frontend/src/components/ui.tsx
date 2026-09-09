@@ -33,22 +33,38 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' }) {
   const variants = {
-    primary: 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-md shadow-zinc-900/10',
-    secondary: 'bg-white text-zinc-900 hover:bg-zinc-50 border border-zinc-200 shadow-sm',
+    primary:
+      'bg-sky-600 text-white shadow-[0_1px_2px_rgba(3,105,161,0.2),0_8px_16px_-6px_rgba(2,132,199,0.45)] hover:bg-sky-700 hover:shadow-[0_1px_2px_rgba(3,105,161,0.25),0_10px_20px_-6px_rgba(2,132,199,0.5)] active:scale-[0.98]',
+    secondary:
+      'bg-white text-zinc-900 hover:bg-zinc-50 border border-zinc-200 shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-[0.98]',
     ghost: 'bg-transparent text-zinc-600 hover:bg-zinc-100',
-    danger: 'bg-rose-600 text-white hover:bg-rose-500',
+    danger:
+      'bg-rose-600 text-white shadow-[0_1px_2px_rgba(159,18,57,0.2),0_8px_16px_-6px_rgba(225,29,72,0.4)] hover:bg-rose-500 active:scale-[0.98]',
   }
   return (
     <button
-      className={`rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 ${variants[variant]} ${className}`}
       {...props}
     />
   )
 }
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function Card({
+  children,
+  className = '',
+  interactive = false,
+}: {
+  children: ReactNode
+  className?: string
+  /** Adds a hover lift for cards that act as links/buttons. */
+  interactive?: boolean
+}) {
   return (
-    <div className={`rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm ${className}`}>
+    <div
+      className={`rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_1px_1px_rgba(0,0,0,0.02)] transition-all duration-150 ${
+        interactive ? 'hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_24px_-12px_rgba(0,0,0,0.12)]' : ''
+      } ${className}`}
+    >
       {children}
     </div>
   )
@@ -85,6 +101,73 @@ export function Input({ className = '', ...props }: InputHTMLAttributes<HTMLInpu
       className={`w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 ${className}`}
       {...props}
     />
+  )
+}
+
+export function MailIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    </svg>
+  )
+}
+
+export function LockIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 10-8 0v2h8z" />
+    </svg>
+  )
+}
+
+export function UserIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  )
+}
+
+export function EyeIcon({ off }: { off: boolean }) {
+  if (off) {
+    return (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18M10.584 10.587a2 2 0 002.828 2.83M9.363 5.365A9.466 9.466 0 0112 5c4.478 0 8.268 2.943 9.542 7a9.973 9.973 0 01-1.622 3.128M6.61 6.61A9.968 9.968 0 002.458 12c1.274 4.057 5.065 7 9.542 7a9.964 9.964 0 004.293-.966" />
+      </svg>
+    )
+  }
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  )
+}
+
+export function IconInput({
+  icon,
+  trailing,
+  wrapperClassName = '',
+  className = '',
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & {
+  icon: ReactNode
+  trailing?: ReactNode
+  wrapperClassName?: string
+}) {
+  return (
+    <div className={`relative ${wrapperClassName}`}>
+      <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-zinc-400">
+        {icon}
+      </span>
+      <input
+        className={`w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-11 ${
+          trailing ? 'pr-11' : 'pr-4'
+        } text-zinc-900 placeholder:text-zinc-400 transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 ${className}`}
+        {...props}
+      />
+      {trailing && <span className="absolute inset-y-0 right-3 flex items-center">{trailing}</span>}
+    </div>
   )
 }
 

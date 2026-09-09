@@ -283,10 +283,7 @@ export function Layout() {
                 />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-violet-600">
-                  Admin
-                </p>
-                <h1 className="truncate text-lg font-bold text-zinc-900 sm:text-xl">{pageTitle}</h1>
+                <h1 className="truncate text-lg font-bold tracking-tight text-zinc-900 sm:text-xl">{pageTitle}</h1>
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">

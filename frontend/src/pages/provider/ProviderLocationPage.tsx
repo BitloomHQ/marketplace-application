@@ -21,7 +21,15 @@ function timeAgo(value: string | null): string {
   return `${days} day${days !== 1 ? 's' : ''} ago`
 }
 
-function StatusPill({ tone, children }: { tone: 'success' | 'neutral' | 'warning'; children: React.ReactNode }) {
+function StatusPill({
+  tone,
+  icon,
+  children,
+}: {
+  tone: 'success' | 'neutral' | 'warning'
+  icon?: React.ReactNode
+  children: React.ReactNode
+}) {
   const styles = {
     success: 'bg-emerald-100 text-emerald-800',
     neutral: 'bg-zinc-100 text-zinc-700',
@@ -29,8 +37,54 @@ function StatusPill({ tone, children }: { tone: 'success' | 'neutral' | 'warning
   }
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${styles[tone]}`}>
+      {icon}
       {children}
     </span>
+  )
+}
+
+function iconProps() {
+  return { className: 'h-3.5 w-3.5', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', strokeWidth: 2 } as const
+}
+
+function PinIcon() {
+  return (
+    <svg {...iconProps()}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  )
+}
+
+function ClockIcon() {
+  return (
+    <svg {...iconProps()}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+}
+
+function SignalIcon() {
+  return (
+    <svg {...iconProps()}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a.75.75 0 100-1.5.75.75 0 000 1.5zM7.03 13.97a7 7 0 019.94 0M3.5 10.44a12 12 0 0117 0" />
+    </svg>
+  )
+}
+
+function MapIcon() {
+  return (
+    <svg {...iconProps()}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+    </svg>
+  )
+}
+
+function WarningIcon() {
+  return (
+    <svg {...iconProps()}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12v-.008zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
   )
 }
 
@@ -251,7 +305,9 @@ export function ProviderLocationPage() {
                   {data.is_online && (
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-30" />
                   )}
-                  <span className="relative">{data.is_online ? '🟢' : '⚪️'}</span>
+                  <span
+                    className={`relative h-3.5 w-3.5 rounded-full ${data.is_online ? 'bg-emerald-500' : 'bg-zinc-400'}`}
+                  />
                 </span>
                 <div>
                   <h2 className="text-xl font-bold text-zinc-900">
@@ -269,14 +325,23 @@ export function ProviderLocationPage() {
 
             <div className="mt-5 flex flex-wrap gap-2">
               {!data.is_location_matching_enabled && (
-                <StatusPill tone="warning">⚠️ Marketplace matching disabled by admin</StatusPill>
+                <StatusPill tone="warning" icon={<WarningIcon />}>
+                  Marketplace matching disabled by admin
+                </StatusPill>
               )}
               {!data.is_available && <StatusPill tone="warning">Marked unavailable</StatusPill>}
-              <StatusPill tone="neutral">📍 Radius: {data.effective_radius_km} km effective</StatusPill>
-              <StatusPill tone="neutral">🕒 Updated {timeAgo(data.last_location_updated_at)}</StatusPill>
+              <StatusPill tone="neutral" icon={<PinIcon />}>
+                Radius: {data.effective_radius_km} km effective
+              </StatusPill>
+              <StatusPill tone="neutral" icon={<ClockIcon />}>
+                Updated {timeAgo(data.last_location_updated_at)}
+              </StatusPill>
               {data.location_source && (
-                <StatusPill tone={data.location_source === 'live' ? 'success' : 'neutral'}>
-                  {data.location_source === 'live' ? '📡 Live GPS' : '🗺️ Manual location'}
+                <StatusPill
+                  tone={data.location_source === 'live' ? 'success' : 'neutral'}
+                  icon={data.location_source === 'live' ? <SignalIcon /> : <MapIcon />}
+                >
+                  {data.location_source === 'live' ? 'Live GPS' : 'Manual location'}
                 </StatusPill>
               )}
             </div>
@@ -330,9 +395,10 @@ export function ProviderLocationPage() {
                   type="button"
                   onClick={() => handleUseLiveLocation(false)}
                   disabled={locatingLive}
-                  className="w-full rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-zinc-900/10 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-zinc-900/10 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {locatingLive ? 'Locating…' : '📍 Use my current location'}
+                  <PinIcon />
+                  {locatingLive ? 'Locating…' : 'Use my current location'}
                 </button>
                 {data.is_online && (
                   <p className="text-center text-xs text-zinc-400">

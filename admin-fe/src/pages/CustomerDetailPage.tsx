@@ -21,6 +21,23 @@ function addressTypeLabel(type: string) {
   return type.charAt(0).toUpperCase() + type.slice(1)
 }
 
+function BackArrowIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+    </svg>
+  )
+}
+
+function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card>
+      <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500">{title}</h3>
+      {children}
+    </Card>
+  )
+}
+
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
   const customerId = Number(id)
@@ -45,7 +62,8 @@ export function CustomerDetailPage() {
   return (
     <div className="space-y-6">
       <Link to="/customers" className="inline-flex items-center gap-1.5 text-sm font-semibold text-violet-600 hover:text-violet-700">
-        ← Back to customers
+        <BackArrowIcon />
+        Back to customers
       </Link>
 
       {error && <Alert variant="error">{error}</Alert>}
@@ -54,79 +72,92 @@ export function CustomerDetailPage() {
         <AdminDetailPageSkeleton />
       ) : customer ? (
         <>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-violet-100 text-xl font-bold text-violet-700">
-                {customer.profile_picture ? (
-                  <img src={customer.profile_picture} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  (customer.full_name || customer.username).charAt(0).toUpperCase()
-                )}
-              </span>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
-                  {customer.full_name || customer.username}
-                </h1>
-                <p className="mt-1 text-sm text-zinc-500">{customer.email}</p>
-                {customer.phone && <p className="text-sm text-zinc-500">{customer.phone}</p>}
+          <Card className="!p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-violet-100 text-xl font-bold text-violet-700 ring-1 ring-violet-200/70">
+                  {customer.profile_picture ? (
+                    <img src={customer.profile_picture} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    (customer.full_name || customer.username).charAt(0).toUpperCase()
+                  )}
+                </span>
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
+                    {customer.full_name || customer.username}
+                  </h1>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    {customer.email}
+                    {customer.phone && ` · ${customer.phone}`}
+                  </p>
+                </div>
               </div>
+              <Button onClick={() => setEditOpen(true)}>Edit customer</Button>
             </div>
-            <Button onClick={() => setEditOpen(true)}>Edit</Button>
-          </div>
 
-          <div className="flex flex-wrap gap-1.5">
-            <Badge tone={customer.is_active ? 'success' : 'danger'}>
-              {customer.is_active ? 'Active' : 'Inactive'}
-            </Badge>
-            <Badge tone={customer.is_email_verified ? 'success' : 'warning'}>
-              {customer.is_email_verified ? 'Email verified' : 'Email not verified'}
-            </Badge>
-          </div>
-
-          <div>
-            <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500">Address</h3>
-            {customer.addresses.length === 0 ? (
-              <Card>
-                <p className="text-sm text-zinc-700">
-                  {customer.address?.trim() || 'No address on file.'}
-                </p>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {customer.addresses.map((address) => (
-                  <Card key={address.id} className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-zinc-900">{address.title || 'Untitled'}</p>
-                      <Badge tone="neutral">{addressTypeLabel(address.address_type)}</Badge>
-                      {address.is_default && <Badge tone="success">Default</Badge>}
-                      <Badge tone="neutral">
-                        {address.location_source === 'live' ? 'Live' : 'Manual'}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-zinc-700">{address.address}</p>
-                    {(address.city || address.state || address.postal_code) && (
-                      <p className="text-sm text-zinc-500">
-                        {[address.city, address.state, address.postal_code].filter(Boolean).join(', ')}
-                      </p>
-                    )}
-                    {address.latitude != null && address.longitude != null && (
-                      <p className="text-xs text-zinc-400">
-                        {address.latitude.toFixed(5)}, {address.longitude.toFixed(5)}
-                      </p>
-                    )}
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <Card>
-            <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-500">Account</h3>
-            <div className="grid gap-2 text-sm text-zinc-700 sm:grid-cols-2">
-              <p>Joined: {formatDateTime(customer.date_joined)}</p>
-              <p>Last login: {formatDateTime(customer.last_login)}</p>
+            <div className="mt-4 flex flex-wrap gap-1.5 border-t border-zinc-100 pt-4">
+              <Badge tone={customer.is_active ? 'success' : 'danger'}>
+                {customer.is_active ? 'Active' : 'Inactive'}
+              </Badge>
+              <Badge tone={customer.is_email_verified ? 'success' : 'warning'}>
+                {customer.is_email_verified ? 'Email verified' : 'Email not verified'}
+              </Badge>
             </div>
           </Card>
+
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+            <div>
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500">Address</h3>
+              {customer.addresses.length === 0 ? (
+                <Card>
+                  <p className="text-sm text-zinc-700">
+                    {customer.address?.trim() || 'No address on file.'}
+                  </p>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {customer.addresses.map((address) => (
+                    <Card key={address.id} className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-zinc-900">{address.title || 'Untitled'}</p>
+                        <Badge tone="neutral">{addressTypeLabel(address.address_type)}</Badge>
+                        {address.is_default && <Badge tone="success">Default</Badge>}
+                        <Badge tone="neutral">
+                          {address.location_source === 'live' ? 'Live' : 'Manual'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-zinc-700">{address.address}</p>
+                      {(address.city || address.state || address.postal_code) && (
+                        <p className="text-sm text-zinc-500">
+                          {[address.city, address.state, address.postal_code].filter(Boolean).join(', ')}
+                        </p>
+                      )}
+                      {address.latitude != null && address.longitude != null && (
+                        <p className="text-xs text-zinc-400">
+                          {address.latitude.toFixed(5)}, {address.longitude.toFixed(5)}
+                        </p>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <SectionCard title="Account">
+                <div className="space-y-3 text-sm text-zinc-700">
+                  <div>
+                    <p className="text-xs text-zinc-400">Joined</p>
+                    <p className="font-medium">{formatDateTime(customer.date_joined)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-400">Last login</p>
+                    <p className="font-medium">{formatDateTime(customer.last_login)}</p>
+                  </div>
+                </div>
+              </SectionCard>
+            </div>
+          </div>
 
           <AdminCustomerEditModal
             customer={customer}

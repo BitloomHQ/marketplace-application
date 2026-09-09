@@ -38,8 +38,21 @@ function PencilIcon() {
   )
 }
 
-function formatCoords(lat: number, lon: number) {
-  return `${lat}, ${lon}`
+function PinIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  )
+}
+
+function PlusIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+  )
 }
 
 function AddressCard({
@@ -51,37 +64,43 @@ function AddressCard({
   onEdit: (item: CustomerAddress) => void
   onDelete: (id: number) => void
 }) {
+  const isPinned = Boolean(addressLatLon(item))
+
   return (
-    <article className="flex items-start gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <div className="min-w-0 flex-1">
-        <h3 className="text-base font-bold text-zinc-900">{item.title}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-600">{item.address}</p>
-        {(() => {
-          const coords = addressLatLon(item)
-          return coords ? (
-            <p className="mt-2 text-xs font-medium text-zinc-400">
-              {formatCoords(coords.lat, coords.lon)}
-            </p>
-          ) : (
-            <p className="mt-2 text-xs font-medium text-amber-600">
-              No map coordinates — edit to pin on map
-            </p>
-          )
-        })()}
+    <article className="group flex h-full flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-all duration-150 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_24px_-12px_rgba(0,0,0,0.12)]">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+          <PinIcon />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base font-bold text-zinc-900">{item.title}</h3>
+          <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-zinc-600">{item.address}</p>
+        </div>
       </div>
-      <div className="flex shrink-0 gap-2">
+
+      {isPinned ? (
+        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+          Pinned on map
+        </span>
+      ) : (
+        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+          Needs a map pin — edit to add one
+        </span>
+      )}
+
+      <div className="mt-auto flex gap-2 pt-1">
         <button
           type="button"
           onClick={() => onEdit(item)}
-          className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-600 transition hover:bg-sky-100"
-          aria-label={`Edit ${item.title}`}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-sky-50 py-2 text-sm font-semibold text-sky-700 transition hover:bg-sky-100"
         >
           <PencilIcon />
+          Edit
         </button>
         <button
           type="button"
           onClick={() => onDelete(item.id)}
-          className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition hover:bg-rose-100"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition hover:bg-rose-100"
           aria-label={`Delete ${item.title}`}
         >
           <TrashIcon />
@@ -242,12 +261,15 @@ export function CustomerAddressesPage() {
       {loading ? (
         <ListCardSkeleton count={2} />
       ) : addresses.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-6 py-12 text-center">
-          <p className="text-sm text-zinc-500">No saved addresses yet.</p>
-          <p className="mt-1 text-xs text-zinc-400">Add one to book services faster.</p>
+        <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-6 py-14 text-center">
+          <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-zinc-400 shadow-sm">
+            <PinIcon />
+          </span>
+          <p className="text-sm font-semibold text-zinc-700">No saved addresses yet</p>
+          <p className="mt-1 text-xs text-zinc-500">Add one to book services faster.</p>
         </div>
       ) : (
-        <ul className="space-y-4">
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {addresses.map((a) => (
             <li key={a.id}>
               <AddressCard item={a} onEdit={openEdit} onDelete={handleDelete} />
@@ -258,11 +280,12 @@ export function CustomerAddressesPage() {
 
       <div className="mt-6 text-center">
         <Button
-          className="w-full !rounded-xl !bg-sky-600 py-3.5 text-base font-bold hover:!bg-sky-700 sm:w-auto sm:px-8"
+          className="flex w-full items-center justify-center gap-2 py-3.5 text-base sm:w-auto sm:px-8"
           disabled={atLimit}
           onClick={openAdd}
         >
-          + Add address
+          <PlusIcon />
+          Add address
         </Button>
         {atLimit && (
           <p className="mt-2 text-xs text-amber-700">Maximum 5 addresses reached.</p>

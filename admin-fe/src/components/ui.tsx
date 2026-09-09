@@ -33,22 +33,38 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' }) {
   const variants = {
-    primary: 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-md shadow-zinc-900/10',
-    secondary: 'bg-white text-zinc-900 hover:bg-zinc-50 border border-zinc-200 shadow-sm',
+    primary:
+      'bg-violet-600 text-white shadow-[0_1px_2px_rgba(76,29,149,0.2),0_8px_16px_-6px_rgba(124,58,237,0.45)] hover:bg-violet-700 hover:shadow-[0_1px_2px_rgba(76,29,149,0.25),0_10px_20px_-6px_rgba(124,58,237,0.5)] active:scale-[0.98]',
+    secondary:
+      'bg-white text-zinc-900 hover:bg-zinc-50 border border-zinc-200 shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-[0.98]',
     ghost: 'bg-transparent text-zinc-600 hover:bg-zinc-100',
-    danger: 'bg-rose-600 text-white hover:bg-rose-500',
+    danger:
+      'bg-rose-600 text-white shadow-[0_1px_2px_rgba(159,18,57,0.2),0_8px_16px_-6px_rgba(225,29,72,0.4)] hover:bg-rose-500 active:scale-[0.98]',
   }
   return (
     <button
-      className={`rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 ${variants[variant]} ${className}`}
       {...props}
     />
   )
 }
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function Card({
+  children,
+  className = '',
+  interactive = false,
+}: {
+  children: ReactNode
+  className?: string
+  /** Adds a hover lift for cards that act as links/buttons. */
+  interactive?: boolean
+}) {
   return (
-    <div className={`rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm ${className}`}>
+    <div
+      className={`rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_1px_1px_rgba(0,0,0,0.02)] transition-all duration-150 ${
+        interactive ? 'hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_24px_-12px_rgba(0,0,0,0.12)]' : ''
+      } ${className}`}
+    >
       {children}
     </div>
   )
@@ -254,7 +270,7 @@ export function ModalActions({
         type="submit"
         form={formId}
         disabled={disabled || loading}
-        className="w-full !rounded-full !bg-sky-600 py-3 font-bold shadow-md shadow-sky-600/20 hover:!bg-sky-700 sm:w-auto sm:min-w-[11rem]"
+        className="w-full !rounded-full py-3 font-bold sm:w-auto sm:min-w-[11rem]"
       >
         {loading ? 'Please wait…' : submitLabel}
       </Button>

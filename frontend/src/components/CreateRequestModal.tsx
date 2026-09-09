@@ -235,18 +235,33 @@ export function CreateRequestModal({
             />
           </Field>
 
-          <div className="rounded-xl border border-zinc-200 p-4">
+          <div
+            className={`rounded-xl border p-4 transition-colors duration-150 ${
+              wantsSchedule ? 'border-sky-200 bg-sky-50/50' : 'border-zinc-200'
+            }`}
+          >
             <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-zinc-900">Preferred visit time</p>
-                <p className="mt-0.5 text-xs text-zinc-500">
-                  Optional — matches you with providers free at that slot.
-                </p>
+              <div className="flex items-start gap-3">
+                <span
+                  className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${
+                    wantsSchedule ? 'bg-sky-100 text-sky-600' : 'bg-zinc-100 text-zinc-400'
+                  }`}
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900">Preferred visit time</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    Optional — matches you with providers free at that slot.
+                  </p>
+                </div>
               </div>
               <Switch checked={wantsSchedule} onChange={setWantsSchedule} />
             </div>
             {wantsSchedule && (
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="mt-4 grid grid-cols-1 gap-3 border-t border-sky-100 pt-4 sm:grid-cols-3">
                 <Field label="Date" required>
                   <Input
                     type="date"
@@ -254,6 +269,7 @@ export function CreateRequestModal({
                     value={preferredDate}
                     onChange={(e) => setPreferredDate(e.target.value)}
                     required={wantsSchedule}
+                    className="!rounded-xl"
                   />
                 </Field>
                 <Field label="Start time" required>
@@ -262,6 +278,7 @@ export function CreateRequestModal({
                     value={preferredStartTime}
                     onChange={(e) => setPreferredStartTime(e.target.value)}
                     required={wantsSchedule}
+                    className="!rounded-xl"
                   />
                 </Field>
                 <Field label="End time" required>
@@ -270,6 +287,7 @@ export function CreateRequestModal({
                     value={preferredEndTime}
                     onChange={(e) => setPreferredEndTime(e.target.value)}
                     required={wantsSchedule}
+                    className="!rounded-xl"
                   />
                 </Field>
               </div>

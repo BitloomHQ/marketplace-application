@@ -62,12 +62,14 @@ function formatMoney(value: string | number | undefined | null) {
 
 function StatCard({ label, value, href, accent = 'default', hint }: StatCardProps) {
   const card = (
-    <Card className={`h-full transition hover:shadow-md ${ACCENT_STYLES[accent]}`}>
-      <p className={`text-xs font-semibold uppercase tracking-wide ${ACCENT_LABEL[accent]}`}>
+    <Card interactive={Boolean(href)} className={`h-full ${ACCENT_STYLES[accent]}`}>
+      <p className={`text-[11px] font-semibold uppercase tracking-wider ${ACCENT_LABEL[accent]}`}>
         {label}
       </p>
-      <p className={`mt-2 text-3xl font-bold tabular-nums ${ACCENT_VALUE[accent]}`}>{value}</p>
-      {hint && <p className={`mt-1 text-xs ${ACCENT_LABEL[accent]}`}>{hint}</p>}
+      <p className={`mt-2.5 text-[2rem] font-bold leading-none tracking-tight tabular-nums ${ACCENT_VALUE[accent]}`}>
+        {value}
+      </p>
+      {hint && <p className={`mt-2 text-xs ${ACCENT_LABEL[accent]}`}>{hint}</p>}
     </Card>
   )
 
@@ -155,8 +157,20 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-violet-600 via-violet-700 to-indigo-800 px-6 py-8 text-white shadow-lg shadow-violet-900/20">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 px-6 py-8 text-white shadow-lg shadow-black/20">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-16 -top-24 h-72 w-72 rounded-full bg-violet-600/30 blur-3xl" />
+          <div className="absolute -bottom-24 -right-10 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl" />
+          <div
+            className="absolute inset-0 opacity-[0.06]"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)',
+              backgroundSize: '28px 28px',
+            }}
+          />
+        </div>
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-violet-200">Welcome back</p>
             <h2 className="mt-1 text-2xl font-bold sm:text-3xl">

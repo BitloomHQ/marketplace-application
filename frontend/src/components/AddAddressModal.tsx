@@ -74,7 +74,8 @@ export function AddAddressModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={isEdit ? 'Edit address' : 'Add New Address'}
+      title={isEdit ? 'Edit address' : 'Add a new address'}
+      subtitle="Pin it on the map or use your current location — the address fills in automatically."
       wide
     >
       {error && (
@@ -115,14 +116,9 @@ export function AddAddressModal({
             placeholder="Pick a point on the map or use your current location"
             disabled={saving}
           />
-          <p className="mt-1 text-xs text-zinc-400">Fills in automatically from the map — edit if it needs a touch-up.</p>
         </Field>
 
-        <Button
-          type="submit"
-          className="w-full !rounded-xl !bg-sky-600 hover:!bg-sky-700"
-          disabled={saving || !canSubmit}
-        >
+        <Button type="submit" className="w-full py-3" disabled={saving || !canSubmit}>
           {saving ? (isEdit ? 'Saving…' : 'Adding…') : isEdit ? 'Save changes' : 'Add address'}
         </Button>
       </form>

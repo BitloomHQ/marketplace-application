@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { forgotPassword } from '../../api/accounts'
 import { ApiRequestError } from '../../api/client'
-import { Alert, Button, Field, Input, Modal } from '../ui'
+import { Alert, Button, Field, IconInput, MailIcon, Modal } from '../ui'
 
 type Props = {
   open: boolean
@@ -59,20 +59,16 @@ export function ForgotPasswordModal({ open, onClose, onSwitchToLogin }: Props) {
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Email address" required>
-          <Input
+          <IconInput
+            icon={<MailIcon />}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             placeholder="Enter your email address"
-            className="!rounded-xl"
           />
         </Field>
-        <Button
-          type="submit"
-          className="w-full !rounded-full !bg-sky-600 py-3.5 text-base font-bold shadow-md shadow-sky-600/25 hover:!bg-sky-700"
-          disabled={loading}
-        >
+        <Button type="submit" className="w-full py-3.5 text-base" disabled={loading}>
           {loading ? 'Sending…' : 'Send reset link'}
         </Button>
 
