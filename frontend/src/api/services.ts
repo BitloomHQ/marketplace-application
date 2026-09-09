@@ -111,6 +111,9 @@ export function createServiceRequest(data: {
   lawn_area?: number
   polygon_points?: PolygonPoint[]
   image?: File
+  preferred_date?: string
+  preferred_start_time?: string
+  preferred_end_time?: string
 }) {
   const formData = new FormData()
   formData.append('service_type', data.service_type)
@@ -121,11 +124,19 @@ export function createServiceRequest(data: {
     formData.append('polygon_points', JSON.stringify(data.polygon_points))
   }
   if (data.image) formData.append('image', data.image)
+  if (data.preferred_date && data.preferred_start_time && data.preferred_end_time) {
+    formData.append('preferred_date', data.preferred_date)
+    formData.append('preferred_start_time', data.preferred_start_time)
+    formData.append('preferred_end_time', data.preferred_end_time)
+  }
 
-  return apiRequest<{ success: boolean; request_id: number }>(
-    '/api/services/create/',
-    { method: 'POST', formData },
-  ).then((res) => {
+  return apiRequest<{
+    success: boolean
+    request_id: number
+    preferred_schedule?: { date: string | null; start_time: string | null; end_time: string | null }
+    matched_provider_count?: number
+    notified_provider_count?: number
+  }>('/api/services/create/', { method: 'POST', formData }).then((res) => {
     clearCustomerHomeCache()
     return res
   })
@@ -164,10 +175,20 @@ export function selectProvider(data: {
   service_request_id: number
   quote_id: number
 }) {
-  return apiRequest<{ success: boolean; booking_id: number }>(
-    '/api/services/select-provider/',
-    { method: 'POST', body: data },
-  )
+  return apiRequest<{
+    success: boolean
+    message: string
+    booking_id: number
+    service_request_id: number
+    status: string
+    schedule: {
+      date: string | null
+      start_time: string | null
+      end_time: string | null
+    }
+    provider: { id: number; username: string; profile_picture: string | null }
+    customer: { id: number; username: string; profile_picture: string | null }
+  }>('/api/services/select-provider/', { method: 'POST', body: data })
 }
 
 export function fetchMyBookings() {

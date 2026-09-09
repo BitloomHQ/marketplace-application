@@ -40,11 +40,6 @@ function ProviderLoginModal({
         setError('This account is a customer account. Please use customer login.')
         return
       }
-      if (res.user.role === 'admin') {
-        logout()
-        setError('Admin accounts must use the admin portal.')
-        return
-      }
       if (remember) localStorage.setItem(REMEMBER_KEY, email)
       else localStorage.removeItem(REMEMBER_KEY)
       onClose()
@@ -57,6 +52,10 @@ function ProviderLoginModal({
           navigate('/verify-email', {
             state: { email: data.data.email, portal: 'provider' },
           })
+          return
+        }
+        if (data.code === 'ADMIN_LOGIN_NOT_ALLOWED') {
+          setError('This is an admin account — please use the admin panel to sign in.')
           return
         }
         setError(err.message)
@@ -153,7 +152,6 @@ export function PartnerLandingPage() {
     if (!isAuthenticated || !user) return
     if (isProviderRole(user.role)) navigate('/provider-dashboard', { replace: true })
     else if (user.role === 'customer') navigate('/customer-dashboard', { replace: true })
-    else if (user.role === 'admin') navigate('/admin-dashboard', { replace: true })
   }, [isAuthenticated, user, navigate])
 
   useEffect(() => {

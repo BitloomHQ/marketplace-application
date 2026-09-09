@@ -29,7 +29,6 @@ export function PublicHomePage() {
     if (!isAuthenticated || !user) return
     if (user.role === 'customer') navigate('/customer-dashboard', { replace: true })
     else if (isProviderRole(user.role)) navigate('/provider-dashboard', { replace: true })
-    else if (user.role === 'admin') navigate('/admin-dashboard', { replace: true })
   }, [isAuthenticated, user, navigate])
 
   useEffect(() => {

@@ -31,7 +31,6 @@ export function LoginModal({
     onClose()
     if (user.role === 'customer') navigate('/customer-dashboard', { replace: true })
     else if (isProviderRole(user.role)) navigate('/provider-dashboard', { replace: true })
-    else if (user.role === 'admin') navigate('/admin-dashboard', { replace: true })
   }, [open, isAuthenticated, user, navigate, onClose])
 
   const handleSubmit = async (e: FormEvent) => {
@@ -40,11 +39,6 @@ export function LoginModal({
     setLoading(true)
     try {
       const res = await login(email, password)
-      if (res.user.role === 'admin') {
-        logout()
-        setError('This account is an admin. Please use the admin portal.')
-        return
-      }
       if (res.user.role !== 'customer') {
         logout()
         setError('This account is registered as a provider. Please use the partner portal.')
@@ -65,6 +59,10 @@ export function LoginModal({
           navigate('/verify-email', {
             state: { email: data.data.email, portal: 'customer' },
           })
+          return
+        }
+        if (data.code === 'ADMIN_LOGIN_NOT_ALLOWED') {
+          setError('This is an admin account — please use the admin panel to sign in.')
           return
         }
         setError(err.message)

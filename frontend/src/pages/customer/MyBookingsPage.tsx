@@ -11,6 +11,7 @@ import {
 import { Alert, EmptyState, PageHeader } from '../../components/ui'
 import { ListCardSkeleton } from '../../components/Shimmer'
 import { canCustomerCancelBooking } from '../../lib/bookingStatus'
+import { formatPreferredSchedule } from '../../lib/format'
 import { mapsUrlForLocation } from '../../lib/maps'
 import type { Booking } from '../../types'
 
@@ -68,6 +69,11 @@ export function MyBookingsPage() {
         <div className="space-y-4">
           {bookings.map((b) => {
             const canCancel = canCustomerCancelBooking(b.status)
+            const scheduledSlot = formatPreferredSchedule(
+              b.scheduled_date,
+              b.scheduled_start_time,
+              b.scheduled_end_time,
+            )
 
             return (
               <ServiceListCard
@@ -75,7 +81,7 @@ export function MyBookingsPage() {
                 serviceType={b.service_type}
                 status={b.status}
                 rating={`₹${b.final_price.toLocaleString()}`}
-                date={formatListDate(b.created_at)}
+                date={scheduledSlot ? `Scheduled: ${scheduledSlot}` : formatListDate(b.created_at)}
                 location={b.address}
                 locationHref={mapsUrlForLocation(b.address, b.lat, b.lon)}
                 description={`Confirmed visit with ${b.provider}`}

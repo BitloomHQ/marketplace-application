@@ -960,6 +960,10 @@ def provider_leads(request):
 
                 "status": lead.status if lead.status else "pending",
                 "has_quoted": lead.has_quoted,
+
+                "preferred_date": lead.preferred_date,
+                "preferred_start_time": lead.preferred_start_time,
+                "preferred_end_time": lead.preferred_end_time,
             }
             for lead in leads
         ]
@@ -1564,6 +1568,10 @@ def my_bookings(request):
                 "final_price": booking.final_price,
                 "status": booking.status,
                 "created_at": booking.created_at,
+
+                "scheduled_date": booking.scheduled_date,
+                "scheduled_start_time": booking.scheduled_start_time,
+                "scheduled_end_time": booking.scheduled_end_time,
 
                 "address": service_request_address_text(booking.service_request),
                 "lat": booking.service_request.lat,
@@ -2503,6 +2511,10 @@ def view_lead_detail(request, request_id):
             "is_booked": service_request.is_booked,
             "created_at": service_request.created_at,
             "has_quoted": my_quote is not None,
+
+            "preferred_date": service_request.preferred_date,
+            "preferred_start_time": service_request.preferred_start_time,
+            "preferred_end_time": service_request.preferred_end_time,
 
             "my_quote": {
                 "id": my_quote.id,

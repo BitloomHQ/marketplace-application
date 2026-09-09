@@ -9,7 +9,7 @@ import { ListCardButton, ServiceListCard } from '../../components/ServiceListCar
 import { Alert, Button, EmptyState, PageHeader } from '../../components/ui'
 import { ListCardSkeleton } from '../../components/Shimmer'
 import { providerDeactivationReason } from '../../lib/providerStatus'
-import { isProviderRole } from '../../lib/format'
+import { formatPreferredSchedule, isProviderRole } from '../../lib/format'
 import { mapsUrlForLocation } from '../../lib/maps'
 import type { Lead } from '../../types'
 
@@ -27,12 +27,18 @@ function LeadCard({
   onSendQuote: () => void
 }) {
   const canQuote = !quoted && lead.status !== 'cancelled'
+  const preferredSchedule = formatPreferredSchedule(
+    lead.preferred_date,
+    lead.preferred_start_time,
+    lead.preferred_end_time,
+  )
 
   return (
     <ServiceListCard
       serviceType={serviceType}
       status={lead.status}
       rating={`Job #${lead.id}`}
+      date={preferredSchedule ? `Preferred: ${preferredSchedule}` : undefined}
       location={lead.address}
       locationHref={mapsUrlForLocation(lead.address, lead.lat, lead.lon)}
       description={lead.description ?? `Request from ${lead.customer}`}

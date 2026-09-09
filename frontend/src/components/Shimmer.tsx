@@ -86,33 +86,6 @@ export function ProfileFormSkeleton() {
   )
 }
 
-export function AdminStatsSkeleton({ count = 6 }: { count?: number }) {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: count }, (_, i) => (
-        <Shimmer key={i} className="h-28 rounded-2xl" />
-      ))}
-    </div>
-  )
-}
-
-export function AdminListRowSkeleton({ count = 4 }: { count?: number }) {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4">
-          <Shimmer className="h-14 w-14 shrink-0 rounded-xl" />
-          <div className="min-w-0 flex-1 space-y-2">
-            <ShimmerText className="w-28" />
-            <ShimmerText className="w-40" />
-            <ShimmerText className="w-56" />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 export function CustomerHomeSkeleton() {
   return (
     <div className="space-y-10 pb-4">

@@ -17,13 +17,11 @@ export function ProtectedRoute({ children, roles, providerOnly }: Props) {
   }
 
   if (providerOnly && !isProviderRole(user.role)) {
-    if (user.role === 'admin') return <Navigate to="/admin-dashboard" replace />
     if (user.role === 'customer') return <Navigate to="/customer-dashboard" replace />
     return <Navigate to="/" replace />
   }
 
   if (roles && !roles.includes(user.role) && !(providerOnly && isProviderRole(user.role))) {
-    if (user.role === 'admin') return <Navigate to="/admin-dashboard" replace />
     if (user.role === 'customer') return <Navigate to="/customer-dashboard" replace />
     if (isProviderRole(user.role)) {
       return <Navigate to={providerDashboardPath(user.role)} replace />

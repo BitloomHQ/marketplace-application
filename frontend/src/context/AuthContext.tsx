@@ -51,12 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const refreshProfile = () => {
       fetchAccountProfile()
         .then((res) => {
-          const profileUser = accountProfileToUser(res.data.profile)
-          const stored = loadUser()
-          const user =
-            stored?.role === 'admin' && profileUser.role !== 'admin'
-              ? { ...profileUser, role: 'admin' as const }
-              : profileUser
+          const user = accountProfileToUser(res.data.profile)
           saveUser(user)
           setUserState(user)
         })
@@ -84,11 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setUser = useCallback((u: User) => {
-    const stored = loadUser()
-    const next =
-      stored?.role === 'admin' && u.role !== 'admin' ? { ...u, role: 'admin' as const } : u
-    saveUser(next)
-    setUserState(next)
+    saveUser(u)
+    setUserState(u)
   }, [])
 
   const value = useMemo(

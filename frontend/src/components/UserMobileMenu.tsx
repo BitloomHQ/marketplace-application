@@ -45,12 +45,6 @@ export function UserMobileMenu() {
             Account
           </button>
 
-          {user.role === 'admin' && (
-            <button type="button" onClick={() => goTo('/admin-dashboard')} className={itemClass}>
-              Admin dashboard
-            </button>
-          )}
-
           {user.role === 'customer' && (
             <button type="button" onClick={() => goTo('/customer/addresses')} className={itemClass}>
               My addresses

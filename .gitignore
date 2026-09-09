@@ -8,10 +8,15 @@ media/
 .env
 frontend/.env
 backend/.env
+admin-fe/.env
 
 # Frontend
 frontend/node_modules/
 frontend/dist/
+
+# Admin frontend
+admin-fe/node_modules/
+admin-fe/dist/
 
 # Backend
 backend/.venv/

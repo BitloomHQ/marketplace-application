@@ -39,9 +39,6 @@ const ForgotPasswordPage = lazy(() =>
 const ResetPasswordPage = lazy(() =>
   import('./pages/auth/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
 )
-const AdminLoginPage = lazy(() =>
-  import('./pages/auth/AdminLoginPage').then((m) => ({ default: m.AdminLoginPage })),
-)
 
 const CustomerDashboard = lazy(() =>
   import('./pages/customer/CustomerDashboard').then((m) => ({ default: m.CustomerDashboard })),
@@ -68,37 +65,17 @@ const ProviderDashboard = lazy(() =>
 const ProviderLeadsPage = lazy(() =>
   import('./pages/provider/ProviderLeadsPage').then((m) => ({ default: m.ProviderLeadsPage })),
 )
+const ProviderLocationPage = lazy(() =>
+  import('./pages/provider/ProviderLocationPage').then((m) => ({ default: m.ProviderLocationPage })),
+)
 
 const ProfilePage = lazy(() =>
   import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 )
 
-const AdminDashboardPage = lazy(() =>
-  import('./pages/admin/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
-)
-const AdminProvidersPage = lazy(() =>
-  import('./pages/admin/AdminProvidersPage').then((m) => ({ default: m.AdminProvidersPage })),
-)
-const AdminServicesPage = lazy(() =>
-  import('./pages/admin/AdminServicesPage').then((m) => ({ default: m.AdminServicesPage })),
-)
-const AdminMarketplacePage = lazy(() =>
-  import('./pages/admin/AdminMarketplacePage').then((m) => ({ default: m.AdminMarketplacePage })),
-)
-const AdminCustomersPage = lazy(() =>
-  import('./pages/admin/AdminCustomersPage').then((m) => ({ default: m.AdminCustomersPage })),
-)
-const AdminUsersPage = lazy(() =>
-  import('./pages/admin/AdminUsersPage').then((m) => ({ default: m.AdminUsersPage })),
-)
-const AdminPendingProvidersPage = lazy(() =>
-  import('./pages/admin/AdminPendingProvidersPage').then((m) => ({ default: m.AdminPendingProvidersPage })),
-)
-
 function HomeRedirect() {
   const { isAuthenticated, user } = useAuth()
   if (!isAuthenticated || !user) return <Navigate to="/" replace />
-  if (user.role === 'admin') return <Navigate to="/admin-dashboard" replace />
   if (user.role === 'customer') return <Navigate to="/customer-dashboard" replace />
   if (isProviderRole(user.role)) return <Navigate to={providerDashboardPath(user.role)} replace />
   return <Navigate to="/" replace />
@@ -127,7 +104,6 @@ function AppRoutes() {
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/login" element={<Navigate to="/?login=1" replace />} />
           <Route path="/register" element={<Navigate to="/customer/register" replace />} />
         </Route>
@@ -151,15 +127,8 @@ function AppRoutes() {
           <Route path="/plumber-dashboard" element={<Navigate to="/provider-dashboard" replace />} />
           <Route path="/provider/leads" element={<ProtectedRoute providerOnly><ProviderLeadsPage /></ProtectedRoute>} />
           <Route path="/provider/bookings" element={<ProtectedRoute providerOnly><ProviderBookingsPage /></ProtectedRoute>} />
+          <Route path="/provider/location" element={<ProtectedRoute providerOnly><ProviderLocationPage /></ProtectedRoute>} />
           <Route path="/profile" element={<ProfilePage />} />
-
-          <Route path="/admin-dashboard" element={<ProtectedRoute roles={['admin']}><AdminDashboardPage /></ProtectedRoute>} />
-          <Route path="/admin/customers" element={<ProtectedRoute roles={['admin']}><AdminCustomersPage /></ProtectedRoute>} />
-          <Route path="/admin/admin-users" element={<ProtectedRoute roles={['admin']}><AdminUsersPage /></ProtectedRoute>} />
-          <Route path="/admin/pending-providers" element={<ProtectedRoute roles={['admin']}><AdminPendingProvidersPage /></ProtectedRoute>} />
-          <Route path="/admin/providers" element={<ProtectedRoute roles={['admin']}><AdminProvidersPage /></ProtectedRoute>} />
-          <Route path="/admin/services" element={<ProtectedRoute roles={['admin']}><AdminServicesPage /></ProtectedRoute>} />
-          <Route path="/admin/marketplace" element={<ProtectedRoute roles={['admin']}><AdminMarketplacePage /></ProtectedRoute>} />
         </Route>
 
         <Route path="/dashboard" element={<HomeRedirect />} />

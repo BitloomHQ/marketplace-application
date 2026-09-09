@@ -1,5 +1,42 @@
 import { apiRequest } from './client'
 
+export type ProviderLocationData = {
+  latitude: number | null
+  longitude: number | null
+  location_source: 'live' | 'manual' | null
+  location_text: string | null
+  service_radius_km: number
+  admin_max_radius_km: number
+  effective_radius_km: number
+  is_location_matching_enabled: boolean
+  is_online: boolean
+  is_available: boolean
+  last_location_updated_at: string | null
+}
+
+export function fetchProviderLocation() {
+  return apiRequest<{
+    success: boolean
+    message: string
+    data: ProviderLocationData
+  }>('/api/providers/location/')
+}
+
+export function updateProviderLocation(body: {
+  latitude?: number
+  longitude?: number
+  location_source?: 'live' | 'manual'
+  location_text?: string
+  service_radius_km?: number
+  is_online?: boolean
+}) {
+  return apiRequest<{
+    success: boolean
+    message: string
+    data: ProviderLocationData
+  }>('/api/providers/location/', { method: 'PATCH', body })
+}
+
 export function fetchProviderProfile() {
   return apiRequest<{
     success: boolean

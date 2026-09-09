@@ -7,6 +7,7 @@ import { ProviderProfileModal } from '../../components/ProviderProfileModal'
 import { StarRating } from '../../components/StarRating'
 import { Alert, Badge, Button, EmptyState } from '../../components/ui'
 import { ListCardSkeleton } from '../../components/Shimmer'
+import { formatPreferredSchedule } from '../../lib/format'
 import type { ProviderProfile, Quote } from '../../types'
 
 function quoteStatusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger' {
@@ -81,10 +82,17 @@ export function ViewQuotesPage() {
         service_request_id: id,
         quote_id: quoteId,
       })
-      setSuccess(`Booked! Your pro is confirmed.`)
+      const schedule = formatPreferredSchedule(
+        res.schedule?.date,
+        res.schedule?.start_time,
+        res.schedule?.end_time,
+      )
+      setSuccess(schedule ? `Booked for ${schedule}.` : 'Booked! Your pro is confirmed.')
       setTimeout(() => navigate('/customer/bookings', { state: { bookingId: res.booking_id } }), 1200)
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : 'Could not book')
+      // Provider may no longer be eligible/available — refresh instead of letting the UI go stale.
+      loadQuotes(true)
     } finally {
       setSelectingId(null)
     }

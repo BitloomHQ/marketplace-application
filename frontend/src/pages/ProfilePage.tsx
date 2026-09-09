@@ -31,7 +31,6 @@ export function ProfilePage() {
   const [success, setSuccess] = useState('')
 
   const isProvider = user ? isProviderRole(user.role) : false
-  const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     setError('')
@@ -119,8 +118,8 @@ export function ProfilePage() {
   return (
     <div>
       <PageHeader
-        title={isAdmin ? undefined : 'Account'}
-        subtitle={isAdmin ? 'Your admin account details' : 'Your details & contact info'}
+        title="Account"
+        subtitle="Your details & contact info"
       />
       {error && (
         <div className="mb-4">

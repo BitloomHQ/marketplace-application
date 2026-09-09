@@ -9,7 +9,7 @@ import {
 import { Alert, EmptyState, PageHeader, Select } from '../../components/ui'
 import { ListCardSkeleton } from '../../components/Shimmer'
 import { canEditBookingStatus, providerStatusOptions } from '../../lib/bookingStatus'
-import { formatStatus } from '../../lib/format'
+import { formatPreferredSchedule, formatStatus } from '../../lib/format'
 import { mapsUrlForLocation } from '../../lib/maps'
 import type { Booking, BookingStatus } from '../../types'
 
@@ -69,6 +69,11 @@ export function ProviderBookingsPage() {
         <div className="space-y-4">
           {bookings.map((b) => {
             const editable = canEditBookingStatus(b.status)
+            const scheduledSlot = formatPreferredSchedule(
+              b.scheduled_date,
+              b.scheduled_start_time,
+              b.scheduled_end_time,
+            )
 
             return (
               <ServiceListCard
@@ -76,7 +81,7 @@ export function ProviderBookingsPage() {
                 serviceType={b.service_type}
                 status={b.status}
                 rating={`₹${b.final_price.toLocaleString()}`}
-                date={formatListDate(b.created_at)}
+                date={scheduledSlot ? `Scheduled: ${scheduledSlot}` : formatListDate(b.created_at)}
                 location={b.address}
                 locationHref={mapsUrlForLocation(b.address, b.lat, b.lon)}
                 description={`Visit for ${b.customer}`}

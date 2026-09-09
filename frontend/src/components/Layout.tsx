@@ -105,7 +105,7 @@ export function Layout() {
   const { user } = useAuth()
   const { pathname } = useLocation()
 
-  if (!user || user.role === 'admin') return null
+  if (!user) return null
 
   const nav =
     user.role === 'customer'

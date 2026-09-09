@@ -5,7 +5,7 @@ import { formatListDate } from './ServiceListCard'
 import { LawnPolygonPreview } from './LawnPolygonPreview'
 import { Alert, Badge, Button, Modal } from './ui'
 import { Shimmer, ShimmerText } from './Shimmer'
-import { formatService, formatStatus } from '../lib/format'
+import { formatPreferredSchedule, formatService, formatStatus } from '../lib/format'
 import { mapsUrlForLocation } from '../lib/maps'
 import { resolveMediaUrl } from '../lib/media'
 import type { Lead } from '../types'
@@ -80,6 +80,9 @@ export function LeadDetailModal({
   const imageSrc = lead?.image ? resolveMediaUrl(lead.image) : null
   const canQuote = lead && !lead.has_quoted && lead.status !== 'cancelled'
   const displayService = lead?.service_type ?? serviceType
+  const preferredSchedule = lead
+    ? formatPreferredSchedule(lead.preferred_date, lead.preferred_start_time, lead.preferred_end_time)
+    : null
 
   return (
     <Modal
@@ -127,7 +130,17 @@ export function LeadDetailModal({
             <Badge tone="warning">{formatStatus(lead.status)}</Badge>
             {lead.is_booked && <Badge tone="success">Booked</Badge>}
             {lead.has_quoted && <Badge tone="success">Quote sent</Badge>}
+            {preferredSchedule && <Badge tone="neutral">📅 Preferred slot</Badge>}
           </div>
+
+          {preferredSchedule && (
+            <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+                Customer's preferred visit time
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-violet-900">{preferredSchedule}</p>
+            </div>
+          )}
 
           <dl className="space-y-4">
             <DetailField label="Customer">{lead.customer}</DetailField>

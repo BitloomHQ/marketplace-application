@@ -6,7 +6,7 @@ import { createServiceRequest } from '../api/services'
 import { ApiRequestError } from '../api/client'
 import { FileUploadZone } from './FileUploadZone'
 import { LawnPolygonDrawer } from './LawnPolygonDrawer'
-import { Alert, Field, Modal, ModalActions, Select, Textarea } from './ui'
+import { Alert, Field, Input, Modal, ModalActions, Select, Switch, Textarea } from './ui'
 import { ListCardSkeleton } from './Shimmer'
 import { polygonAreaSqMeters } from '../lib/polygon'
 import { addressLatLon } from '../lib/address'
@@ -36,6 +36,10 @@ export function CreateRequestModal({
   const [addresses, setAddresses] = useState<CustomerAddress[]>([])
   const [addressId, setAddressId] = useState('')
   const [description, setDescription] = useState('')
+  const [wantsSchedule, setWantsSchedule] = useState(false)
+  const [preferredDate, setPreferredDate] = useState('')
+  const [preferredStartTime, setPreferredStartTime] = useState('')
+  const [preferredEndTime, setPreferredEndTime] = useState('')
   const [image, setImage] = useState<File | null>(null)
   const [polygonPoints, setPolygonPoints] = useState<PolygonPoint[]>([])
   const [loadingAddresses, setLoadingAddresses] = useState(false)
@@ -54,6 +58,10 @@ export function CreateRequestModal({
     setDescription('')
     setImage(null)
     setPolygonPoints([])
+    setWantsSchedule(false)
+    setPreferredDate('')
+    setPreferredStartTime('')
+    setPreferredEndTime('')
     setError('')
     setLoadingAddresses(true)
     Promise.all([fetchMyAddresses(), fetchBookableServices()])
@@ -97,6 +105,16 @@ export function CreateRequestModal({
         return
       }
     }
+    if (wantsSchedule) {
+      if (!preferredDate || !preferredStartTime || !preferredEndTime) {
+        setError('Choose a preferred date, start time, and end time — or turn off scheduling.')
+        return
+      }
+      if (preferredEndTime <= preferredStartTime) {
+        setError('End time must be after start time.')
+        return
+      }
+    }
     setError('')
     setLoading(true)
     try {
@@ -107,6 +125,9 @@ export function CreateRequestModal({
         lawn_area: isGardener ? lawnAreaM2 : undefined,
         polygon_points: isGardener ? polygonPoints : undefined,
         image: !isGardener ? image ?? undefined : undefined,
+        preferred_date: wantsSchedule ? preferredDate : undefined,
+        preferred_start_time: wantsSchedule ? preferredStartTime : undefined,
+        preferred_end_time: wantsSchedule ? preferredEndTime : undefined,
       })
       addStoredRequestId(res.request_id)
       onClose()
@@ -213,6 +234,47 @@ export function CreateRequestModal({
               className="!min-h-[100px] !rounded-xl"
             />
           </Field>
+
+          <div className="rounded-xl border border-zinc-200 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-zinc-900">Preferred visit time</p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Optional — matches you with providers free at that slot.
+                </p>
+              </div>
+              <Switch checked={wantsSchedule} onChange={setWantsSchedule} />
+            </div>
+            {wantsSchedule && (
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Field label="Date" required>
+                  <Input
+                    type="date"
+                    min={new Date().toISOString().slice(0, 10)}
+                    value={preferredDate}
+                    onChange={(e) => setPreferredDate(e.target.value)}
+                    required={wantsSchedule}
+                  />
+                </Field>
+                <Field label="Start time" required>
+                  <Input
+                    type="time"
+                    value={preferredStartTime}
+                    onChange={(e) => setPreferredStartTime(e.target.value)}
+                    required={wantsSchedule}
+                  />
+                </Field>
+                <Field label="End time" required>
+                  <Input
+                    type="time"
+                    value={preferredEndTime}
+                    onChange={(e) => setPreferredEndTime(e.target.value)}
+                    required={wantsSchedule}
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
 
           {isGardener ? (
             <div>
