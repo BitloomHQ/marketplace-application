@@ -47,16 +47,6 @@ export function SpotlightsPage() {
     }
   }
 
-  const handleToggleActive = async (spotlight: AdminSpotlight) => {
-    setError('')
-    try {
-      const res = await updateAdminSpotlight(spotlight.id, { is_active: !spotlight.is_active })
-      setSpotlights((prev) => prev.map((s) => (s.id === spotlight.id ? res.data : s)))
-    } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : 'Failed to update status')
-    }
-  }
-
   const handleReorder = async (next: AdminSpotlight[]) => {
     setError('')
     try {
@@ -96,7 +86,6 @@ export function SpotlightsPage() {
           spotlights={spotlights}
           onEdit={handleEdit}
           onDelete={handleDelete}
-          onToggleActive={handleToggleActive}
           onReorder={handleReorder}
         />
       )}

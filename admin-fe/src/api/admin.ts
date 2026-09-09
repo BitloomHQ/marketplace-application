@@ -691,8 +691,24 @@ export function fetchAdminCustomers() {
   }>('/api/admin-panel/customers/')
 }
 
+export type AdminCustomerAddress = {
+  id: number
+  title: string
+  address_type: 'home' | 'work' | 'other'
+  address: string
+  city: string
+  state: string
+  postal_code: string
+  latitude: number | null
+  longitude: number | null
+  location_source: 'live' | 'manual'
+  is_default: boolean
+}
+
+export type AdminCustomerDetail = AdminCustomer & { addresses: AdminCustomerAddress[] }
+
 export function fetchAdminCustomerDetail(customerId: number) {
-  return apiRequest<{ success: boolean; data: AdminCustomer }>(
+  return apiRequest<{ success: boolean; data: AdminCustomerDetail }>(
     `/api/admin-panel/customers/${customerId}/`,
   )
 }

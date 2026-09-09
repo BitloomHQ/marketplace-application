@@ -1,28 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  activateProvider,
-  deactivateProvider,
-  fetchAllProviders,
-  unverifyProvider,
-  verifyProvider,
-  type AdminProvider,
-} from '../api/admin'
+import { fetchAllProviders, type AdminProvider } from '../api/admin'
 import { ApiRequestError } from '../api/client'
-import { AdminProviderEditModal } from '../components/AdminProviderEditModal'
-import { AdminActiveStatusSelect } from '../components/AdminStatusSelect'
-import { AdminActionButton, EditIcon } from '../components/IconActionButton'
+import { EyeIcon, IconLinkButton } from '../components/IconActionButton'
 import { AdminListRowSkeleton } from '../components/Shimmer'
-import { Alert, Badge, Button, Card, PageHeader, Select } from '../components/ui'
-import { ADMIN_STATUS_REASON } from '../lib/adminStatus'
+import { Alert, Badge, Button, Card, PageHeader } from '../components/ui'
 import { providerDeactivationReason } from '../lib/providerStatus'
 
 export function ProvidersPage() {
   const [providers, setProviders] = useState<AdminProvider[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [busyId, setBusyId] = useState<number | null>(null)
-  const [editing, setEditing] = useState<AdminProvider | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -37,36 +25,6 @@ export function ProvidersPage() {
   useEffect(() => {
     load()
   }, [])
-
-  const changeActive = async (provider: AdminProvider, active: boolean) => {
-    if (provider.is_active === active) return
-    setBusyId(provider.id)
-    setError('')
-    try {
-      if (active) await activateProvider(provider.id, ADMIN_STATUS_REASON)
-      else await deactivateProvider(provider.id, ADMIN_STATUS_REASON)
-      load()
-    } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : 'Status update failed')
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  const changeVerified = async (provider: AdminProvider, verified: boolean) => {
-    if (provider.is_verified === verified) return
-    setBusyId(provider.id)
-    setError('')
-    try {
-      if (verified) await verifyProvider(provider.id, ADMIN_STATUS_REASON)
-      else await unverifyProvider(provider.id, ADMIN_STATUS_REASON)
-      load()
-    } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : 'Verification update failed')
-    } finally {
-      setBusyId(null)
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -115,39 +73,10 @@ export function ProvidersPage() {
                       </p>
                     )}
                   </div>
-                  <div className="flex flex-wrap items-end gap-2">
-                    {p.is_approved && (
-                      <>
-                        <div>
-                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-zinc-500">Account</p>
-                          <AdminActiveStatusSelect
-                            value={p.is_active}
-                            disabled={busyId === p.id}
-                            onChange={(active) => changeActive(p, active)}
-                          />
-                        </div>
-                        <div>
-                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-zinc-500">Verified</p>
-                          <Select
-                            value={p.is_verified ? 'verified' : 'unverified'}
-                            disabled={busyId === p.id}
-                            onChange={(e) => changeVerified(p, e.target.value === 'verified')}
-                            className="min-w-[7.5rem] text-sm"
-                          >
-                            <option value="verified">Verified</option>
-                            <option value="unverified">Unverified</option>
-                          </Select>
-                        </div>
-                      </>
-                    )}
-                    <AdminActionButton
-                      label="Edit"
-                      variant="secondary"
-                      disabled={busyId === p.id}
-                      onClick={() => setEditing(p)}
-                    >
-                      <EditIcon />
-                    </AdminActionButton>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <IconLinkButton label="View details" to={`/providers/${p.id}`}>
+                      <EyeIcon />
+                    </IconLinkButton>
                   </div>
                 </div>
               </Card>
@@ -155,13 +84,6 @@ export function ProvidersPage() {
           })}
         </div>
       )}
-
-      <AdminProviderEditModal
-        provider={editing}
-        open={editing !== null}
-        onClose={() => setEditing(null)}
-        onUpdated={load}
-      />
     </div>
   )
 }

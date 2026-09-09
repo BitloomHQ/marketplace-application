@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { ApiRequestError } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { isProviderRole } from '../../lib/format'
@@ -11,12 +11,16 @@ type Props = {
   open: boolean
   onClose: () => void
   subtitle?: string
+  onSwitchToRegister: () => void
+  onSwitchToForgotPassword: () => void
 }
 
 export function LoginModal({
   open,
   onClose,
   subtitle = 'Before you book a service, please log in first.',
+  onSwitchToRegister,
+  onSwitchToForgotPassword,
 }: Props) {
   const { login, logout, isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
@@ -94,13 +98,13 @@ export function LoginModal({
         <Field
           label="Password"
           action={
-            <Link
-              to="/forgot-password"
-              onClick={onClose}
+            <button
+              type="button"
+              onClick={onSwitchToForgotPassword}
               className="text-xs font-semibold text-sky-600 hover:text-sky-700"
             >
               Forgot password?
-            </Link>
+            </button>
           }
         >
           <Input
@@ -133,13 +137,13 @@ export function LoginModal({
 
         <p className="text-center text-sm text-zinc-500">
           Don&apos;t have an account?{' '}
-          <Link
-            to="/customer/register"
-            onClick={onClose}
+          <button
+            type="button"
+            onClick={onSwitchToRegister}
             className="font-semibold text-sky-600 hover:text-sky-700"
           >
             Sign up
-          </Link>
+          </button>
         </p>
       </form>
     </Modal>

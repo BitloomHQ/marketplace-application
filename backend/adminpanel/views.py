@@ -6521,6 +6521,32 @@ def customer_detail_api(request, customer_id):
                 ),
                 "date_joined": customer.date_joined,
                 "last_login": customer.last_login,
+                "addresses": [
+                    {
+                        "id": a.id,
+                        "title": a.title,
+                        "address_type": a.address_type,
+                        "address": a.address,
+                        "city": a.city,
+                        "state": a.state,
+                        "postal_code": a.postal_code,
+                        "latitude": (
+                            float(a.latitude)
+                            if a.latitude is not None
+                            else None
+                        ),
+                        "longitude": (
+                            float(a.longitude)
+                            if a.longitude is not None
+                            else None
+                        ),
+                        "location_source": a.location_source,
+                        "is_default": a.is_default,
+                    }
+                    for a in customer.addresses.all().order_by(
+                        "-is_default", "-created_at",
+                    )
+                ],
             },
         },
         status=status.HTTP_200_OK,

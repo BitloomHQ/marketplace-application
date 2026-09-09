@@ -1,17 +1,7 @@
 import { useEffect, useState } from 'react'
-import {
-  activateCustomer,
-  deactivateCustomer,
-  fetchAdminCustomers,
-  type AdminCustomer,
-} from '../api/admin'
+import { fetchAdminCustomers, type AdminCustomer } from '../api/admin'
 import { ApiRequestError } from '../api/client'
-import { AdminCustomerEditModal } from '../components/AdminCustomerEditModal'
-import { AdminActiveStatusSelect } from '../components/AdminStatusSelect'
-import {
-  AdminActionButton,
-  EditIcon,
-} from '../components/IconActionButton'
+import { EyeIcon, IconLinkButton } from '../components/IconActionButton'
 import { AdminListRowSkeleton } from '../components/Shimmer'
 import { Alert, Badge, Card, PageHeader } from '../components/ui'
 
@@ -19,8 +9,6 @@ export function CustomersPage() {
   const [customers, setCustomers] = useState<AdminCustomer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [busyId, setBusyId] = useState<number | null>(null)
-  const [editing, setEditing] = useState<AdminCustomer | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -35,21 +23,6 @@ export function CustomersPage() {
   useEffect(() => {
     load()
   }, [])
-
-  const changeStatus = async (customer: AdminCustomer, active: boolean) => {
-    if (customer.is_active === active) return
-    setBusyId(customer.id)
-    setError('')
-    try {
-      if (active) await activateCustomer(customer.id)
-      else await deactivateCustomer(customer.id)
-      load()
-    } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : 'Status update failed')
-    } finally {
-      setBusyId(null)
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -85,33 +58,16 @@ export function CustomersPage() {
                     </span>
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <AdminActiveStatusSelect
-                    value={customer.is_active}
-                    disabled={busyId === customer.id}
-                    onChange={(active) => changeStatus(customer, active)}
-                  />
-                  <AdminActionButton
-                    label="Edit"
-                    variant="secondary"
-                    disabled={busyId === customer.id}
-                    onClick={() => setEditing(customer)}
-                  >
-                    <EditIcon />
-                  </AdminActionButton>
+                <div className="flex shrink-0 items-center gap-2">
+                  <IconLinkButton label="View details" to={`/customers/${customer.id}`}>
+                    <EyeIcon />
+                  </IconLinkButton>
                 </div>
               </div>
             </Card>
           ))}
         </div>
       )}
-
-      <AdminCustomerEditModal
-        customer={editing}
-        open={editing !== null}
-        onClose={() => setEditing(null)}
-        onUpdated={load}
-      />
     </div>
   )
 }

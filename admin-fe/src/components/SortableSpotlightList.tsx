@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import { EditIcon, IconActionButton, TrashIcon } from './IconActionButton'
-import { Badge, Button, Card, Switch } from './ui'
+import { Badge, Button, Card } from './ui'
 import { resolveMediaUrl } from '../lib/media'
 import type { AdminSpotlight } from '../api/admin'
 
@@ -21,7 +21,6 @@ type Props = {
   disabled?: boolean
   onEdit: (spotlight: AdminSpotlight) => void
   onDelete: (spotlight: AdminSpotlight) => void
-  onToggleActive: (spotlight: AdminSpotlight) => void
   onReorder: (spotlights: AdminSpotlight[]) => Promise<void>
 }
 
@@ -30,14 +29,12 @@ export function SortableSpotlightList({
   disabled = false,
   onEdit,
   onDelete,
-  onToggleActive,
   onReorder,
 }: Props) {
   const [items, setItems] = useState(spotlights)
   const [draggingId, setDraggingId] = useState<number | null>(null)
   const [overId, setOverId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
-  const [togglingId, setTogglingId] = useState<number | null>(null)
 
   useEffect(() => {
     setItems(spotlights)
@@ -72,15 +69,6 @@ export function SortableSpotlightList({
       await onReorder(items)
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleToggle = async (spotlight: AdminSpotlight) => {
-    setTogglingId(spotlight.id)
-    try {
-      await onToggleActive(spotlight)
-    } finally {
-      setTogglingId(null)
     }
   }
 
@@ -165,12 +153,6 @@ export function SortableSpotlightList({
               </div>
 
               <div className="flex items-center gap-3">
-                <Switch
-                  checked={spotlight.is_active}
-                  onChange={() => void handleToggle(spotlight)}
-                  disabled={togglingId === spotlight.id}
-                  label={spotlight.is_active ? 'Deactivate' : 'Activate'}
-                />
                 <IconActionButton label="Edit spotlight" onClick={() => onEdit(spotlight)}>
                   <EditIcon />
                 </IconActionButton>

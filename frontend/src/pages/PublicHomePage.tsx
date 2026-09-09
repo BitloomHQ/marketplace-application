@@ -5,10 +5,14 @@ import type { SpotlightImage } from '../api/catalog'
 import { CustomerHomeContent } from '../components/CustomerHomeContent'
 import { GuestHeader } from '../components/GuestHeader'
 import { SiteFooter } from '../components/SiteFooter'
+import { ForgotPasswordModal } from '../components/auth/ForgotPasswordModal'
 import { LoginModal } from '../components/auth/LoginModal'
+import { RegisterModal } from '../components/auth/RegisterModal'
 import { useAuth } from '../context/AuthContext'
 import { isProviderRole } from '../lib/format'
 import type { ServiceCategory } from '../types'
+
+type AuthView = 'login' | 'register' | 'forgot' | null
 
 export function PublicHomePage() {
   const { isAuthenticated, user } = useAuth()
@@ -18,7 +22,7 @@ export function PublicHomePage() {
   const [popularServices, setPopularServices] = useState<ServiceCategory[]>([])
   const [comingSoonServices, setComingSoonServices] = useState<ServiceCategory[]>([])
   const [loadingServices, setLoadingServices] = useState(true)
-  const [loginOpen, setLoginOpen] = useState(false)
+  const [authView, setAuthView] = useState<AuthView>(null)
   const [loginMessage, setLoginMessage] = useState<string | undefined>()
   const [createOpen, setCreateOpen] = useState(false)
   const [presetService, setPresetService] = useState('plumber')
@@ -48,16 +52,25 @@ export function PublicHomePage() {
   }, [])
 
   useEffect(() => {
-    if (searchParams.get('login') === '1') {
-      setLoginOpen(true)
+    const view = searchParams.get('login')
+      ? 'login'
+      : searchParams.get('register')
+        ? 'register'
+        : searchParams.get('forgot')
+          ? 'forgot'
+          : null
+    if (view) {
+      setAuthView(view)
       searchParams.delete('login')
+      searchParams.delete('register')
+      searchParams.delete('forgot')
       setSearchParams(searchParams, { replace: true })
     }
   }, [searchParams, setSearchParams])
 
   const promptLogin = (message?: string) => {
     setLoginMessage(message)
-    setLoginOpen(true)
+    setAuthView('login')
   }
 
   const handleBookService = () => {
@@ -92,12 +105,30 @@ export function PublicHomePage() {
       </main>
 
       <LoginModal
-        open={loginOpen}
+        open={authView === 'login'}
         onClose={() => {
-          setLoginOpen(false)
+          setAuthView(null)
           setLoginMessage(undefined)
         }}
         subtitle={loginMessage}
+        onSwitchToRegister={() => setAuthView('register')}
+        onSwitchToForgotPassword={() => setAuthView('forgot')}
+      />
+
+      <RegisterModal
+        open={authView === 'register'}
+        onClose={() => setAuthView(null)}
+        onSwitchToLogin={() => setAuthView('login')}
+        onRegistered={(email) => {
+          setAuthView(null)
+          navigate('/verify-email', { state: { email, portal: 'customer' } })
+        }}
+      />
+
+      <ForgotPasswordModal
+        open={authView === 'forgot'}
+        onClose={() => setAuthView(null)}
+        onSwitchToLogin={() => setAuthView('login')}
       />
 
       <SiteFooter />

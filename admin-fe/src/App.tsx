@@ -9,10 +9,16 @@ const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default:
 const AccountPage = lazy(() => import('./pages/AccountPage').then((m) => ({ default: m.AccountPage })))
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const ProvidersPage = lazy(() => import('./pages/ProvidersPage').then((m) => ({ default: m.ProvidersPage })))
+const ProviderDetailPage = lazy(() =>
+  import('./pages/ProviderDetailPage').then((m) => ({ default: m.ProviderDetailPage })),
+)
 const ServicesPage = lazy(() => import('./pages/ServicesPage').then((m) => ({ default: m.ServicesPage })))
 const SpotlightsPage = lazy(() => import('./pages/SpotlightsPage').then((m) => ({ default: m.SpotlightsPage })))
 const MarketplacePage = lazy(() => import('./pages/MarketplacePage').then((m) => ({ default: m.MarketplacePage })))
 const CustomersPage = lazy(() => import('./pages/CustomersPage').then((m) => ({ default: m.CustomersPage })))
+const CustomerDetailPage = lazy(() =>
+  import('./pages/CustomerDetailPage').then((m) => ({ default: m.CustomerDetailPage })),
+)
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage').then((m) => ({ default: m.AdminUsersPage })))
 const PendingProvidersPage = lazy(() =>
   import('./pages/PendingProvidersPage').then((m) => ({ default: m.PendingProvidersPage })),
@@ -39,7 +45,9 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/pending-providers" element={<PendingProvidersPage />} />
           <Route path="/providers" element={<ProvidersPage />} />
+          <Route path="/providers/:id" element={<ProviderDetailPage />} />
           <Route path="/customers" element={<CustomersPage />} />
+          <Route path="/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/admin-users" element={<AdminUsersPage />} />
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/spotlights" element={<SpotlightsPage />} />

@@ -108,11 +108,15 @@ export function AddAddressModal({
           disabled={saving}
         />
 
-        {address && (
-          <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm text-zinc-700">
-            {address}
-          </p>
-        )}
+        <Field label="Full address" required>
+          <Input
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Pick a point on the map or use your current location"
+            disabled={saving}
+          />
+          <p className="mt-1 text-xs text-zinc-400">Fills in automatically from the map — edit if it needs a touch-up.</p>
+        </Field>
 
         <Button
           type="submit"

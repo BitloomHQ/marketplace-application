@@ -1,6 +1,8 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import {
+  activateAdminUser,
   createAdminUser,
+  deactivateAdminUser,
   fetchAdminUserDetail,
   updateAdminUser,
   type AdminPermissions,
@@ -8,6 +10,7 @@ import {
 } from '../api/admin'
 import { ApiRequestError } from '../api/client'
 import { Alert, Field, Input, Modal, ModalActions } from './ui'
+import { AdminActiveStatusSelect } from './AdminStatusSelect'
 import { AdminPermissionsFields, DEFAULT_ADMIN_PERMISSIONS } from './AdminPermissionsFields'
 
 type Props = {
@@ -27,6 +30,8 @@ export function AdminStaffUserModal({ adminUser, open, mode, onClose, onSaved }:
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [permissions, setPermissions] = useState<AdminPermissions>(DEFAULT_ADMIN_PERMISSIONS)
+  const [isActive, setIsActive] = useState(true)
+  const [initialActive, setInitialActive] = useState(true)
   const [loading, setLoading] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [error, setError] = useState('')
@@ -41,6 +46,8 @@ export function AdminStaffUserModal({ adminUser, open, mode, onClose, onSaved }:
       setFirstName('')
       setLastName('')
       setPermissions(DEFAULT_ADMIN_PERMISSIONS)
+      setIsActive(true)
+      setInitialActive(true)
       return
     }
     if (!adminUser) return
@@ -53,6 +60,8 @@ export function AdminStaffUserModal({ adminUser, open, mode, onClose, onSaved }:
         setFirstName(data.first_name ?? '')
         setLastName(data.last_name ?? '')
         setPermissions(data.permissions ?? DEFAULT_ADMIN_PERMISSIONS)
+        setIsActive(data.is_active)
+        setInitialActive(data.is_active)
       })
       .catch((err) => {
         setError(err instanceof ApiRequestError ? err.message : 'Failed to load admin user')
@@ -85,6 +94,10 @@ export function AdminStaffUserModal({ adminUser, open, mode, onClose, onSaved }:
           last_name: lastName,
           permissions,
         })
+        if (isActive !== initialActive) {
+          if (isActive) await activateAdminUser(adminUser.id)
+          else await deactivateAdminUser(adminUser.id)
+        }
       }
       onSaved()
       onClose()
@@ -121,6 +134,11 @@ export function AdminStaffUserModal({ adminUser, open, mode, onClose, onSaved }:
         <p className="text-sm text-zinc-500">Loading admin user…</p>
       ) : (
         <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+          {!isCreate && (
+            <Field label="Account status">
+              <AdminActiveStatusSelect value={isActive} disabled={loading} onChange={setIsActive} />
+            </Field>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Username">
               <Input

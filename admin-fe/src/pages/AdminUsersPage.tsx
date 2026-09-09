@@ -1,21 +1,10 @@
 import { useEffect, useState } from 'react'
-import {
-  activateAdminUser,
-  deactivateAdminUser,
-  deleteAdminUser,
-  fetchAdminUsers,
-  type AdminStaffUser,
-} from '../api/admin'
+import { deleteAdminUser, fetchAdminUsers, type AdminStaffUser } from '../api/admin'
 import { ApiRequestError } from '../api/client'
 import { AdminStaffUserModal } from '../components/AdminStaffUserModal'
-import {
-  AdminActionButton,
-  BanIcon,
-  CheckIcon,
-  EditIcon,
-} from '../components/IconActionButton'
+import { EditIcon, IconActionButton, TrashIcon } from '../components/IconActionButton'
 import { AdminListRowSkeleton } from '../components/Shimmer'
-import { Alert, Button, Card, PageHeader } from '../components/ui'
+import { Alert, Badge, Button, Card, PageHeader } from '../components/ui'
 
 type ModalState =
   | { mode: 'create' }
@@ -42,23 +31,6 @@ export function AdminUsersPage() {
   useEffect(() => {
     load()
   }, [])
-
-  const toggleActive = async (user: AdminStaffUser) => {
-    setBusyId(user.id)
-    setError('')
-    try {
-      if (user.is_active) {
-        await deactivateAdminUser(user.id)
-      } else {
-        await activateAdminUser(user.id)
-      }
-      load()
-    } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : 'Action failed')
-    } finally {
-      setBusyId(null)
-    }
-  }
 
   const handleDelete = async (user: AdminStaffUser) => {
     if (!window.confirm(`Delete admin user "${user.username}"? This cannot be undone.`)) return
@@ -102,46 +74,29 @@ export function AdminUsersPage() {
                   <p className="text-sm text-zinc-500">
                     {user.email} · @{user.username}
                   </p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {user.is_active ? 'Active' : 'Inactive'} · {permissionCount(user)} permissions
-                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <Badge tone={user.is_active ? 'success' : 'danger'}>
+                      {user.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                    <span className="text-xs text-zinc-500">{permissionCount(user)} permissions</span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <AdminActionButton
+                <div className="flex shrink-0 items-center gap-2">
+                  <IconActionButton
                     label="Edit"
-                    variant="secondary"
                     disabled={busyId === user.id}
                     onClick={() => setModal({ mode: 'edit', user })}
                   >
                     <EditIcon />
-                  </AdminActionButton>
-                  {user.is_active ? (
-                    <AdminActionButton
-                      label="Deactivate"
-                      variant="dangerSolid"
-                      disabled={busyId === user.id}
-                      onClick={() => toggleActive(user)}
-                    >
-                      <BanIcon />
-                    </AdminActionButton>
-                  ) : (
-                    <AdminActionButton
-                      label="Activate"
-                      variant="success"
-                      disabled={busyId === user.id}
-                      onClick={() => toggleActive(user)}
-                    >
-                      <CheckIcon />
-                    </AdminActionButton>
-                  )}
-                  <AdminActionButton
+                  </IconActionButton>
+                  <IconActionButton
                     label="Delete"
-                    variant="danger"
+                    variant="dangerSolid"
                     disabled={busyId === user.id}
                     onClick={() => handleDelete(user)}
                   >
-                    <BanIcon />
-                  </AdminActionButton>
+                    <TrashIcon />
+                  </IconActionButton>
                 </div>
               </div>
             </Card>

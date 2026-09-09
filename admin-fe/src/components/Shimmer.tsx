@@ -96,6 +96,36 @@ export function AdminStatsSkeleton({ count = 6 }: { count?: number }) {
   )
 }
 
+export function AdminDetailPageSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <ShimmerCircle className="h-16 w-16" />
+          <div className="space-y-2">
+            <ShimmerText className="h-5 w-40" />
+            <ShimmerText className="w-56" />
+          </div>
+        </div>
+        <Shimmer className="h-10 w-24 rounded-xl" />
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Shimmer key={i} className="h-6 w-20 rounded-full" />
+        ))}
+      </div>
+
+      {Array.from({ length: 3 }, (_, i) => (
+        <div key={i} className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-5">
+          <ShimmerText className="w-32" />
+          <Shimmer className="h-20 w-full rounded-xl" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function AdminListRowSkeleton({ count = 4 }: { count?: number }) {
   return (
     <div className="space-y-3">

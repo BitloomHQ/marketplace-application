@@ -164,14 +164,21 @@ export function AddressLocationPicker(props: Props) {
     async (nextLat: number, nextLon: number, keepAddress = false) => {
       onLocationChange(nextLat, nextLon)
       if (keepAddress) return
+      setLocateError('')
       try {
         const res = await fetchMapsReverseGeocode(nextLat, nextLon)
         if (res.address) {
           onAddressChange(res.address)
           setQuery(res.address)
+        } else {
+          setLocateError(
+            'Got the location, but could not resolve it to an address automatically — please type it in below.',
+          )
         }
       } catch {
-        /* keep typed address */
+        setLocateError(
+          'Got the location, but could not resolve it to an address automatically — please type it in below.',
+        )
       }
     },
     [onAddressChange, onLocationChange],
