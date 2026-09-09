@@ -605,73 +605,32 @@ GOOGLE_MAPS_API_KEY = os.environ.get(
 
 
 # ============================================================
-# EMAIL
-# LOCAL DEVELOPMENT — GMAIL SMTP
+# EMAIL (Resend via django-anymail)
 # ============================================================
 
-EMAIL_BACKEND = os.environ.get(
-    "EMAIL_BACKEND",
-    "django.core.mail.backends.smtp.EmailBackend",
-)
-
-EMAIL_HOST = os.environ.get(
-    "EMAIL_HOST",
-    "smtp.gmail.com",
-)
-
-EMAIL_PORT = int(
-    os.environ.get(
-        "EMAIL_PORT",
-        "587",
-    )
-)
-
-EMAIL_USE_TLS = (
-    os.environ
-    .get(
-        "EMAIL_USE_TLS",
-        "True",
-    )
-    .strip()
-    .lower()
-    in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
-)
-
-EMAIL_USE_SSL = (
-    os.environ
-    .get(
-        "EMAIL_USE_SSL",
-        "False",
-    )
-    .strip()
-    .lower()
-    in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
-)
-
-EMAIL_HOST_USER = os.environ.get(
-    "EMAIL_HOST_USER",
-    "",
-)
-
-EMAIL_HOST_PASSWORD = os.environ.get(
-    "EMAIL_HOST_PASSWORD",
+RESEND_API_KEY = os.environ.get(
+    "RESEND_API_KEY",
     "",
 )
 
 DEFAULT_FROM_EMAIL = os.environ.get(
     "DEFAULT_FROM_EMAIL",
-    EMAIL_HOST_USER,
+    "Marketplace <onboarding@resend.dev>",
 )
+
+if RESEND_API_KEY:
+
+    EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+
+    ANYMAIL = {
+        "RESEND_API_KEY": RESEND_API_KEY,
+    }
+
+else:
+
+    # Local dev fallback: print emails to the console
+    # when Resend is not configured.
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 

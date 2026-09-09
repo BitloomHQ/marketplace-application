@@ -13,13 +13,11 @@ class EmailNotConfiguredError(Exception):
 
 def is_email_configured() -> bool:
     """
-    Check whether SMTP email configuration is available.
+    Check whether the Resend email backend is available.
     """
 
     return bool(
-        getattr(settings, "EMAIL_HOST", "")
-        and getattr(settings, "EMAIL_HOST_USER", "")
-        and getattr(settings, "EMAIL_HOST_PASSWORD", "")
+        getattr(settings, "RESEND_API_KEY", "")
         and getattr(settings, "DEFAULT_FROM_EMAIL", "")
     )
 
@@ -28,8 +26,7 @@ def send_verification_otp_email(user, otp) -> None:
     """
     Send email verification OTP to a customer/provider.
 
-    Uses Django's configured EMAIL_BACKEND.
-    For local development this is Gmail SMTP.
+    Uses Django's configured EMAIL_BACKEND (django-anymail + Resend).
     """
 
     if not is_email_configured():
