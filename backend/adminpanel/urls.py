@@ -6,6 +6,8 @@ from .views import (
 
     # Dashboard
     admin_dashboard,
+    create_customer_api,
+    create_provider_api,
     customer_analytics_api,
     dashboard_trends_api,
     geographic_analytics_api,
@@ -387,5 +389,20 @@ urlpatterns = [
     "location-settings/",
     marketplace_location_settings_api,
     name="marketplace-location-settings",
+),
+path(
+    "customers/create/",
+    create_customer_api,
+    name="create-customer",
+),
+path(
+    "providers/create/",
+    create_provider_api,
+    name="create-provider",
+),
+path(
+    "providers/<int:provider_id>/update/",
+    update_provider_api,
+    name="update-provider",
 ),
 ]

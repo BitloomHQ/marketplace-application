@@ -27,6 +27,15 @@ from django.db.models.functions import TruncDate, TruncMonth
 from django.db.models import Avg, Count, Max, Q, Sum
 from django.utils import timezone
 
+from providers.models import (
+    ProviderProfile,
+    ProviderService,
+)
+
+from services.models import (
+    ServiceCategory as MarketplaceServiceCategory,
+)
+
 from .services.dashboard_filters import (
     get_dashboard_filters,
     filter_service_requests,
@@ -7681,13 +7690,20 @@ def provider_detail_api(request, provider_id):
     IsAuthenticated,
     CanManageProviders,
 ])
+@transaction.atomic
 def update_provider_api(request, provider_id):
     """
-    Allow an authorized admin to edit provider data.
+    Update provider account, provider profile,
+    and provider service from admin panel.
     """
+
+    # =========================================================
+    # PROVIDER
+    # =========================================================
 
     provider = (
         User.objects
+        .select_for_update()
         .filter(
             id=provider_id,
             role__in=provider_role_keys(),
@@ -7700,6 +7716,31 @@ def update_provider_api(request, provider_id):
             {
                 "success": False,
                 "message": "Provider not found.",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # =========================================================
+    # PROVIDER PROFILE
+    # =========================================================
+
+    provider_profile = (
+        ProviderProfile.objects
+        .select_for_update()
+        .filter(
+            provider=provider
+        )
+        .first()
+    )
+
+    if not provider_profile:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Provider profile not found."
+                ),
+                "code": "PROVIDER_PROFILE_NOT_FOUND",
             },
             status=status.HTTP_404_NOT_FOUND,
         )
@@ -7731,7 +7772,9 @@ def update_provider_api(request, provider_id):
             .filter(
                 username__iexact=username
             )
-            .exclude(id=provider.id)
+            .exclude(
+                id=provider.id
+            )
             .exists()
         ):
             return Response(
@@ -7773,7 +7816,9 @@ def update_provider_api(request, provider_id):
             .filter(
                 email__iexact=email
             )
-            .exclude(id=provider.id)
+            .exclude(
+                id=provider.id
+            )
             .exists()
         ):
             return Response(
@@ -7789,12 +7834,10 @@ def update_provider_api(request, provider_id):
         if email != provider.email.lower():
 
             provider.email = email
-
-            # New email must be verified again.
             provider.is_email_verified = False
 
     # =========================================================
-    # BASIC PROFILE
+    # BASIC USER PROFILE
     # =========================================================
 
     if "first_name" in request.data:
@@ -7833,33 +7876,38 @@ def update_provider_api(request, provider_id):
 
     if "experience_years" in request.data:
 
-        experience_years = request.data.get(
-            "experience_years"
+        experience_raw = (
+            request.data.get(
+                "experience_years"
+            )
         )
 
-        if experience_years in [
+        if experience_raw in [
             "",
             None,
         ]:
             provider.experience_years = None
 
         else:
+
             try:
                 experience_years = int(
-                    experience_years
+                    experience_raw
                 )
-            except (TypeError, ValueError):
+
+            except (
+                TypeError,
+                ValueError,
+            ):
                 return Response(
                     {
                         "success": False,
                         "message": (
                             "Experience years must "
-                            "be a valid number."
+                            "be a valid integer."
                         ),
                     },
-                    status=(
-                        status.HTTP_400_BAD_REQUEST
-                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             if experience_years < 0:
@@ -7871,14 +7919,74 @@ def update_provider_api(request, provider_id):
                             "be negative."
                         ),
                     },
-                    status=(
-                        status.HTTP_400_BAD_REQUEST
-                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             provider.experience_years = (
                 experience_years
             )
+
+            provider_profile.total_experience_years = (
+                experience_years
+            )
+
+    # =========================================================
+    # PASSWORD
+    # =========================================================
+
+    if "password" in request.data:
+
+        password = (
+            request.data.get("password")
+            or ""
+        )
+
+        if len(password) < 8:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Password must contain at least "
+                        "8 characters."
+                    ),
+                    "code": "PASSWORD_TOO_SHORT",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        provider.set_password(
+            password
+        )
+
+    # =========================================================
+    # ACCOUNT STATUS
+    # =========================================================
+
+    if "is_active" in request.data:
+        provider.is_active = parse_boolean(
+            request.data.get("is_active"),
+            provider.is_active,
+        )
+
+    if "is_approved" in request.data:
+        provider.is_approved = parse_boolean(
+            request.data.get("is_approved"),
+            provider.is_approved,
+        )
+
+    if "is_verified" in request.data:
+        provider.is_verified = parse_boolean(
+            request.data.get("is_verified"),
+            provider.is_verified,
+        )
+
+    if "is_email_verified" in request.data:
+        provider.is_email_verified = parse_boolean(
+            request.data.get(
+                "is_email_verified"
+            ),
+            provider.is_email_verified,
+        )
 
     # =========================================================
     # PROFILE PICTURE
@@ -7894,10 +8002,540 @@ def update_provider_api(request, provider_id):
         )
 
     # =========================================================
-    # SAVE
+    # SERVICE CATEGORY / PROVIDER ROLE
+    # =========================================================
+
+    selected_category = None
+
+    if "service_key" in request.data:
+
+        service_key = (
+            request.data.get("service_key")
+            or ""
+        ).strip().lower()
+
+        if not service_key:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "service_key cannot be empty."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        selected_category = (
+            MarketplaceServiceCategory.objects
+            .filter(
+                key__iexact=service_key,
+                status="active",
+            )
+            .first()
+        )
+
+        if not selected_category:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Active service category "
+                        "not found."
+                    ),
+                    "code": "INVALID_SERVICE_CATEGORY",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not is_provider_role(
+            selected_category.key
+        ):
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Invalid provider role."
+                    ),
+                    "code": "INVALID_PROVIDER_ROLE",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        provider.role = (
+            selected_category.key
+        )
+
+    # =========================================================
+    # PROVIDER PROFILE FIELDS
+    # =========================================================
+
+    if "business_name" in request.data:
+        provider_profile.business_name = (
+            request.data.get(
+                "business_name"
+            )
+            or ""
+        ).strip()
+
+    if "professional_title" in request.data:
+
+        professional_title = (
+            request.data.get(
+                "professional_title"
+            )
+            or ""
+        ).strip()
+
+        if not professional_title:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "professional_title cannot "
+                        "be empty."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        provider_profile.professional_title = (
+            professional_title
+        )
+
+    if "description" in request.data:
+
+        description = (
+            request.data.get("description")
+            or ""
+        ).strip()
+
+        if not description:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "description cannot be empty."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        provider_profile.description = (
+            description
+        )
+
+    if "accepts_emergency_work" in request.data:
+        provider_profile.accepts_emergency_work = (
+            parse_boolean(
+                request.data.get(
+                    "accepts_emergency_work"
+                ),
+                provider_profile
+                .accepts_emergency_work,
+            )
+        )
+
+    if "is_available" in request.data:
+        provider_profile.is_available = (
+            parse_boolean(
+                request.data.get(
+                    "is_available"
+                ),
+                provider_profile.is_available,
+            )
+        )
+
+    if "is_online" in request.data:
+        provider_profile.is_online = (
+            parse_boolean(
+                request.data.get(
+                    "is_online"
+                ),
+                provider_profile.is_online,
+            )
+        )
+
+    if "is_profile_active" in request.data:
+        provider_profile.is_profile_active = (
+            parse_boolean(
+                request.data.get(
+                    "is_profile_active"
+                ),
+                provider_profile
+                .is_profile_active,
+            )
+        )
+
+    # =========================================================
+    # MINIMUM BOOKING AMOUNT
+    # =========================================================
+
+    if "minimum_booking_amount" in request.data:
+
+        raw_value = request.data.get(
+            "minimum_booking_amount"
+        )
+
+        if raw_value in [
+            "",
+            None,
+        ]:
+            provider_profile.minimum_booking_amount = (
+                None
+            )
+
+        else:
+
+            try:
+                amount = Decimal(
+                    str(raw_value)
+                )
+
+            except (
+                InvalidOperation,
+                TypeError,
+                ValueError,
+            ):
+                return Response(
+                    {
+                        "success": False,
+                        "message": (
+                            "minimum_booking_amount "
+                            "must be valid."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if amount < 0:
+                return Response(
+                    {
+                        "success": False,
+                        "message": (
+                            "minimum_booking_amount "
+                            "cannot be negative."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            provider_profile.minimum_booking_amount = (
+                amount
+            )
+
+    # =========================================================
+    # SERVICE RADIUS
+    # =========================================================
+
+    if "service_radius_km" in request.data:
+
+        try:
+            service_radius = Decimal(
+                str(
+                    request.data.get(
+                        "service_radius_km"
+                    )
+                )
+            )
+
+        except (
+            InvalidOperation,
+            TypeError,
+            ValueError,
+        ):
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "service_radius_km must "
+                        "be a valid number."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if service_radius < Decimal("1"):
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "service_radius_km must "
+                        "be at least 1 km."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        marketplace_settings = (
+            MarketplaceLocationSettings
+            .get_settings()
+        )
+
+        if (
+            service_radius
+            >
+            marketplace_settings
+            .max_provider_radius_km
+        ):
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Provider service radius "
+                        "cannot exceed marketplace "
+                        "maximum."
+                    ),
+                    "code": (
+                        "SERVICE_RADIUS_EXCEEDS_ADMIN_LIMIT"
+                    ),
+                    "max_provider_radius_km": float(
+                        marketplace_settings
+                        .max_provider_radius_km
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        provider_profile.service_radius_km = (
+            service_radius
+        )
+
+    # =========================================================
+    # EXISTING PROVIDER SERVICE
+    # =========================================================
+
+    provider_service = (
+        ProviderService.objects
+        .select_for_update()
+        .filter(
+            provider_profile=provider_profile
+        )
+        .first()
+    )
+
+    if not provider_service:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Provider service not found."
+                ),
+                "code": "PROVIDER_SERVICE_NOT_FOUND",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # =========================================================
+    # CHANGE SERVICE CATEGORY
+    # =========================================================
+
+    if selected_category:
+        provider_service.category = (
+            selected_category
+        )
+
+    # =========================================================
+    # SERVICE TITLE / DESCRIPTION
+    # =========================================================
+
+    if "service_title" in request.data:
+
+        service_title = (
+            request.data.get(
+                "service_title"
+            )
+            or ""
+        ).strip()
+
+        if not service_title:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "service_title cannot "
+                        "be empty."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        provider_service.title = (
+            service_title
+        )
+
+    if "service_description" in request.data:
+        provider_service.description = (
+            request.data.get(
+                "service_description"
+            )
+            or ""
+        ).strip()
+
+    # =========================================================
+    # PRICING TYPE
+    # =========================================================
+
+    if "pricing_type" in request.data:
+
+        pricing_type = (
+            request.data.get(
+                "pricing_type"
+            )
+            or ""
+        ).strip().lower()
+
+        valid_pricing_types = [
+            choice[0]
+            for choice
+            in ProviderService
+            .PRICING_TYPE_CHOICES
+        ]
+
+        if pricing_type not in valid_pricing_types:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Invalid pricing_type."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        provider_service.pricing_type = (
+            pricing_type
+        )
+
+    # =========================================================
+    # BASE PRICE
+    # =========================================================
+
+    if "base_price" in request.data:
+
+        raw_price = request.data.get(
+            "base_price"
+        )
+
+        if raw_price in [
+            "",
+            None,
+        ]:
+            provider_service.base_price = None
+
+        else:
+
+            try:
+                base_price = Decimal(
+                    str(raw_price)
+                )
+
+            except (
+                InvalidOperation,
+                TypeError,
+                ValueError,
+            ):
+                return Response(
+                    {
+                        "success": False,
+                        "message": (
+                            "base_price must "
+                            "be valid."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if base_price < 0:
+                return Response(
+                    {
+                        "success": False,
+                        "message": (
+                            "base_price cannot "
+                            "be negative."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            provider_service.base_price = (
+                base_price
+            )
+
+    # =========================================================
+    # DURATION
+    # =========================================================
+
+    if "estimated_duration_minutes" in request.data:
+
+        duration_raw = request.data.get(
+            "estimated_duration_minutes"
+        )
+
+        if duration_raw in [
+            "",
+            None,
+        ]:
+            provider_service.estimated_duration_minutes = (
+                None
+            )
+
+        else:
+
+            try:
+                duration = int(
+                    duration_raw
+                )
+
+            except (
+                TypeError,
+                ValueError,
+            ):
+                return Response(
+                    {
+                        "success": False,
+                        "message": (
+                            "estimated_duration_minutes "
+                            "must be an integer."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if duration <= 0:
+                return Response(
+                    {
+                        "success": False,
+                        "message": (
+                            "estimated_duration_minutes "
+                            "must be greater than 0."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            provider_service.estimated_duration_minutes = (
+                duration
+            )
+
+    if "service_is_active" in request.data:
+        provider_service.is_active = parse_boolean(
+            request.data.get(
+                "service_is_active"
+            ),
+            provider_service.is_active,
+        )
+
+    # =========================================================
+    # SAVE EVERYTHING
     # =========================================================
 
     provider.save()
+    provider_profile.save()
+    provider_service.save()
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
 
     return Response(
         {
@@ -7906,44 +8544,117 @@ def update_provider_api(request, provider_id):
                 "Provider updated successfully."
             ),
             "data": {
-                "id": provider.id,
-                "username": provider.username,
-                "email": provider.email,
+                "provider": {
+                    "id": provider.id,
+                    "username": provider.username,
+                    "email": provider.email,
+                    "first_name": provider.first_name,
+                    "last_name": provider.last_name,
+                    "full_name": (
+                        provider.get_full_name()
+                        or provider.username
+                    ),
+                    "phone": provider.phone,
+                    "address": provider.address,
+                    "role": provider.role,
+                    "bio": provider.bio,
+                    "experience_years": (
+                        provider.experience_years
+                    ),
+                    "profile_picture": media_url(
+                        request,
+                        provider.profile_picture,
+                    ),
+                    "is_email_verified": (
+                        provider.is_email_verified
+                    ),
+                    "is_approved": (
+                        provider.is_approved
+                    ),
+                    "is_verified": (
+                        provider.is_verified
+                    ),
+                    "is_active": (
+                        provider.is_active
+                    ),
+                },
 
-                "first_name": provider.first_name,
-                "last_name": provider.last_name,
+                "profile": {
+                    "id": provider_profile.id,
+                    "business_name": (
+                        provider_profile
+                        .business_name
+                    ),
+                    "professional_title": (
+                        provider_profile
+                        .professional_title
+                    ),
+                    "description": (
+                        provider_profile.description
+                    ),
+                    "total_experience_years": (
+                        provider_profile
+                        .total_experience_years
+                    ),
+                    "accepts_emergency_work": (
+                        provider_profile
+                        .accepts_emergency_work
+                    ),
+                    "minimum_booking_amount": (
+                        provider_profile
+                        .minimum_booking_amount
+                    ),
+                    "is_available": (
+                        provider_profile.is_available
+                    ),
+                    "is_online": (
+                        provider_profile.is_online
+                    ),
+                    "is_profile_active": (
+                        provider_profile
+                        .is_profile_active
+                    ),
+                    "service_radius_km": (
+                        provider_profile
+                        .service_radius_km
+                    ),
+                },
 
-                "full_name": (
-                    provider.get_full_name()
-                    or provider.username
-                ),
-
-                "phone": provider.phone,
-                "address": provider.address,
-
-                "role": provider.role,
-
-                "bio": provider.bio,
-
-                "experience_years": (
-                    provider.experience_years
-                ),
-
-                "profile_picture": (
-                    request.build_absolute_uri(
-                        provider.profile_picture.url
-                    )
-                    if provider.profile_picture
-                    else None
-                ),
-
-                "is_email_verified": (
-                    provider.is_email_verified
-                ),
-
-                "is_approved": provider.is_approved,
-                "is_verified": provider.is_verified,
-                "is_active": provider.is_active,
+                "service": {
+                    "id": provider_service.id,
+                    "category_id": (
+                        provider_service.category_id
+                    ),
+                    "service_key": (
+                        provider_service
+                        .category
+                        .key
+                    ),
+                    "service_name": (
+                        provider_service
+                        .category
+                        .name
+                    ),
+                    "title": (
+                        provider_service.title
+                    ),
+                    "description": (
+                        provider_service.description
+                    ),
+                    "pricing_type": (
+                        provider_service.pricing_type
+                    ),
+                    "base_price": (
+                        provider_service.base_price
+                    ),
+                    "estimated_duration_minutes": (
+                        provider_service
+                        .estimated_duration_minutes
+                    ),
+                    "is_active": (
+                        provider_service.is_active
+                    ),
+                },
             },
         },
         status=status.HTTP_200_OK,
@@ -10044,4 +10755,2163 @@ def admin_login_api(request):
             "redirect_url": "/admin/dashboard",
         },
         status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageCustomers,
+])
+@transaction.atomic
+def create_customer_api(request):
+    """
+    Create a customer account from the admin panel.
+
+    Required:
+        username
+        email
+        password
+
+    Optional:
+        first_name
+        last_name
+        phone
+        address
+        profile_picture
+        is_active
+        is_email_verified
+        is_verified
+    """
+
+    # =========================================================
+    # REQUEST DATA
+    # =========================================================
+
+    username = (
+        request.data.get("username")
+        or ""
+    ).strip()
+
+    email = (
+        request.data.get("email")
+        or ""
+    ).strip().lower()
+
+    password = (
+        request.data.get("password")
+        or ""
+    )
+
+    first_name = (
+        request.data.get("first_name")
+        or ""
+    ).strip()
+
+    last_name = (
+        request.data.get("last_name")
+        or ""
+    ).strip()
+
+    phone = (
+        request.data.get("phone")
+        or ""
+    ).strip()
+
+    address = (
+        request.data.get("address")
+        or ""
+    ).strip()
+
+    # =========================================================
+    # REQUIRED FIELDS
+    # =========================================================
+
+    if not username:
+        return Response(
+            {
+                "success": False,
+                "message": "Username is required.",
+                "code": "USERNAME_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not email:
+        return Response(
+            {
+                "success": False,
+                "message": "Email is required.",
+                "code": "EMAIL_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not password:
+        return Response(
+            {
+                "success": False,
+                "message": "Password is required.",
+                "code": "PASSWORD_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # PASSWORD VALIDATION
+    # =========================================================
+
+    if len(password) < 8:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Password must contain at least "
+                    "8 characters."
+                ),
+                "code": "PASSWORD_TOO_SHORT",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # USERNAME UNIQUE CHECK
+    # =========================================================
+
+    if User.objects.filter(
+        username__iexact=username
+    ).exists():
+
+        return Response(
+            {
+                "success": False,
+                "message": "Username already exists.",
+                "code": "USERNAME_ALREADY_EXISTS",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # EMAIL UNIQUE CHECK
+    # =========================================================
+
+    if User.objects.filter(
+        email__iexact=email
+    ).exists():
+
+        return Response(
+            {
+                "success": False,
+                "message": "Email already exists.",
+                "code": "EMAIL_ALREADY_EXISTS",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # OPTIONAL BOOLEAN FIELDS
+    # =========================================================
+
+    is_active = parse_boolean(
+        request.data.get("is_active"),
+        True,
+    )
+
+    is_email_verified = parse_boolean(
+        request.data.get("is_email_verified"),
+        True,
+    )
+
+    is_verified = parse_boolean(
+        request.data.get("is_verified"),
+        False,
+    )
+
+    # =========================================================
+    # CREATE CUSTOMER
+    # =========================================================
+
+    customer = User(
+        username=username,
+        email=email,
+
+        first_name=first_name,
+        last_name=last_name,
+
+        phone=phone,
+        address=address,
+
+        role="customer",
+
+        is_staff=False,
+        is_superuser=False,
+
+        is_active=is_active,
+
+        is_email_verified=is_email_verified,
+        is_verified=is_verified,
+
+        is_approved=True,
+    )
+
+    # IMPORTANT:
+    # Never assign password directly.
+    customer.set_password(password)
+
+    # =========================================================
+    # PROFILE PICTURE
+    # =========================================================
+
+    profile_picture = request.FILES.get(
+        "profile_picture"
+    )
+
+    if profile_picture:
+        customer.profile_picture = (
+            profile_picture
+        )
+
+    # =========================================================
+    # SAVE
+    # =========================================================
+
+    customer.save()
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
+
+    return Response(
+        {
+            "success": True,
+            "message": (
+                "Customer created successfully."
+            ),
+            "data": {
+                "id": customer.id,
+
+                "username": (
+                    customer.username
+                ),
+
+                "email": (
+                    customer.email
+                ),
+
+                "first_name": (
+                    customer.first_name
+                ),
+
+                "last_name": (
+                    customer.last_name
+                ),
+
+                "full_name": (
+                    customer.get_full_name()
+                    or customer.username
+                ),
+
+                "phone": (
+                    customer.phone
+                ),
+
+                "address": (
+                    customer.address
+                ),
+
+                "role": (
+                    customer.role
+                ),
+
+                "profile_picture": (
+                    request.build_absolute_uri(
+                        customer
+                        .profile_picture
+                        .url
+                    )
+                    if customer.profile_picture
+                    else None
+                ),
+
+                "is_active": (
+                    customer.is_active
+                ),
+
+                "is_email_verified": (
+                    customer
+                    .is_email_verified
+                ),
+
+                "is_verified": (
+                    customer.is_verified
+                ),
+
+                "is_approved": (
+                    customer.is_approved
+                ),
+
+                "date_joined": (
+                    customer.date_joined
+                ),
+            },
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+@api_view(["POST"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
+@transaction.atomic
+def create_provider_api(request):
+    """
+    Create a provider account from the admin panel.
+
+    Creates:
+        1. User
+        2. ProviderProfile
+        3. ProviderService
+
+    Required:
+        username
+        email
+        password
+        service_key
+        professional_title
+        description
+
+    Optional:
+        first_name
+        last_name
+        phone
+        address
+        profile_picture
+        business_name
+        total_experience_years
+        accepts_emergency_work
+        minimum_booking_amount
+        service_radius_km
+        service_title
+        service_description
+        pricing_type
+        base_price
+        estimated_duration_minutes
+        is_active
+        is_approved
+        is_verified
+        is_email_verified
+    """
+
+    # =========================================================
+    # USER DATA
+    # =========================================================
+
+    username = (
+        request.data.get("username")
+        or ""
+    ).strip()
+
+    email = (
+        request.data.get("email")
+        or ""
+    ).strip().lower()
+
+    password = (
+        request.data.get("password")
+        or ""
+    )
+
+    first_name = (
+        request.data.get("first_name")
+        or ""
+    ).strip()
+
+    last_name = (
+        request.data.get("last_name")
+        or ""
+    ).strip()
+
+    phone = (
+        request.data.get("phone")
+        or ""
+    ).strip()
+
+    address = (
+        request.data.get("address")
+        or ""
+    ).strip()
+
+    # =========================================================
+    # SERVICE
+    # =========================================================
+
+    service_key = (
+        request.data.get("service_key")
+        or ""
+    ).strip().lower()
+
+    # =========================================================
+    # PROVIDER PROFILE
+    # =========================================================
+
+    business_name = (
+        request.data.get("business_name")
+        or ""
+    ).strip()
+
+    professional_title = (
+        request.data.get("professional_title")
+        or ""
+    ).strip()
+
+    description = (
+        request.data.get("description")
+        or ""
+    ).strip()
+
+    # =========================================================
+    # REQUIRED VALIDATION
+    # =========================================================
+
+    if not username:
+        return Response(
+            {
+                "success": False,
+                "message": "Username is required.",
+                "code": "USERNAME_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not email:
+        return Response(
+            {
+                "success": False,
+                "message": "Email is required.",
+                "code": "EMAIL_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not password:
+        return Response(
+            {
+                "success": False,
+                "message": "Password is required.",
+                "code": "PASSWORD_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if len(password) < 8:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Password must contain at least "
+                    "8 characters."
+                ),
+                "code": "PASSWORD_TOO_SHORT",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not service_key:
+        return Response(
+            {
+                "success": False,
+                "message": "service_key is required.",
+                "code": "SERVICE_KEY_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not professional_title:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "professional_title is required."
+                ),
+                "code": "PROFESSIONAL_TITLE_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not description:
+        return Response(
+            {
+                "success": False,
+                "message": "description is required.",
+                "code": "DESCRIPTION_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # USERNAME / EMAIL DUPLICATE
+    # =========================================================
+
+    if User.objects.filter(
+        username__iexact=username
+    ).exists():
+
+        return Response(
+            {
+                "success": False,
+                "message": "Username already exists.",
+                "code": "USERNAME_ALREADY_EXISTS",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if User.objects.filter(
+        email__iexact=email
+    ).exists():
+
+        return Response(
+            {
+                "success": False,
+                "message": "Email already exists.",
+                "code": "EMAIL_ALREADY_EXISTS",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # SERVICE CATEGORY
+    # =========================================================
+
+    service_category = (
+        MarketplaceServiceCategory.objects
+        .filter(
+            key__iexact=service_key,
+            status="active",
+        )
+        .first()
+    )
+
+    if not service_category:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Active service category not found."
+                ),
+                "code": "INVALID_SERVICE_CATEGORY",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    service_key = service_category.key
+
+    # =========================================================
+    # DYNAMIC PROVIDER ROLE VALIDATION
+    # =========================================================
+
+    if not is_provider_role(service_key):
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "This service is not configured as "
+                    "a valid provider role."
+                ),
+                "code": "INVALID_PROVIDER_ROLE",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # EXPERIENCE
+    # =========================================================
+
+    experience_raw = request.data.get(
+        "total_experience_years",
+        0,
+    )
+
+    try:
+        total_experience_years = int(
+            experience_raw
+        )
+
+    except (TypeError, ValueError):
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "total_experience_years must "
+                    "be a valid integer."
+                ),
+                "code": "INVALID_EXPERIENCE",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if total_experience_years < 0:
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "total_experience_years cannot "
+                    "be negative."
+                ),
+                "code": "INVALID_EXPERIENCE",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # SERVICE RADIUS
+    # =========================================================
+
+    radius_raw = request.data.get(
+        "service_radius_km",
+        10,
+    )
+
+    try:
+        service_radius_km = Decimal(
+            str(radius_raw)
+        )
+
+    except (
+        InvalidOperation,
+        TypeError,
+        ValueError,
+    ):
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "service_radius_km must "
+                    "be a valid number."
+                ),
+                "code": "INVALID_SERVICE_RADIUS",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if service_radius_km < Decimal("1"):
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "service_radius_km must be "
+                    "at least 1 km."
+                ),
+                "code": "SERVICE_RADIUS_TOO_SMALL",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # ADMIN MAXIMUM RADIUS
+    # =========================================================
+
+    marketplace_settings = (
+        MarketplaceLocationSettings
+        .get_settings()
+    )
+
+    if (
+        service_radius_km
+        >
+        marketplace_settings
+        .max_provider_radius_km
+    ):
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Provider service radius cannot "
+                    "exceed the marketplace maximum."
+                ),
+                "code": (
+                    "SERVICE_RADIUS_EXCEEDS_ADMIN_LIMIT"
+                ),
+                "max_provider_radius_km": float(
+                    marketplace_settings
+                    .max_provider_radius_km
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # MINIMUM BOOKING AMOUNT
+    # =========================================================
+
+    minimum_booking_raw = request.data.get(
+        "minimum_booking_amount"
+    )
+
+    minimum_booking_amount = None
+
+    if minimum_booking_raw not in [
+        None,
+        "",
+    ]:
+
+        try:
+            minimum_booking_amount = Decimal(
+                str(minimum_booking_raw)
+            )
+
+        except (
+            InvalidOperation,
+            TypeError,
+            ValueError,
+        ):
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "minimum_booking_amount must "
+                        "be a valid number."
+                    ),
+                    "code": (
+                        "INVALID_MINIMUM_BOOKING_AMOUNT"
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if minimum_booking_amount < 0:
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "minimum_booking_amount cannot "
+                        "be negative."
+                    ),
+                    "code": (
+                        "INVALID_MINIMUM_BOOKING_AMOUNT"
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    # =========================================================
+    # BOOLEAN VALUES
+    # =========================================================
+
+    is_active = parse_boolean(
+        request.data.get("is_active"),
+        True,
+    )
+
+    is_approved = parse_boolean(
+        request.data.get("is_approved"),
+        True,
+    )
+
+    is_verified = parse_boolean(
+        request.data.get("is_verified"),
+        True,
+    )
+
+    is_email_verified = parse_boolean(
+        request.data.get(
+            "is_email_verified"
+        ),
+        True,
+    )
+
+    accepts_emergency_work = parse_boolean(
+        request.data.get(
+            "accepts_emergency_work"
+        ),
+        False,
+    )
+
+    # =========================================================
+    # CREATE USER
+    # =========================================================
+
+    provider = User(
+        username=username,
+        email=email,
+
+        first_name=first_name,
+        last_name=last_name,
+
+        phone=phone,
+        address=address,
+
+        # IMPORTANT:
+        # Provider role = ServiceCategory.key
+        role=service_key,
+
+        is_staff=False,
+        is_superuser=False,
+
+        is_active=is_active,
+        is_approved=is_approved,
+        is_verified=is_verified,
+
+        is_email_verified=(
+            is_email_verified
+        ),
+
+        experience_years=(
+            total_experience_years
+        ),
+    )
+
+    provider.set_password(password)
+
+    # =========================================================
+    # PROFILE PICTURE
+    # =========================================================
+
+    profile_picture = request.FILES.get(
+        "profile_picture"
+    )
+
+    if profile_picture:
+        provider.profile_picture = (
+            profile_picture
+        )
+
+    provider.save()
+
+    # =========================================================
+    # CREATE PROVIDER PROFILE
+    # =========================================================
+
+    provider_profile = (
+        ProviderProfile.objects.create(
+            provider=provider,
+
+            business_name=business_name,
+
+            professional_title=(
+                professional_title
+            ),
+
+            description=description,
+
+            total_experience_years=(
+                total_experience_years
+            ),
+
+            accepts_emergency_work=(
+                accepts_emergency_work
+            ),
+
+            minimum_booking_amount=(
+                minimum_booking_amount
+            ),
+
+            is_available=True,
+            is_online=False,
+            is_profile_active=True,
+
+            service_radius_km=(
+                service_radius_km
+            ),
+        )
+    )
+
+    # =========================================================
+    # PROVIDER SERVICE DATA
+    # =========================================================
+
+    service_title = (
+        request.data.get("service_title")
+        or professional_title
+    ).strip()
+
+    service_description = (
+        request.data.get(
+            "service_description"
+        )
+        or description
+    ).strip()
+
+    pricing_type = (
+        request.data.get("pricing_type")
+        or "quotation"
+    ).strip().lower()
+
+    valid_pricing_types = [
+        choice[0]
+        for choice
+        in ProviderService
+        .PRICING_TYPE_CHOICES
+    ]
+
+    if pricing_type not in valid_pricing_types:
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Invalid pricing_type."
+                ),
+                "code": "INVALID_PRICING_TYPE",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # BASE PRICE
+    # =========================================================
+
+    base_price_raw = request.data.get(
+        "base_price"
+    )
+
+    base_price = None
+
+    if base_price_raw not in [
+        None,
+        "",
+    ]:
+
+        try:
+            base_price = Decimal(
+                str(base_price_raw)
+            )
+
+        except (
+            InvalidOperation,
+            TypeError,
+            ValueError,
+        ):
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "base_price must be "
+                        "a valid number."
+                    ),
+                    "code": "INVALID_BASE_PRICE",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if base_price < 0:
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "base_price cannot "
+                        "be negative."
+                    ),
+                    "code": "INVALID_BASE_PRICE",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    # =========================================================
+    # ESTIMATED DURATION
+    # =========================================================
+
+    estimated_duration_raw = (
+        request.data.get(
+            "estimated_duration_minutes"
+        )
+    )
+
+    estimated_duration_minutes = None
+
+    if estimated_duration_raw not in [
+        None,
+        "",
+    ]:
+
+        try:
+            estimated_duration_minutes = int(
+                estimated_duration_raw
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "estimated_duration_minutes "
+                        "must be an integer."
+                    ),
+                    "code": (
+                        "INVALID_ESTIMATED_DURATION"
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if estimated_duration_minutes <= 0:
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "estimated_duration_minutes "
+                        "must be greater than 0."
+                    ),
+                    "code": (
+                        "INVALID_ESTIMATED_DURATION"
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    # =========================================================
+    # CREATE PROVIDER SERVICE
+    # =========================================================
+
+    provider_service = (
+        ProviderService.objects.create(
+            provider_profile=provider_profile,
+
+            category=service_category,
+
+            title=service_title,
+
+            description=(
+                service_description
+            ),
+
+            pricing_type=pricing_type,
+
+            base_price=base_price,
+
+            estimated_duration_minutes=(
+                estimated_duration_minutes
+            ),
+
+            is_active=True,
+        )
+    )
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
+
+    return Response(
+        {
+            "success": True,
+
+            "message": (
+                "Provider created successfully."
+            ),
+
+            "data": {
+                "provider": {
+                    "id": provider.id,
+
+                    "username": (
+                        provider.username
+                    ),
+
+                    "email": (
+                        provider.email
+                    ),
+
+                    "first_name": (
+                        provider.first_name
+                    ),
+
+                    "last_name": (
+                        provider.last_name
+                    ),
+
+                    "full_name": (
+                        provider.get_full_name()
+                        or provider.username
+                    ),
+
+                    "phone": (
+                        provider.phone
+                    ),
+
+                    "address": (
+                        provider.address
+                    ),
+
+                    "role": (
+                        provider.role
+                    ),
+
+                    "profile_picture": (
+                        media_url(
+                            request,
+                            provider.profile_picture,
+                        )
+                    ),
+
+                    "is_active": (
+                        provider.is_active
+                    ),
+
+                    "is_approved": (
+                        provider.is_approved
+                    ),
+
+                    "is_verified": (
+                        provider.is_verified
+                    ),
+
+                    "is_email_verified": (
+                        provider
+                        .is_email_verified
+                    ),
+
+                    "date_joined": (
+                        provider.date_joined
+                    ),
+                },
+
+                "profile": {
+                    "id": (
+                        provider_profile.id
+                    ),
+
+                    "business_name": (
+                        provider_profile
+                        .business_name
+                    ),
+
+                    "professional_title": (
+                        provider_profile
+                        .professional_title
+                    ),
+
+                    "description": (
+                        provider_profile
+                        .description
+                    ),
+
+                    "total_experience_years": (
+                        provider_profile
+                        .total_experience_years
+                    ),
+
+                    "accepts_emergency_work": (
+                        provider_profile
+                        .accepts_emergency_work
+                    ),
+
+                    "minimum_booking_amount": (
+                        provider_profile
+                        .minimum_booking_amount
+                    ),
+
+                    "is_available": (
+                        provider_profile
+                        .is_available
+                    ),
+
+                    "is_online": (
+                        provider_profile
+                        .is_online
+                    ),
+
+                    "is_profile_active": (
+                        provider_profile
+                        .is_profile_active
+                    ),
+
+                    "service_radius_km": (
+                        provider_profile
+                        .service_radius_km
+                    ),
+                },
+
+                "service": {
+                    "id": (
+                        provider_service.id
+                    ),
+
+                    "category_id": (
+                        service_category.id
+                    ),
+
+                    "category_name": (
+                        service_category.name
+                    ),
+
+                    "service_key": (
+                        service_category.key
+                    ),
+
+                    "title": (
+                        provider_service.title
+                    ),
+
+                    "description": (
+                        provider_service
+                        .description
+                    ),
+
+                    "pricing_type": (
+                        provider_service
+                        .pricing_type
+                    ),
+
+                    "base_price": (
+                        provider_service
+                        .base_price
+                    ),
+
+                    "estimated_duration_minutes": (
+                        provider_service
+                        .estimated_duration_minutes
+                    ),
+
+                    "is_active": (
+                        provider_service
+                        .is_active
+                    ),
+                },
+            },
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+@api_view(["POST"])
+@permission_classes([
+    IsAuthenticated,
+    CanManageProviders,
+])
+@transaction.atomic
+def create_provider_api(request):
+    """
+    Create a provider account from the admin panel.
+
+    Creates:
+        1. User
+        2. ProviderProfile
+        3. ProviderService
+
+    Required:
+        username
+        email
+        password
+        service_key
+        professional_title
+        description
+
+    Optional:
+        first_name
+        last_name
+        phone
+        address
+        profile_picture
+        business_name
+        total_experience_years
+        accepts_emergency_work
+        minimum_booking_amount
+        service_radius_km
+        service_title
+        service_description
+        pricing_type
+        base_price
+        estimated_duration_minutes
+        is_active
+        is_approved
+        is_verified
+        is_email_verified
+    """
+
+    # =========================================================
+    # USER DATA
+    # =========================================================
+
+    username = (
+        request.data.get("username")
+        or ""
+    ).strip()
+
+    email = (
+        request.data.get("email")
+        or ""
+    ).strip().lower()
+
+    password = (
+        request.data.get("password")
+        or ""
+    )
+
+    first_name = (
+        request.data.get("first_name")
+        or ""
+    ).strip()
+
+    last_name = (
+        request.data.get("last_name")
+        or ""
+    ).strip()
+
+    phone = (
+        request.data.get("phone")
+        or ""
+    ).strip()
+
+    address = (
+        request.data.get("address")
+        or ""
+    ).strip()
+
+    # =========================================================
+    # SERVICE
+    # =========================================================
+
+    service_key = (
+        request.data.get("service_key")
+        or ""
+    ).strip().lower()
+
+    # =========================================================
+    # PROVIDER PROFILE
+    # =========================================================
+
+    business_name = (
+        request.data.get("business_name")
+        or ""
+    ).strip()
+
+    professional_title = (
+        request.data.get("professional_title")
+        or ""
+    ).strip()
+
+    description = (
+        request.data.get("description")
+        or ""
+    ).strip()
+
+    # =========================================================
+    # REQUIRED VALIDATION
+    # =========================================================
+
+    if not username:
+        return Response(
+            {
+                "success": False,
+                "message": "Username is required.",
+                "code": "USERNAME_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not email:
+        return Response(
+            {
+                "success": False,
+                "message": "Email is required.",
+                "code": "EMAIL_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not password:
+        return Response(
+            {
+                "success": False,
+                "message": "Password is required.",
+                "code": "PASSWORD_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if len(password) < 8:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Password must contain at least "
+                    "8 characters."
+                ),
+                "code": "PASSWORD_TOO_SHORT",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not service_key:
+        return Response(
+            {
+                "success": False,
+                "message": "service_key is required.",
+                "code": "SERVICE_KEY_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not professional_title:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "professional_title is required."
+                ),
+                "code": "PROFESSIONAL_TITLE_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not description:
+        return Response(
+            {
+                "success": False,
+                "message": "description is required.",
+                "code": "DESCRIPTION_REQUIRED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # USERNAME / EMAIL DUPLICATE
+    # =========================================================
+
+    if User.objects.filter(
+        username__iexact=username
+    ).exists():
+
+        return Response(
+            {
+                "success": False,
+                "message": "Username already exists.",
+                "code": "USERNAME_ALREADY_EXISTS",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if User.objects.filter(
+        email__iexact=email
+    ).exists():
+
+        return Response(
+            {
+                "success": False,
+                "message": "Email already exists.",
+                "code": "EMAIL_ALREADY_EXISTS",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # SERVICE CATEGORY
+    # =========================================================
+
+    service_category = (
+        MarketplaceServiceCategory.objects
+        .filter(
+            key__iexact=service_key,
+            status="active",
+        )
+        .first()
+    )
+
+    if not service_category:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Active service category not found."
+                ),
+                "code": "INVALID_SERVICE_CATEGORY",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    service_key = service_category.key
+
+    # =========================================================
+    # DYNAMIC PROVIDER ROLE VALIDATION
+    # =========================================================
+
+    if not is_provider_role(service_key):
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "This service is not configured as "
+                    "a valid provider role."
+                ),
+                "code": "INVALID_PROVIDER_ROLE",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # EXPERIENCE
+    # =========================================================
+
+    experience_raw = request.data.get(
+        "total_experience_years",
+        0,
+    )
+
+    try:
+        total_experience_years = int(
+            experience_raw
+        )
+
+    except (TypeError, ValueError):
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "total_experience_years must "
+                    "be a valid integer."
+                ),
+                "code": "INVALID_EXPERIENCE",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if total_experience_years < 0:
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "total_experience_years cannot "
+                    "be negative."
+                ),
+                "code": "INVALID_EXPERIENCE",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # SERVICE RADIUS
+    # =========================================================
+
+    radius_raw = request.data.get(
+        "service_radius_km",
+        10,
+    )
+
+    try:
+        service_radius_km = Decimal(
+            str(radius_raw)
+        )
+
+    except (
+        InvalidOperation,
+        TypeError,
+        ValueError,
+    ):
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "service_radius_km must "
+                    "be a valid number."
+                ),
+                "code": "INVALID_SERVICE_RADIUS",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if service_radius_km < Decimal("1"):
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "service_radius_km must be "
+                    "at least 1 km."
+                ),
+                "code": "SERVICE_RADIUS_TOO_SMALL",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # ADMIN MAXIMUM RADIUS
+    # =========================================================
+
+    marketplace_settings = (
+        MarketplaceLocationSettings
+        .get_settings()
+    )
+
+    if (
+        service_radius_km
+        >
+        marketplace_settings
+        .max_provider_radius_km
+    ):
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Provider service radius cannot "
+                    "exceed the marketplace maximum."
+                ),
+                "code": (
+                    "SERVICE_RADIUS_EXCEEDS_ADMIN_LIMIT"
+                ),
+                "max_provider_radius_km": float(
+                    marketplace_settings
+                    .max_provider_radius_km
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # MINIMUM BOOKING AMOUNT
+    # =========================================================
+
+    minimum_booking_raw = request.data.get(
+        "minimum_booking_amount"
+    )
+
+    minimum_booking_amount = None
+
+    if minimum_booking_raw not in [
+        None,
+        "",
+    ]:
+
+        try:
+            minimum_booking_amount = Decimal(
+                str(minimum_booking_raw)
+            )
+
+        except (
+            InvalidOperation,
+            TypeError,
+            ValueError,
+        ):
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "minimum_booking_amount must "
+                        "be a valid number."
+                    ),
+                    "code": (
+                        "INVALID_MINIMUM_BOOKING_AMOUNT"
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if minimum_booking_amount < 0:
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "minimum_booking_amount cannot "
+                        "be negative."
+                    ),
+                    "code": (
+                        "INVALID_MINIMUM_BOOKING_AMOUNT"
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    # =========================================================
+    # BOOLEAN VALUES
+    # =========================================================
+
+    is_active = parse_boolean(
+        request.data.get("is_active"),
+        True,
+    )
+
+    is_approved = parse_boolean(
+        request.data.get("is_approved"),
+        True,
+    )
+
+    is_verified = parse_boolean(
+        request.data.get("is_verified"),
+        True,
+    )
+
+    is_email_verified = parse_boolean(
+        request.data.get(
+            "is_email_verified"
+        ),
+        True,
+    )
+
+    accepts_emergency_work = parse_boolean(
+        request.data.get(
+            "accepts_emergency_work"
+        ),
+        False,
+    )
+
+    # =========================================================
+    # CREATE USER
+    # =========================================================
+
+    provider = User(
+        username=username,
+        email=email,
+
+        first_name=first_name,
+        last_name=last_name,
+
+        phone=phone,
+        address=address,
+
+        # IMPORTANT:
+        # Provider role = ServiceCategory.key
+        role=service_key,
+
+        is_staff=False,
+        is_superuser=False,
+
+        is_active=is_active,
+        is_approved=is_approved,
+        is_verified=is_verified,
+
+        is_email_verified=(
+            is_email_verified
+        ),
+
+        experience_years=(
+            total_experience_years
+        ),
+    )
+
+    provider.set_password(password)
+
+    # =========================================================
+    # PROFILE PICTURE
+    # =========================================================
+
+    profile_picture = request.FILES.get(
+        "profile_picture"
+    )
+
+    if profile_picture:
+        provider.profile_picture = (
+            profile_picture
+        )
+
+    provider.save()
+
+    # =========================================================
+    # CREATE PROVIDER PROFILE
+    # =========================================================
+
+    provider_profile = (
+        ProviderProfile.objects.create(
+            provider=provider,
+
+            business_name=business_name,
+
+            professional_title=(
+                professional_title
+            ),
+
+            description=description,
+
+            total_experience_years=(
+                total_experience_years
+            ),
+
+            accepts_emergency_work=(
+                accepts_emergency_work
+            ),
+
+            minimum_booking_amount=(
+                minimum_booking_amount
+            ),
+
+            is_available=True,
+            is_online=False,
+            is_profile_active=True,
+
+            service_radius_km=(
+                service_radius_km
+            ),
+        )
+    )
+
+    # =========================================================
+    # PROVIDER SERVICE DATA
+    # =========================================================
+
+    service_title = (
+        request.data.get("service_title")
+        or professional_title
+    ).strip()
+
+    service_description = (
+        request.data.get(
+            "service_description"
+        )
+        or description
+    ).strip()
+
+    pricing_type = (
+        request.data.get("pricing_type")
+        or "quotation"
+    ).strip().lower()
+
+    valid_pricing_types = [
+        choice[0]
+        for choice
+        in ProviderService
+        .PRICING_TYPE_CHOICES
+    ]
+
+    if pricing_type not in valid_pricing_types:
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Invalid pricing_type."
+                ),
+                "code": "INVALID_PRICING_TYPE",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # BASE PRICE
+    # =========================================================
+
+    base_price_raw = request.data.get(
+        "base_price"
+    )
+
+    base_price = None
+
+    if base_price_raw not in [
+        None,
+        "",
+    ]:
+
+        try:
+            base_price = Decimal(
+                str(base_price_raw)
+            )
+
+        except (
+            InvalidOperation,
+            TypeError,
+            ValueError,
+        ):
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "base_price must be "
+                        "a valid number."
+                    ),
+                    "code": "INVALID_BASE_PRICE",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if base_price < 0:
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "base_price cannot "
+                        "be negative."
+                    ),
+                    "code": "INVALID_BASE_PRICE",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    # =========================================================
+    # ESTIMATED DURATION
+    # =========================================================
+
+    estimated_duration_raw = (
+        request.data.get(
+            "estimated_duration_minutes"
+        )
+    )
+
+    estimated_duration_minutes = None
+
+    if estimated_duration_raw not in [
+        None,
+        "",
+    ]:
+
+        try:
+            estimated_duration_minutes = int(
+                estimated_duration_raw
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "estimated_duration_minutes "
+                        "must be an integer."
+                    ),
+                    "code": (
+                        "INVALID_ESTIMATED_DURATION"
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if estimated_duration_minutes <= 0:
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "estimated_duration_minutes "
+                        "must be greater than 0."
+                    ),
+                    "code": (
+                        "INVALID_ESTIMATED_DURATION"
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    # =========================================================
+    # CREATE PROVIDER SERVICE
+    # =========================================================
+
+    provider_service = (
+        ProviderService.objects.create(
+            provider_profile=provider_profile,
+
+            category=service_category,
+
+            title=service_title,
+
+            description=(
+                service_description
+            ),
+
+            pricing_type=pricing_type,
+
+            base_price=base_price,
+
+            estimated_duration_minutes=(
+                estimated_duration_minutes
+            ),
+
+            is_active=True,
+        )
+    )
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
+
+    return Response(
+        {
+            "success": True,
+
+            "message": (
+                "Provider created successfully."
+            ),
+
+            "data": {
+                "provider": {
+                    "id": provider.id,
+
+                    "username": (
+                        provider.username
+                    ),
+
+                    "email": (
+                        provider.email
+                    ),
+
+                    "first_name": (
+                        provider.first_name
+                    ),
+
+                    "last_name": (
+                        provider.last_name
+                    ),
+
+                    "full_name": (
+                        provider.get_full_name()
+                        or provider.username
+                    ),
+
+                    "phone": (
+                        provider.phone
+                    ),
+
+                    "address": (
+                        provider.address
+                    ),
+
+                    "role": (
+                        provider.role
+                    ),
+
+                    "profile_picture": (
+                        media_url(
+                            request,
+                            provider.profile_picture,
+                        )
+                    ),
+
+                    "is_active": (
+                        provider.is_active
+                    ),
+
+                    "is_approved": (
+                        provider.is_approved
+                    ),
+
+                    "is_verified": (
+                        provider.is_verified
+                    ),
+
+                    "is_email_verified": (
+                        provider
+                        .is_email_verified
+                    ),
+
+                    "date_joined": (
+                        provider.date_joined
+                    ),
+                },
+
+                "profile": {
+                    "id": (
+                        provider_profile.id
+                    ),
+
+                    "business_name": (
+                        provider_profile
+                        .business_name
+                    ),
+
+                    "professional_title": (
+                        provider_profile
+                        .professional_title
+                    ),
+
+                    "description": (
+                        provider_profile
+                        .description
+                    ),
+
+                    "total_experience_years": (
+                        provider_profile
+                        .total_experience_years
+                    ),
+
+                    "accepts_emergency_work": (
+                        provider_profile
+                        .accepts_emergency_work
+                    ),
+
+                    "minimum_booking_amount": (
+                        provider_profile
+                        .minimum_booking_amount
+                    ),
+
+                    "is_available": (
+                        provider_profile
+                        .is_available
+                    ),
+
+                    "is_online": (
+                        provider_profile
+                        .is_online
+                    ),
+
+                    "is_profile_active": (
+                        provider_profile
+                        .is_profile_active
+                    ),
+
+                    "service_radius_km": (
+                        provider_profile
+                        .service_radius_km
+                    ),
+                },
+
+                "service": {
+                    "id": (
+                        provider_service.id
+                    ),
+
+                    "category_id": (
+                        service_category.id
+                    ),
+
+                    "category_name": (
+                        service_category.name
+                    ),
+
+                    "service_key": (
+                        service_category.key
+                    ),
+
+                    "title": (
+                        provider_service.title
+                    ),
+
+                    "description": (
+                        provider_service
+                        .description
+                    ),
+
+                    "pricing_type": (
+                        provider_service
+                        .pricing_type
+                    ),
+
+                    "base_price": (
+                        provider_service
+                        .base_price
+                    ),
+
+                    "estimated_duration_minutes": (
+                        provider_service
+                        .estimated_duration_minutes
+                    ),
+
+                    "is_active": (
+                        provider_service
+                        .is_active
+                    ),
+                },
+            },
+        },
+        status=status.HTTP_201_CREATED,
     )
