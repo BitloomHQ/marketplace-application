@@ -3,9 +3,11 @@ from django.urls import path
 from .views import (
 
     # SERVICE REQUESTS
+    cancel_service_request,
     create_service_request,
     provider_leads,
     my_requests,
+    reject_quote,
 
     # QUOTES
     send_quote,
@@ -145,5 +147,20 @@ urlpatterns = [
     "popular-providers/",
     popular_providers,
     name="popular_providers"
+),
+path(
+    "requests/<int:request_id>/cancel/",
+    cancel_service_request,
+    name="cancel-service-request",
+),
+path(
+    "requests/<int:request_id>/cancel/",
+    cancel_service_request,
+    name="cancel-service-request",
+),
+path(
+    "quotes/<int:quote_id>/reject/",
+    reject_quote,
+    name="reject-quote",
 ),
 ]

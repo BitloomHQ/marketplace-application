@@ -1593,6 +1593,10 @@ def my_bookings(request):
 @permission_classes([IsAuthenticated])
 def my_requests(request):
 
+    # =========================================================
+    # CUSTOMER ONLY
+    # =========================================================
+
     if request.user.role != "customer":
 
         return Response(
@@ -1603,56 +1607,190 @@ def my_requests(request):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    page = int(
-        request.GET.get("page", 1)
+    # =========================================================
+    # PAGINATION
+    # =========================================================
+
+    try:
+        page = int(
+            request.GET.get("page", 1)
+        )
+    except (TypeError, ValueError):
+        page = 1
+
+    try:
+        page_size = int(
+            request.GET.get("page_size", 10)
+        )
+    except (TypeError, ValueError):
+        page_size = 10
+
+    if page < 1:
+        page = 1
+
+    if page_size < 1:
+        page_size = 10
+
+    # Optional safety limit
+    if page_size > 100:
+        page_size = 100
+
+    # =========================================================
+    # ACTIVE CUSTOMER REQUESTS
+    #
+    # Completed and cancelled requests are NOT returned here.
+    # They remain in the database and can later be shown
+    # separately in a History API.
+    # =========================================================
+
+    requests_queryset = (
+        ServiceRequest.objects
+        .filter(
+            customer=request.user
+        )
+        .exclude(
+            status__in=[
+                "completed",
+                "cancelled",
+            ]
+        )
+        .select_related(
+            "customer",
+            "selected_provider",
+        )
+        .order_by("-created_at")
     )
 
-    page_size = int(
-        request.GET.get("page_size", 10)
+    # =========================================================
+    # COUNTS
+    # =========================================================
+
+    booked_count = (
+        requests_queryset
+        .filter(
+            is_booked=True
+        )
+        .count()
     )
 
-    requests_queryset = ServiceRequest.objects.filter(
-        customer=request.user
-    ).order_by("-created_at")
-
-    booked_count = requests_queryset.filter(is_booked=True).count()
+    # =========================================================
+    # PAGINATOR
+    # =========================================================
 
     paginator = Paginator(
         requests_queryset,
         page_size
     )
 
-    current_page = paginator.get_page(page)
+    current_page = paginator.get_page(
+        page
+    )
 
     requests_data = []
 
+    # =========================================================
+    # BUILD RESPONSE
+    # =========================================================
+
     for req in current_page:
 
-        booking = Booking.objects.filter(
-            service_request=req
-        ).first()
+        booking = (
+            Booking.objects
+            .filter(
+                service_request=req
+            )
+            .select_related(
+                "provider"
+            )
+            .first()
+        )
 
         row = {
+
+            # -------------------------------------------------
+            # REQUEST
+            # -------------------------------------------------
+
             "id": req.id,
-            "service_type": req.service_type,
-            "address": service_request_address_text(req),
+
+            "service_type": (
+                req.service_type
+            ),
+
+            "address": (
+                service_request_address_text(
+                    req
+                )
+            ),
+
             "lat": req.lat,
             "lon": req.lon,
-            "lawn_area": req.lawn_area,
-            "polygon_points": req.polygon_points,
-            "description": req.description,
-            "status": req.status,
-            "is_booked": req.is_booked,
-            "booking_id": booking.id if booking else None,
-            "booking_status": booking.status if booking else None,
-            "created_at": req.created_at,
 
-            "customer_id": req.customer.id,
-            "customer": req.customer.username,
-            "customer_profile_picture": (
-                request.build_absolute_uri(req.customer.profile_picture.url)
-                if req.customer.profile_picture else None
+            "lawn_area": (
+                req.lawn_area
             ),
+
+            "polygon_points": (
+                req.polygon_points
+            ),
+
+            "description": (
+                req.description
+            ),
+
+            "status": (
+                req.status
+            ),
+
+            "is_booked": (
+                req.is_booked
+            ),
+
+            "created_at": (
+                req.created_at
+            ),
+
+            # -------------------------------------------------
+            # BOOKING
+            # -------------------------------------------------
+
+            "booking_id": (
+                booking.id
+                if booking
+                else None
+            ),
+
+            "booking_status": (
+                booking.status
+                if booking
+                else None
+            ),
+
+            # -------------------------------------------------
+            # CUSTOMER
+            # -------------------------------------------------
+
+            "customer_id": (
+                req.customer.id
+            ),
+
+            "customer": (
+                req.customer.username
+            ),
+
+            "customer_profile_picture": (
+                request.build_absolute_uri(
+                    req.customer
+                    .profile_picture
+                    .url
+                )
+                if req.customer.profile_picture
+                else None
+            ),
+
+            # -------------------------------------------------
+            # PROVIDER
+            # -------------------------------------------------
 
             "provider_id": None,
             "provider": None,
@@ -1664,7 +1802,12 @@ def my_requests(request):
             "total_reviews": None,
         }
 
+        # =====================================================
+        # PROVIDER FROM BOOKING
+        # =====================================================
+
         if booking:
+
             row.update(
                 provider_profile_payload(
                     booking.provider,
@@ -1672,7 +1815,12 @@ def my_requests(request):
                 )
             )
 
+        # =====================================================
+        # SELECTED PROVIDER BEFORE BOOKING
+        # =====================================================
+
         elif req.selected_provider_id:
+
             row.update(
                 provider_profile_payload(
                     req.selected_provider,
@@ -1680,16 +1828,44 @@ def my_requests(request):
                 )
             )
 
-        requests_data.append(row)
+        requests_data.append(
+            row
+        )
 
-    return Response({
-        "success": True,
-        "page": page,
-        "page_size": page_size,
-        "total": paginator.count,
-        "total_pages": paginator.num_pages,
-        "requests": requests_data
-    })
+    # =========================================================
+    # RESPONSE
+    # =========================================================
+
+    return Response(
+        {
+            "success": True,
+
+            "page": (
+                current_page.number
+            ),
+
+            "page_size": (
+                page_size
+            ),
+
+            "total": (
+                paginator.count
+            ),
+
+            "total_pages": (
+                paginator.num_pages
+            ),
+
+            "booked_count": (
+                booked_count
+            ),
+
+            "requests": (
+                requests_data
+            ),
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 # =========================================
@@ -2645,6 +2821,668 @@ def customer_home(request):
             "booked_count": payload["booked_count"],
             "open_requests": payload["open_requests"],
             "catalog": payload["catalog"],
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+@transaction.atomic
+def cancel_service_request(request, request_id):
+    """
+    Allow a customer to cancel their own service request.
+
+    Rules:
+    - Only customers can cancel.
+    - Request must belong to logged-in customer.
+    - Completed/cancelled requests cannot be cancelled again.
+    - If an active booking already exists, cancellation is blocked
+      and booking cancellation flow should be used instead.
+    """
+
+    # =========================================================
+    # CUSTOMER ONLY
+    # =========================================================
+
+    if request.user.role != "customer":
+        return Response(
+            {
+                "success": False,
+                "message": "Only customers can cancel service requests.",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # =========================================================
+    # FIND REQUEST
+    # =========================================================
+
+    service_request = (
+        ServiceRequest.objects
+        .select_for_update()
+        .filter(
+            id=request_id,
+            customer=request.user,
+        )
+        .first()
+    )
+
+    if not service_request:
+        return Response(
+            {
+                "success": False,
+                "message": "Service request not found.",
+                "code": "SERVICE_REQUEST_NOT_FOUND",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # =========================================================
+    # ALREADY CANCELLED
+    # =========================================================
+
+    if service_request.status == "cancelled":
+        return Response(
+            {
+                "success": False,
+                "message": "Service request is already cancelled.",
+                "code": "REQUEST_ALREADY_CANCELLED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # COMPLETED REQUEST
+    # =========================================================
+
+    if service_request.status == "completed":
+        return Response(
+            {
+                "success": False,
+                "message": "Completed service requests cannot be cancelled.",
+                "code": "COMPLETED_REQUEST_CANNOT_BE_CANCELLED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # CHECK BOOKING
+    # =========================================================
+
+    booking = (
+        Booking.objects
+        .select_for_update()
+        .filter(
+            service_request=service_request
+        )
+        .first()
+    )
+
+    if booking and booking.status not in [
+        "cancelled",
+        "completed",
+    ]:
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "This request already has an active booking. "
+                    "Cancel the booking instead."
+                ),
+                "code": "ACTIVE_BOOKING_EXISTS",
+                "booking_id": booking.id,
+                "booking_status": booking.status,
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    # =========================================================
+    # CANCEL REQUEST
+    # =========================================================
+
+    service_request.status = "cancelled"
+    service_request.is_booked = False
+
+    # Clear selected provider if your model allows it.
+    if hasattr(service_request, "selected_provider"):
+        service_request.selected_provider = None
+
+    service_request.save()
+
+    # =========================================================
+    # OPTIONAL:
+    # Reject/cancel any still-open quotations for this request.
+    #
+    # Only keep this block if your Quote model has a status field
+    # that supports "cancelled" or "rejected".
+    # =========================================================
+
+    # Quote.objects.filter(
+    #     service_request=service_request,
+    # ).exclude(
+    #     status__in=[
+    #         "accepted",
+    #         "rejected",
+    #         "cancelled",
+    #     ]
+    # ).update(
+    #     status="cancelled"
+    # )
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
+
+    return Response(
+        {
+            "success": True,
+            "message": "Service request cancelled successfully.",
+            "data": {
+                "request_id": service_request.id,
+                "status": service_request.status,
+                "is_booked": service_request.is_booked,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+@transaction.atomic
+def cancel_service_request(request, request_id):
+    """
+    Customer cancels their own service request.
+
+    Direct request cancellation is allowed only before
+    a provider has been assigned/booked.
+
+    Allowed statuses:
+        pending
+        area_selected
+        quotation_received
+
+    Blocked statuses:
+        assigned
+        in_progress
+        completed
+        cancelled
+    """
+
+    # =========================================================
+    # CUSTOMER ONLY
+    # =========================================================
+
+    if request.user.role != "customer":
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Only customers can cancel "
+                    "service requests."
+                ),
+                "code": "CUSTOMER_ONLY",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # =========================================================
+    # GET CUSTOMER'S REQUEST
+    # =========================================================
+
+    service_request = (
+        ServiceRequest.objects
+        .select_for_update()
+        .filter(
+            id=request_id,
+            customer=request.user,
+        )
+        .first()
+    )
+
+    if not service_request:
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Service request not found."
+                ),
+                "code": (
+                    "SERVICE_REQUEST_NOT_FOUND"
+                ),
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # =========================================================
+    # ALREADY CANCELLED
+    # =========================================================
+
+    if service_request.status == "cancelled":
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Service request is already "
+                    "cancelled."
+                ),
+                "code": (
+                    "REQUEST_ALREADY_CANCELLED"
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # COMPLETED REQUEST
+    # =========================================================
+
+    if service_request.status == "completed":
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Completed service requests "
+                    "cannot be cancelled."
+                ),
+                "code": (
+                    "COMPLETED_REQUEST_CANNOT_BE_CANCELLED"
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # ASSIGNED / IN PROGRESS
+    # =========================================================
+
+    if service_request.status in [
+        "assigned",
+        "in_progress",
+    ]:
+
+        booking = (
+            Booking.objects
+            .filter(
+                service_request=service_request
+            )
+            .first()
+        )
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "This request already has a "
+                    "provider assigned. Cancel the "
+                    "booking instead."
+                ),
+                "code": (
+                    "BOOKING_CANCELLATION_REQUIRED"
+                ),
+                "booking_id": (
+                    booking.id
+                    if booking
+                    else None
+                ),
+                "request_status": (
+                    service_request.status
+                ),
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    # =========================================================
+    # ACTIVE BOOKING SAFETY CHECK
+    # =========================================================
+
+    booking = (
+        Booking.objects
+        .select_for_update()
+        .filter(
+            service_request=service_request
+        )
+        .first()
+    )
+
+    if (
+        booking
+        and booking.status
+        not in [
+            "cancelled",
+            "completed",
+        ]
+    ):
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "This service request already "
+                    "has an active booking. Cancel "
+                    "the booking instead."
+                ),
+                "code": "ACTIVE_BOOKING_EXISTS",
+                "booking_id": booking.id,
+                "booking_status": booking.status,
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    # =========================================================
+    # ALLOWED REQUEST STATUS
+    # =========================================================
+
+    cancellable_statuses = [
+        "pending",
+        "area_selected",
+        "quotation_received",
+    ]
+
+    if (
+        service_request.status
+        not in cancellable_statuses
+    ):
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "This service request cannot "
+                    "be cancelled in its current "
+                    "status."
+                ),
+                "code": (
+                    "REQUEST_CANNOT_BE_CANCELLED"
+                ),
+                "current_status": (
+                    service_request.status
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # CANCEL REQUEST
+    # =========================================================
+
+    service_request.status = "cancelled"
+
+    service_request.is_booked = False
+
+    service_request.selected_provider = None
+
+    service_request.save(
+        update_fields=[
+            "status",
+            "is_booked",
+            "selected_provider",
+            "updated_at",
+        ]
+    )
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
+
+    return Response(
+        {
+            "success": True,
+            "message": (
+                "Service request cancelled "
+                "successfully."
+            ),
+            "data": {
+                "request_id": (
+                    service_request.id
+                ),
+                "status": (
+                    service_request.status
+                ),
+                "is_booked": (
+                    service_request.is_booked
+                ),
+                "selected_provider_id": None,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+@transaction.atomic
+def reject_quote(request, quote_id):
+    """
+    Allow a customer to reject a provider quotation.
+
+    Rules:
+    - Only customers can reject quotes.
+    - Quote must belong to the logged-in customer's request.
+    - Only pending quotes can be rejected.
+    - Accepted quotes cannot be rejected.
+    - Already rejected quotes cannot be rejected again.
+    """
+
+    # =========================================================
+    # CUSTOMER ONLY
+    # =========================================================
+
+    if request.user.role != "customer":
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Only customers can reject quotes."
+                ),
+                "code": "CUSTOMER_ONLY",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # =========================================================
+    # GET QUOTE
+    # =========================================================
+
+    quote = (
+        Quote.objects
+        .select_for_update()
+        .select_related(
+            "service_request",
+            "provider",
+        )
+        .filter(
+            id=quote_id,
+            service_request__customer=request.user,
+        )
+        .first()
+    )
+
+    if not quote:
+
+        return Response(
+            {
+                "success": False,
+                "message": "Quote not found.",
+                "code": "QUOTE_NOT_FOUND",
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    service_request = quote.service_request
+
+    # =========================================================
+    # REQUEST ALREADY CANCELLED
+    # =========================================================
+
+    if service_request.status == "cancelled":
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "This service request is already cancelled."
+                ),
+                "code": "SERVICE_REQUEST_CANCELLED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # REQUEST COMPLETED
+    # =========================================================
+
+    if service_request.status == "completed":
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Quotes for completed requests "
+                    "cannot be changed."
+                ),
+                "code": "SERVICE_REQUEST_COMPLETED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # ALREADY REJECTED
+    # =========================================================
+
+    if quote.status == "rejected":
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "Quote is already rejected."
+                ),
+                "code": "QUOTE_ALREADY_REJECTED",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # ACCEPTED QUOTE
+    # =========================================================
+
+    if quote.status == "accepted":
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "An accepted quote cannot be rejected. "
+                    "Use the booking cancellation flow instead."
+                ),
+                "code": "ACCEPTED_QUOTE_CANNOT_BE_REJECTED",
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    # =========================================================
+    # ONLY PENDING QUOTES CAN BE REJECTED
+    # =========================================================
+
+    if quote.status != "pending":
+
+        return Response(
+            {
+                "success": False,
+                "message": (
+                    "This quote cannot be rejected "
+                    "in its current status."
+                ),
+                "code": "QUOTE_CANNOT_BE_REJECTED",
+                "current_status": quote.status,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # =========================================================
+    # REJECT QUOTE
+    # =========================================================
+
+    quote.status = "rejected"
+
+    quote.save(
+        update_fields=[
+            "status",
+        ]
+    )
+
+    # =========================================================
+    # CHECK IF ANY PENDING QUOTES REMAIN
+    # =========================================================
+
+    pending_quotes_exist = (
+        Quote.objects
+        .filter(
+            service_request=service_request,
+            status="pending",
+        )
+        .exists()
+    )
+
+    # =========================================================
+    # OPTIONAL REQUEST STATUS NORMALIZATION
+    #
+    # If every quote has been rejected and the request is not
+    # booked, move it back to pending so other providers can
+    # still send quotations.
+    # =========================================================
+
+    if (
+        not pending_quotes_exist
+        and not service_request.is_booked
+        and service_request.status == "quotation_received"
+    ):
+
+        service_request.status = "pending"
+
+        service_request.save(
+            update_fields=[
+                "status",
+                "updated_at",
+            ]
+        )
+
+    # =========================================================
+    # RESPONSE
+    # =========================================================
+
+    return Response(
+        {
+            "success": True,
+            "message": (
+                "Quote rejected successfully."
+            ),
+            "data": {
+                "quote_id": quote.id,
+                "quote_status": quote.status,
+
+                "service_request_id": (
+                    service_request.id
+                ),
+
+                "service_request_status": (
+                    service_request.status
+                ),
+
+                "provider_id": (
+                    quote.provider_id
+                ),
+
+                "provider": (
+                    quote.provider.username
+                ),
+
+                "price": quote.price,
+            },
         },
         status=status.HTTP_200_OK,
     )
